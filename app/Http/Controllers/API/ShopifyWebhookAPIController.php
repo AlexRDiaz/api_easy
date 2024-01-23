@@ -59,7 +59,7 @@ class ShopifyWebhookAPIController extends Controller
 
             // if ($verified) {
 
-            return response()->json(['message' => 'Webhook recibido'], 200);
+            return response()->json(['message' => 'Webhook recibido'], 401);
             // } else {
             //     return response()->json(['error' => 'No autorizado'], 401);
             //  }
