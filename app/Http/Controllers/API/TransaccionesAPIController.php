@@ -15,6 +15,7 @@ use App\Models\Provider;
 use App\Http\Controllers\API\ProductAPIController;
 use App\Models\OrdenesRetiro;
 use App\Models\TransaccionPedidoTransportadora;
+use App\Models\TransportadorasShippingCost;
 use App\Repositories\transaccionesRepository;
 use App\Repositories\vendedorRepository;
 
@@ -641,7 +642,8 @@ public function paymentOrderInWarehouseProvider(Request $request, $id)
                 "ENTREGADO EN OFICINA" ||
                 $order->estado_devolucion ==
                 "DEVOLUCION EN RUTA" ||
-                $order->estado_devolucion == "EN BODEGA"
+                $order->estado_devolucion == "EN BODEGA" ||
+                $order->estado_devolucion == "EN BODEGA PROVEEDOR" 
             ) {
 
 
@@ -1309,6 +1311,37 @@ public function getTransactions(Request $request)
                }
            }
 
+	    //  *
+            $transactionOrderCarrier = TransaccionPedidoTransportadora::where("id_pedido", $idOrigen)->first();
+            // error_log("transactionOrderCarrier");
+            if ($transactionOrderCarrier != null) {
+                error_log("exist data tpt");
+                // error_log("delete from tpt $transactionOrderCarrier->id");
+                $deliveredDate = $transactionOrderCarrier->fecha_entrega;
+                $tptCarrierId = $transactionOrderCarrier->id_transportadora;
+                $tpt = new TransaccionPedidoTransportadoraAPIController();
+                $tpt->destroy($transactionOrderCarrier->id);
+                // error_log("**** need to recal tsc ****");
+                $dateFormatted = Carbon::createFromFormat('j/n/Y', $deliveredDate)->format('Y-m-d');
+
+                $transportadoraShippingCost = TransportadorasShippingCost::where('id_transportadora', $tptCarrierId)
+                    ->whereDate('time_stamp', $dateFormatted)
+                    ->first();
+                // error_log("upt from tsc $transportadoraShippingCost");
+
+                if ($transportadoraShippingCost != null) {
+                    // error_log("exists data transShippingCost");
+                    $tsc = new TransportadorasShippingCostAPIController();
+                    $tsc->recalculateValues($transportadoraShippingCost->id, $deliveredDate, $tptCarrierId);
+                    // error_log("updated data transShippingCost");
+                } else {
+                    error_log("no data tsc");
+                }
+            } else {
+                error_log("no data tpt");
+            }
+            //  **
+
             DB::commit();
             return response()->json([
                 "transacciones" =>$transaction,
@@ -1323,44 +1356,42 @@ public function getTransactions(Request $request)
         }
     }
 
-    public function debitWithdrawal(Request $request,$id){
-        // "data": {
-        //     "Estado": "REALIZADO",
-        //     "Comprobante": comprobante,
-        //     "FechaTransferencia":
-        //         "${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year} ${DateTime.now().hour}:${DateTime.now().minute} "
-        //   }
+public function debitWithdrawal(Request $request, $id)
+    {
+        DB::beginTransaction();
 
+        try {
+            $data = $request->json()->all();
+            // $pedido = PedidosShopify::findOrFail($data['id_origen']);
+            $orden = OrdenesRetiro::findOrFail($id);
+            if ($orden->estado == "APROBADO") {
+                $orden->estado = "REALIZADO";
+                $orden->comprobante = $data['comprobante'];
+                $orden->fecha_transferencia = $data['fecha_transferencia'];
+                $orden->updated_at = new DateTime();
+                $orden->save();
+                $orden->monto = str_replace(',', '.', $orden->monto);
 
+                $this->DebitLocal($orden->id_vendedor, $orden->monto, $orden->id, "retiro-" . $orden->id, 'retiro', 'orden de retiro' .$orden->estado, $data['generated_by']);
 
-
-          DB::beginTransaction();
-
-          try {
-              $data = $request->json()->all();
-              // $pedido = PedidosShopify::findOrFail($data['id_origen']);
-              $orden = OrdenesRetiro::findOrFail($id);
-  
-              $orden->estado = "REALIZADO";
-              $orden->comprobante = $data['comprobante'];
-              $orden->fecha_transferencia=$data['fecha_transferencia'];
-              $orden->save();
-              $orden->monto = str_replace(',', '.', $orden->monto);
-
-              $this->DebitLocal($orden->id_vendedor, $orden->monto, $orden->id,"retiro-".$orden->id,'retiro','orden de retiro pagada',$data['generated_by']);
-        
-              DB::commit(); // Confirma la transacción si todas las operaciones tienen éxito  
-              return response()->json([
-                  "res" => "transaccion exitosa",
-                  "orden"=>$orden
-              ]);
-          } catch (\Exception $e) {
-              DB::rollback(); // En caso de error, revierte todos los cambios realizados en la transacción
-              // Maneja el error aquí si es necesario
-              return response()->json([
-                  'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
-              ], 500);
-          }
+                DB::commit(); // Confirma la transacción si todas las operaciones tienen éxito  
+                return response()->json([
+                    "res" => "transaccion exitosa",
+                    "orden" => $orden
+                ]);
+            }else{
+                return response()->json([
+                    "error" => "Solicitud no tiene estado APROBADO",
+                    Response::HTTP_BAD_REQUEST
+                ]);
+            }
+        } catch (\Exception $e) {
+            DB::rollback(); // En caso de error, revierte todos los cambios realizados en la transacción
+            // Maneja el error aquí si es necesario
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 
     }
-}

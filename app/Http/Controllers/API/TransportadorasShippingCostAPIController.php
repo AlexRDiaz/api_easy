@@ -115,7 +115,7 @@ class TransportadorasShippingCostAPIController extends Controller
         // $currentDate =  Carbon::createFromFormat('j/n/Y', $currentDate)->format('j/n/Y');
 
         $currentDateTime = date('Y-m-d H:i:s');
-        // $desiredTime = '01:13:13';
+        // $desiredTime = '23:58:13';
         // $currentDateTime = Carbon::createFromFormat('d/n/Y H:i:s', $currentDate . ' ' . $desiredTime)->format('Y-m-d H:i:s');
 
         foreach ($transportadoras as $transportadora) {
@@ -261,6 +261,42 @@ class TransportadorasShippingCostAPIController extends Controller
         } else {
             return response()->json(['error' => 'No se proporcionó un archivo válido.'], 400);
         }
+    }
+
+    public function recalculateValues(string $id,string $deliveredDate, string $transportadoraId)
+    {
+
+        $transportadoraShipping = TransportadorasShippingCost::findOrFail($id);
+
+        $transportadora = Transportadora::find($transportadoraId);
+        $costo_transportadora = $transportadora->costo_transportadora;
+
+
+        $pedidos = TransaccionPedidoTransportadora::where('id_transportadora', $transportadoraId)
+            ->where('fecha_entrega', $deliveredDate)
+            ->get();
+
+        $total_proceeds = 0;
+        foreach ($pedidos as $pedido) {
+            if ($pedido["status"] == "ENTREGADO") {
+                $precioTotal = floatval($pedido["precio_total"]);
+                $total_proceeds += $precioTotal;
+            }
+        }
+
+        $total_proceeds = round($total_proceeds, 2);
+        $count_orders =  $pedidos->flatten()->count();
+        $shipping_total = $costo_transportadora * $count_orders;
+        $total_day = $total_proceeds - $shipping_total;
+
+        $transportadoraShipping->update([
+            'status' => 'PENDIENTE',
+            'daily_proceeds' => $total_proceeds,
+            'daily_shipping_cost' => $shipping_total,
+            'daily_total' => $total_day
+        ]);
+
+        return response()->json(["message" => "Se ha actualizado correctamente", "id" => $id, "data" => $transportadoraShipping], 200);
     }
     
 }

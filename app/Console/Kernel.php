@@ -24,7 +24,7 @@ class Kernel extends ConsoleKernel
 
 
         // monthly cutoff
-        $schedule->command('app:generate-stats')->cron('59 23 28-31 * *');
+        // $schedule->command('app:generate-stats')->cron('59 23 28-31 * *');
 
         // (daily cutoff) -> TEST
         // $schedule->command('app:generate-stats')->everyMinute();

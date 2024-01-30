@@ -49,23 +49,24 @@ class ShopifyWebhookAPIController extends Controller
         $calculatedHmac = base64_encode(hash_hmac('sha256', $data, "5dd4d59dc579a8bc4972383c42be5b7b", true));
         return hash_equals($calculatedHmac, $hmacHeader);
     }
-        public function handleShopRedact(Request $request)
-    {
-        try {
-            // $hmacHeader = $request->header('HTTP_X_SHOPIFY_HMAC_SHA256');
-            // $data = file_get_contents('php://input');
+    public function handleShopRedact(Request $request)
+    {  try {
+        $hmacHeader = $request->header('HTTP_X_SHOPIFY_HMAC_SHA256');
+        $data = file_get_contents('php://input');
 
-            // $verified = $this->verifyWebhook($data, $hmacHeader);
+       // $verified = $this->verifyWebhook($data, $hmacHeader);
 
-            // if ($verified) {
+       // if ($verified) {
 
-            return response()->json(['message' => 'Webhook recibido'], 401);
-            // } else {
-            //     return response()->json(['error' => 'No autorizado'], 401);
-            //  }
-        } catch (\Exception $th) {
+            return response()->json(['message' => 'Webhook verificado'], 401);
+       // } else {
+       //     return response()->json(['error' => 'No autorizado'], 401);
+      //  }
+    }
+        catch (\Exception $th) {
             //throw $th;
             return response()->json(['error' => 'No autorizado'], 401);
+
         }
     }
 

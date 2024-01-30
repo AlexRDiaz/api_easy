@@ -90,6 +90,11 @@ Route::middleware(['cors'])->group(function () {
     // * --> PRINTEDGUIDES
 
     Route::post('pedidos-shopifies-prtgd', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getOrdersForPrintedGuidesLaravel']);
+    Route::post('pedidos-shopifies-prtgdD', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getOrdersForPrintedGuidesLaravelD']);
+    Route::post('pedidos-shopifies-prtgdO', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getOrdersForPrintedGuidesLaravelO']);
+
+    Route::post('values_not_test', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getOrdersCountByWarehouse']);
+    Route::post('values-test-operators', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getOrdersCountByWarehouseByOrders']);
 
     Route::post('upd/pedidossho-printedg', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'updateOrderInteralStatusLogisticLaravel']);
 
@@ -100,6 +105,7 @@ Route::middleware(['cors'])->group(function () {
     // * --> GUIDES_SENT
 
     Route::post('send-guides/printg', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getOrdersForPrintGuidesInSendGuidesPrincipalLaravel']);
+    Route::post('send-guides/printgD', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getOrdersForPrintGuidesInSendGuidesPrincipalLaravelD']);
     Route::post('send-guides', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getOrdersSendGuides']);
     // getOrdersSendGuides
 
@@ -132,7 +138,8 @@ Route::middleware(['cors'])->group(function () {
     Route::post('pedidos-shopify/filter', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getByDateRange']);
 
     //  ! ↓ LA ORIGINAL
-    Route::post('integrations/put-integrations-url-store', [IntegrationAPIController::class, 'putIntegrationsUrlStore']);
+    Route::post('integrations/put-integrations-url-store/compare-token', [IntegrationAPIController::class, 'putIntegrationsUrlStore']);
+    Route::post('integrations/get-integrations-url-store/get-token', [IntegrationAPIController::class, 'getIntegrationsByStorename']);
 
 
 
@@ -142,16 +149,16 @@ Route::middleware(['cors'])->group(function () {
 
 
     Route::middleware(['jwt.auth'])->group(function () {
-    
+
         Route::put('/users/modify-account/{id}', [UpUserAPIController::class, 'modifyAccount']);
 
         Route::put('/users/update-paiment-information/{id}', [UpUserAPIController::class, 'updatePaymentInformation']);
         Route::get('/users/get-paiment-information/{id}', [UpUserAPIController::class, 'getPaymentInformation']);
 
-        
+
         Route::get('integrations/user/{id}', [IntegrationAPIController::class, 'getIntegrationsByUser']);
         Route::put('integrations/put-integrations-url-store', [IntegrationAPIController::class, 'putIntegrationsUrlStore']);
- 
+
 
 
         Route::resource('integrations', IntegrationAPIController::class)
@@ -169,9 +176,9 @@ Route::middleware(['cors'])->group(function () {
             // Route::post('/find-by-product-and-sku', [ReserveAPIController::class, 'findByProductAndSku']);
 
 
-                Route::put('/{id}', [OrdenesRetiroAPIController::class, 'update']);
-                Route::post('/', [OrdenesRetiroAPIController::class, 'store']);
-            });
+            Route::put('/{id}', [OrdenesRetiroAPIController::class, 'update']);
+            Route::post('/', [OrdenesRetiroAPIController::class, 'store']);
+        });
     });
 
 
@@ -250,6 +257,14 @@ Route::middleware(['cors'])->group(function () {
 
     Route::post('pedidos-shopify/filter/sellers', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getReturnSellers']);
 
+    Route::post('/valuesdrop', [PedidosShopifyAPIController::class, 'getValuesDropdownSendGuide']);
+    Route::post('/valuesdrop-op', [PedidosShopifyAPIController::class, 'getValuesDropdownSendGuideOp']);
+
+    Route::post('/register-withdrawan-by', [PedidosShopifyAPIController::class, 'addWithdrawanBy']);
+
+    Route::post('/update-retirement-status', [PedidosShopifyAPIController::class, 'updateRetirementStatus']);
+
+    Route::post('/end-retirement', [PedidosShopifyAPIController::class, 'endRetirement']);
 
 
     Route::post('pedidos-shopify/products/counters', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getCounters']);
@@ -287,7 +302,7 @@ Route::middleware(['cors'])->group(function () {
     Route::post('/users/providers', [App\Http\Controllers\API\UpUserAPIController::class, 'storeProvider']);
     Route::put('/users/providers/{id}', [App\Http\Controllers\API\UpUserAPIController::class, 'updateProvider']);
 
-    
+
     Route::get('/users/subproviders/{id}/{search?}', [App\Http\Controllers\API\UpUserAPIController::class, 'getSubProviders']);
     Route::post('/users/subproviders/add', [App\Http\Controllers\API\UpUserAPIController::class, 'storeSubProvider']);
     Route::put('/users/subproviders/update/{id}', [App\Http\Controllers\API\UpUserAPIController::class, 'updateSubProvider']);
@@ -327,8 +342,6 @@ Route::middleware(['cors'])->group(function () {
         Route::post('/withdrawal/{id}', [OrdenesRetiroAPIController::class, 'withdrawal']);
         Route::post('/withdrawal-provider/{id}', [OrdenesRetiroAPIController::class, 'withdrawalProvider']);
         Route::post('/withdrawal-provider-aproved/{id}', [OrdenesRetiroAPIController::class, 'postWhitdrawalProviderAproved']);
-
-        
     });
 
 
@@ -362,6 +375,7 @@ Route::middleware(['cors'])->group(function () {
 
     Route::prefix('operators')->group(function () {
         Route::get('/', [OperadoreAPIController::class, 'getOperators']);
+        Route::get('/by-id/{idOperator}', [OperadoreAPIController::class, 'getOperatorbyId']);
     });
 
 
@@ -412,6 +426,7 @@ Route::middleware(['cors'])->group(function () {
         Route::put('/{id}', [TransaccionPedidoTransportadoraAPIController::class, 'update']);
         Route::post('/bydates', [TransaccionPedidoTransportadoraAPIController::class, 'getByTransportadoraDates']);
         Route::delete('/{id}', [TransaccionPedidoTransportadoraAPIController::class, 'destroy']);
+        Route::post('/ordersperday', [TransaccionPedidoTransportadoraAPIController::class, 'getOrdersPerDay']);
     });
 
     Route::prefix('providers')->group(function () {
@@ -419,7 +434,6 @@ Route::middleware(['cors'])->group(function () {
         Route::get('/all/{search?}', [ProviderAPIController::class, 'getProviders']);
         Route::get('/nofilter', [ProviderAPIController::class, 'index']);
         Route::put('/update/{id}', [ProviderAPIController::class, 'updateRequest']);
-
     });
 
     // *
@@ -439,7 +453,6 @@ Route::middleware(['cors'])->group(function () {
     Route::prefix('providertransaction')->group(function () {
         Route::post('provider/{id}', [ProviderTransactionsAPIController::class, 'getByProvider']);
     });
-
 });
 
 // api/upload
@@ -457,6 +470,8 @@ Route::prefix('warehouses')->group(function () {
     Route::delete('/deactivate/{id}', [WarehouseAPIController::class, 'deactivate']);
     Route::post('/activate/{id}', [WarehouseAPIController::class, 'activate']);
     Route::get('/provider/{id}', [WarehouseAPIController::class, 'filterByProvider']);
+    Route::post('/approved', [WarehouseAPIController::class, 'approvedWarehouses']);
+    Route::post('/foroperators', [PedidosShopifyAPIController::class, 'getWarehousesofOrders']);
 });
 
 // *
@@ -470,14 +485,12 @@ Route::prefix('products')->group(function () {
     Route::put('/{id}', [ProductAPIController::class, 'update']);
     Route::put('delete/{id}', [ProductAPIController::class, 'destroy']);
     Route::put('update/{id}', [ProductAPIController::class, 'updateRequest']);
-    
 });
 
 Route::prefix('stockhistory')->group(function () {
     Route::post('/', [StockHistoryAPIController::class, 'store']);
     Route::post('/v2', [StockHistoryAPIController::class, 'storeD']);
     Route::get('byproduct/{id}', [StockHistoryAPIController::class, 'showByProduct']);
-
 });
 
 
@@ -495,4 +508,3 @@ Route::resource('providers', App\Http\Controllers\API\ProviderAPIController::cla
 
 Route::resource('up-users-providers-links', App\Http\Controllers\API\UpUsersProvidersLinkAPIController::class)
     ->except(['create', 'edit']);
-

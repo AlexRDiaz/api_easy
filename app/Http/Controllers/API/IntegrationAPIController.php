@@ -43,13 +43,28 @@ class IntegrationAPIController extends Controller
         $integration = Integration::where("token",$token)->first();
 
         if($integration==null){
-            return response()->json(["response"=>"token not found"], Response::HTTP_NOT_FOUND);
+            return response()->json(["response"=>"token not found","token"=>$token,"integration"=>$integration], Response::HTTP_BAD_REQUEST);
             
         }
         $integration->store_url=$input["store_url"];
         $integration->save();
         return response()->json(["response"=>"url saved succesfully","integration"=>$integration], Response::HTTP_OK);
     }
+
+    public function getIntegrationsByStorename(Request $request)
+    {
+        $input = $request->all();
+
+        //
+        $integration = Integration::where("store_url",$input["store_url"])->first();
+
+        if($integration==null){
+            return response()->json(["response"=>"token not found"], Response::HTTP_NOT_FOUND);
+            
+        }
+        return response()->json(["response"=>"token get succesfully","integration"=>$integration], Response::HTTP_OK);
+    }
+
     /**
      * Store a newly created Integration in storage.
      * POST /integrations

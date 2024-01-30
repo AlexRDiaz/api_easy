@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\Warehouse;
+use App\Models\Transportadora;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 
@@ -129,6 +130,53 @@ class WarehouseAPIController extends Controller
 
         return response()->json(['warehouses' => $warehouses]);
     }
+
+    public function approvedWarehouses(Request $request)
+    {
+        $data = $request->json()->all();
+        $idTransportadora = $data['idTransportadora'];
+
+        // Obtener el nombre de la transportadora
+        $transportadoraNombre = Transportadora::where('id', $idTransportadora)->pluck('nombre')->first();
+
+        // Obtener almacenes aprobados
+        $warehouses = Warehouse::where('approved', 1)->get();
+
+        // Días de la semana mapeados
+        $daysOfWeek = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+
+        // Transformaciones en las propiedades
+        $warehouses = $warehouses->filter(function ($warehouse) use ($daysOfWeek, $transportadoraNombre) {
+            // Decodificar la cadena JSON en 'collection'
+            $collection = json_decode($warehouse['collection'], true);
+
+            // Convertir 'collectionDays' a nombres de días
+            $collection['collectionDays'] = array_map(function ($day) use ($daysOfWeek) {
+                return $daysOfWeek[$day]; // No restamos porque los días comienzan desde 1
+            }, $collection['collectionDays']);
+
+            // Filtrar almacenes con 'collectionTransport' igual al nombre de la transportadora
+            return isset($collection['collectionTransport']) && $collection['collectionTransport'] == $transportadoraNombre;
+        })->map(function ($warehouse) use ($daysOfWeek) {
+            // Decodificar la cadena JSON en 'collection'
+            $collection = json_decode($warehouse['collection'], true);
+
+            // Convertir 'collectionDays' a nombres de días
+            $collection['collectionDays'] = array_map(function ($day) use ($daysOfWeek) {
+                return $daysOfWeek[$day]; // No restamos porque los días comienzan desde 1
+            }, $collection['collectionDays']);
+
+            // Asignar la colección modificada de nuevo a 'collection'
+            $warehouse['collection'] = $collection;
+
+            return $warehouse;
+        });
+        // Reindexar el array numéricamente
+        $warehouses = $warehouses->values();
+
+        return response()->json(['warehouses' => $warehouses]);
+    }
+
 
 
 }
