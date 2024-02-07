@@ -1591,7 +1591,7 @@ class PedidosShopifyAPIController extends Controller
 
         $search = PedidosShopify::where([
             'numero_orden' => $order_number,
-            // 'tienda_temporal' => $productos[0]['vendor'],
+            'tienda_temporal' => $productos[0]['vendor'],
             'id_comercial' => $id,
         ])->get();
 
