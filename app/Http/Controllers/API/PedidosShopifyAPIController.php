@@ -27,6 +27,9 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use PhpParser\Node\Stmt\TryCatch;
+
+use function Laravel\Prompts\error;
 
 class PedidosShopifyAPIController extends Controller
 {
@@ -657,6 +660,7 @@ class PedidosShopifyAPIController extends Controller
     public function getPrincipalOrdersSellersFilterLaravel(Request $request)
     {
         $data = $request->json()->all();
+        $populate = $data['populate'];
         $pageSize = $data['page_size'];
         $pageNumber = $data['page_number'];
         $searchTerm = $data['search'];
@@ -671,7 +675,8 @@ class PedidosShopifyAPIController extends Controller
         // ! *************************************
         // 'users',
 
-        $pedidos = PedidosShopify::with(['operadore.up_users', 'transportadora', 'users', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta'])
+        // $pedidos = PedidosShopify::with(['operadore.up_users', 'transportadora', 'users', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta'])
+        $pedidos = PedidosShopify::with($populate)
             // ->whereRaw("STR_TO_DATE(fecha_entrega, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
             ->where(function ($pedidos) use ($searchTerm, $filteFields) {
                 foreach ($filteFields as $field) {
@@ -893,81 +898,172 @@ class PedidosShopifyAPIController extends Controller
         }
         return response()->json($pedidoFecha);
     }
+
     public function postOrdersPricipalOrders(Request $req)
     {
+        DB::beginTransaction();
+
         // all data
         $data = $req->json()->all();
-
-        $NumeroOrden = $data['NumeroOrden'];
+        $generatedBy = $data['generatedBy'];
+        $IdComercial = $data['IdComercial'];
+        $Name_Comercial = $data['Name_Comercial'];
         $NombreShipping = $data['NombreShipping'];
+        $CiudadShipping = $data['CiudadShipping'];
         $DireccionShipping = $data['DireccionShipping'];
         $TelefonoShipping = $data['TelefonoShipping'];
-
         $PrecioTotal = $data['PrecioTotal'];
         $formattedPrice = str_replace(",", ".", str_replace(["$", " "], "", $PrecioTotal));
-
+        $ProductoP = $data['ProductoP'];
+        $ProductoExtra = $data['ProductoExtra'];
+        $Cantidad_Total = $data['Cantidad_Total'];
         if ($data['Observacion'] != null) {
             $Observacion = $data['Observacion'];
         } else {
             $Observacion = "";
         }
-        $CiudadShipping = $data['CiudadShipping'];
-        $ProductoP = $data['ProductoP'];
+        $Tienda_Temporal = $data['Name_Comercial'];
+        $newrouteId = $data['ruta'];
+        $newtransportadoraId = $data['transportadora'];
 
-        $users = $data['users'];
-        $Estado_Interno = $data['Estado_Interno'];
-        $IdComercial = $data['IdComercial'];
-        $ProductoExtra = $data['ProductoExtra'];
-        $Cantidad_Total = $data['Cantidad_Total'];
-        $Name_Comercial = $data['Name_Comercial'];
-        $Marca_T_I = $data['Marca_T_I'];
-        $Fecha_Confirmacion = $data['Fecha_Confirmacion'];
-        $Tienda_Temporal = $data['Tienda_Temporal'];
-        $pedido_fecha = $data['pedido_fecha'];
+        $Marca_T_I = date("d/m/Y H:i");
+        $Fecha_Confirmacion = date("d/m/Y H:i");
 
-        //  * Crear una instancia del modelo PedidosShopify y asignar los valores
-        $pedido = new PedidosShopify();
-        $pedido->numero_orden = $NumeroOrden;
-        $pedido->direccion_shipping = $DireccionShipping;
-        $pedido->nombre_shipping = $NombreShipping;
-        $pedido->telefono_shipping = $TelefonoShipping;
-        $pedido->precio_total = $formattedPrice;
-        $pedido->observacion = $Observacion;
-        $pedido->ciudad_shipping = $CiudadShipping;
-        $pedido->estado_interno = $Estado_Interno;
-        $pedido->id_comercial = $IdComercial;
-        $pedido->producto_p = $ProductoP;
-        $pedido->producto_extra = $ProductoExtra;
-        $pedido->cantidad_total = $Cantidad_Total;
-        $pedido->name_comercial = $Name_Comercial;
-        $pedido->marca_t_i = $Marca_T_I;
-        $pedido->fecha_confirmacion = $Fecha_Confirmacion;
-        $pedido->tienda_temporal = $Tienda_Temporal;
-        $pedido->save();
 
-        $ultimoPedidoFechaLink = PedidosShopifiesPedidoFechaLink::where('pedido_fecha_id', $pedido_fecha)
-            ->orderBy('pedidos_shopify_order', 'desc')
-            ->first();
+        try {
+            //code...
+            $numOrderstart = 1001; // Número inicial sin ceros a la izquierda
+            $manualOrders = PedidosShopify::where('id_comercial', $IdComercial)
+                ->where('numero_orden', 'like', 'E%')
+                ->orderBy('created_at', 'desc')
+                ->get();
 
-        if ($ultimoPedidoFechaLink) {
-            $pedidoShopifyOrder = $ultimoPedidoFechaLink->pedidos_shopify_order + 1;
-        } else {
-            $pedidoShopifyOrder = 1;
+            if ($manualOrders->isNotEmpty()) {
+                $encontrado = false;
+                foreach ($manualOrders as $order) {
+                    if ($order->numero_orden === "E001001") {
+                        $encontrado = true;
+                        break;
+                    }
+                }
+
+                $lastOrder = $manualOrders->first();
+                if ($encontrado) {
+                    $lastOrderNumero = $lastOrder->numero_orden;
+                    preg_match('/\d+/', $lastOrderNumero, $matches);
+                    $numeroExtraido = $matches[0];
+                    $nextOrderNumero = $numeroExtraido + 1;
+                    $NumeroOrden = "E" . sprintf("%06d", $nextOrderNumero); // Aplicar ceros a la izquierda si es necesario
+                } else {
+                    $NumeroOrden = "E" . sprintf("%06d", $numOrderstart);
+                }
+            } else {
+                $NumeroOrden = "E" . sprintf("%06d", $numOrderstart);
+            }
+
+            // error_log("numero_orden a crear: $NumeroOrden");
+
+
+            $currentDateTime = date('Y-m-d H:i:s');
+
+            $createOrder = new PedidosShopify();
+            $createOrder->numero_orden = $NumeroOrden;
+            $createOrder->direccion_shipping = $DireccionShipping;
+            $createOrder->nombre_shipping = $NombreShipping;
+            $createOrder->telefono_shipping = $TelefonoShipping;
+            $createOrder->precio_total = $formattedPrice;
+            $createOrder->observacion = $Observacion;
+            $createOrder->ciudad_shipping = $CiudadShipping;
+            $createOrder->id_comercial = $IdComercial;
+            $createOrder->producto_p = $ProductoP;
+            $createOrder->producto_extra = $ProductoExtra;
+            $createOrder->cantidad_total = $Cantidad_Total;
+            $createOrder->name_comercial = $Name_Comercial;
+            $createOrder->tienda_temporal = $Tienda_Temporal;
+            $createOrder->marca_t_i = $Marca_T_I;
+            $createOrder->estado_interno = "CONFIRMADO";
+            $createOrder->status = "PEDIDO PROGRAMADO";
+            $createOrder->estado_logistico = 'PENDIENTE';
+            $createOrder->estado_pagado = 'PENDIENTE';
+            $createOrder->estado_pago_logistica = 'PENDIENTE';
+            $createOrder->estado_devolucion = 'PENDIENTE';
+            $createOrder->do = 'PENDIENTE';
+            $createOrder->dt = 'PENDIENTE';
+            $createOrder->dl = 'PENDIENTE';
+            $createOrder->fecha_confirmacion = $Fecha_Confirmacion;
+            $createOrder->confirmed_by = $generatedBy;
+            $createOrder->confirmed_at = $currentDateTime;
+
+            $createOrder->save();
+            // error_log("**********process 1: created order**********");
+
+            $searchDate = PedidoFecha::where('fecha', now()->format('d/m/Y'))->get();
+            $pedidoShopifyOrder = 0;
+            // IF DATE ORDER NOT EXIST CREATE ORDER AND ADD ID ELSE IF ONLY ADD DATE ORDER ID VALUE
+            if ($searchDate->isEmpty()) {
+                // Crea un nuevo registro de fecha
+                $newDate = new PedidoFecha();
+                $newDate->fecha = now()->format('d/m/Y');
+                $newDate->save();
+
+                // Obtén el ID del nuevo registro
+                $dateOrder = $newDate->id;
+            } else {
+                // Si la fecha existe, obtén el ID del primer resultado
+                $dateOrder = $searchDate[0]->id;
+
+                $ultimoPedidoFechaLink = PedidosShopifiesPedidoFechaLink::where('pedido_fecha_id', $dateOrder)
+                    ->orderBy('pedidos_shopify_order', 'desc')
+                    ->first();
+
+                if ($ultimoPedidoFechaLink) {
+                    $pedidoShopifyOrder = $ultimoPedidoFechaLink->pedidos_shopify_order + 1;
+                } else {
+                    $pedidoShopifyOrder = 1;
+                }
+            }
+
+            $createPedidoFecha = new PedidosShopifiesPedidoFechaLink();
+            $createPedidoFecha->pedidos_shopify_id = $createOrder->id;
+            $createPedidoFecha->pedido_fecha_id = $dateOrder;
+            $createPedidoFecha->pedidos_shopify_order = $pedidoShopifyOrder;
+            $createPedidoFecha->save();
+
+            // error_log("**********process 2: created links_order with pedido_fecha**********");
+
+            $createUserPedido = new UpUsersPedidosShopifiesLink();
+            $createUserPedido->user_id = $IdComercial;
+            $createUserPedido->pedidos_shopify_id = $createOrder->id;
+            $createUserPedido->save();
+
+            // error_log("**********process 3: created links_order with up_users**********");
+
+            $createPedidoRuta = new PedidosShopifiesRutaLink();
+            $createPedidoRuta->pedidos_shopify_id = $createOrder->id;
+            $createPedidoRuta->ruta_id = $newrouteId;
+            $createPedidoRuta->save();
+
+            $createPedidoTransportadora = new PedidosShopifiesTransportadoraLink();
+            $createPedidoTransportadora->pedidos_shopify_id = $createOrder->id;
+            $createPedidoTransportadora->transportadora_id = $newtransportadoraId;
+            $createPedidoTransportadora->save();
+
+            // error_log("**********process 4: created order with route transpo**********");
+
+
+            DB::commit();
+            // return response()->json(['message' => 'Pedido creado exitosamente'], 201);
+            return response()->json([
+                "data" => $createOrder,
+            ], 200);
+        } catch (\Exception $e) {
+            DB::rollback();
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
         }
-
-        $pedido->pedidos_shopifies_pedido_fecha_links()->create([
-            'pedido_fecha_id' => $pedido_fecha,
-            'pedidos_shopify_id' => $pedido->id,
-            'pedidos_shopify_order' => $pedidoShopifyOrder
-        ]);
-        $pedido->up_users_pedidos_shopifies_links()->create([
-            "user_id" => $users,
-            "pedidos_shopify_id" => $pedido->id,
-            'pedidos_shopify_order' => $pedidoShopifyOrder,
-            "user_order" => "1"
-        ]);
-        return response()->json(['message' => 'Pedido creado exitosamente'], 201);
     }
+
     public function updateOrderInfoSellerLaravel(Request $req)
     {
         $data = $req->json()->all();
@@ -2451,6 +2547,7 @@ class PedidosShopifyAPIController extends Controller
 
         //v0
         if ($key == "estado_interno") {
+            $pedido->fecha_confirmacion = $currentDateTimeText;
             $pedido->confirmed_by = $idUser;
             $pedido->confirmed_at = $currentDateTime;
         }
