@@ -20,7 +20,6 @@ class OrdenesRetiroAPIController extends Controller
         $trasnportadora = OrdenesRetiro::findOrFail($id);
 
         return response()->json($trasnportadora);
-
     }
     public function withdrawal(Request $request, $id)
     {
@@ -48,24 +47,24 @@ class OrdenesRetiroAPIController extends Controller
             }
         }
         $resultCode = $numeroAleatorio;
-      //  $resultCode = implode('', array_slice($numerosUnicos, 0, 8));
+        //  $resultCode = implode('', array_slice($numerosUnicos, 0, 8));
 
-        
-        Mail::to($email)->send(new ValidationCode($resultCode,$monto));
-      
+
+        Mail::to($email)->send(new ValidationCode($resultCode, $monto));
+
         //     // Crea un registro de retiro
-            $withdrawal = new OrdenesRetiro();
-            $withdrawal->monto =$monto;
-            $withdrawal->fecha = $fecha;
-            $withdrawal->codigo_generado = $resultCode;
-            $withdrawal->estado = 'PENDIENTE';
-            $withdrawal->id_vendedor = $idVendedor;
-            $withdrawal->save();
-        
-            $ordenUser=new OrdenesRetirosUsersPermissionsUserLink(); 
-            $ordenUser->ordenes_retiro_id=$withdrawal->id;
-            $ordenUser->user_id=$id;
-            $ordenUser->save();
+        $withdrawal = new OrdenesRetiro();
+        $withdrawal->monto = $monto;
+        $withdrawal->fecha = $fecha;
+        $withdrawal->codigo_generado = $resultCode;
+        $withdrawal->estado = 'PENDIENTE';
+        $withdrawal->id_vendedor = $idVendedor;
+        $withdrawal->save();
+
+        $ordenUser = new OrdenesRetirosUsersPermissionsUserLink();
+        $ordenUser->ordenes_retiro_id = $withdrawal->id;
+        $ordenUser->user_id = $id;
+        $ordenUser->save();
 
 
 
@@ -94,47 +93,46 @@ class OrdenesRetiroAPIController extends Controller
         }
         $resultCode = $numeroAleatorio;
 
-        
-        Mail::to($email)->send(new ValidationCode($resultCode,$monto));
-      
-      
-            return response()->json(["response"=>"code generated succesfully","code"=>$resultCode], Response::HTTP_OK);
-        }
 
-        public function postWhitdrawalProviderAproved(Request $request,$id){
-            $data = $request->json()->all();
+        Mail::to($email)->send(new ValidationCode($resultCode, $monto));
 
-                 $withdrawal = new OrdenesRetiro();
-            $withdrawal->monto =$data["monto"];
-            $withdrawal->fecha = new  DateTime();
-            $withdrawal->codigo_generado = $data["codigo"];
-            $withdrawal->estado = 'APROBADO';
-            $withdrawal->id_vendedor =  $data["id_vendedor"];
-            $withdrawal->account_id = encrypt($data["account_id"]);
 
-            $withdrawal->save();
-        
-            $ordenUser=new OrdenesRetirosUsersPermissionsUserLink(); 
-            $ordenUser->ordenes_retiro_id=$withdrawal->id;
-            $ordenUser->user_id=$id;
-            $ordenUser->save();
+        return response()->json(["response" => "code generated succesfully", "code" => $resultCode], Response::HTTP_OK);
+    }
 
-            return response()->json(["response"=>"solicitud generada exitosamente"], Response::HTTP_OK);
+    public function postWhitdrawalProviderAproved(Request $request, $id)
+    {
+        $data = $request->json()->all();
 
-        }
+        $withdrawal = new OrdenesRetiro();
+        $withdrawal->monto = $data["monto"];
+        $withdrawal->fecha = new  DateTime();
+        $withdrawal->codigo_generado = $data["codigo"];
+        $withdrawal->estado = 'APROBADO';
+        $withdrawal->id_vendedor =  $data["id_vendedor"];
+        $withdrawal->account_id = encrypt($data["account_id"]);
+
+        $withdrawal->save();
+
+        $ordenUser = new OrdenesRetirosUsersPermissionsUserLink();
+        $ordenUser->ordenes_retiro_id = $withdrawal->id;
+        $ordenUser->user_id = $id;
+        $ordenUser->save();
+
+        return response()->json(["response" => "solicitud generada exitosamente"], Response::HTTP_OK);
+    }
 
     public function getOrdenesRetiroNew($id, Request $request)
-    { 
+    {
 
-        $retiros= OrdenesRetiro::with('users_permissions_user')->whereHas('users_permissions_user', function ($query) use ($id) {
+        $retiros = OrdenesRetiro::with('users_permissions_user')->whereHas('users_permissions_user', function ($query) use ($id) {
             $query->where('up_users.id', $id);
         })->get();
-        
+
 
         return response()->json($retiros);
-
     }
-    
+
     public function getOrdenesRetiro($id, Request $request)
 
     {
@@ -208,20 +206,20 @@ class OrdenesRetiroAPIController extends Controller
     }
     public function getOrdenesRetiroCount($id)
     {
-        if($id==0){
-                $pedidos['total_retiros'] = "0.00";
+        if ($id == 0) {
+            $pedidos['total_retiros'] = "0.00";
         }
-    
+
         $ordenes = DB::table('ordenes_retiros as o')
             ->join('ordenes_retiros_users_permissions_user_links as oul', 'o.id', '=', 'oul.ordenes_retiro_id')
             ->where('oul.user_id', $id)
             ->where('o.estado', 'REALIZADO')
             ->select('o.*');
-    
+
         $total_retiros = $ordenes->sum('o.monto');
-    
+
         $pedidos['total_retiros'] = number_format($total_retiros, 2, '.', '');
-    
+
         return response()->json($pedidos);
     }
 }
