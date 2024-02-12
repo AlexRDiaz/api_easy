@@ -222,4 +222,52 @@ class OrdenesRetiroAPIController extends Controller
 
         return response()->json($pedidos);
     }
+
+    // new-old
+    public function postWithdrawalProvider(Request $request)
+    {
+        try {
+            //code...
+            $user = UpUser::where("id", $request->input('user_id'))->with('vendedores')->first();
+
+
+            $data = $request->validate([
+                'monto' => 'required',
+                'email' => 'required|email',
+
+            ]);
+
+
+            $monto = $request->input('monto');
+            $email = $request->input('email');
+            $user_id = $request->input('user_id');
+            $user = UpUser::where("id", $user_id)->with('vendedores')->first();
+
+
+            if ($user->vendedores[0]->saldo >= $monto) {
+
+
+                //     // Generar código único
+                $numerosUtilizados = [];
+                while (count($numerosUtilizados) < 10000000) {
+                    $numeroAleatorio = str_pad(mt_rand(1, 99999999), 8, '0', STR_PAD_LEFT);
+                    if (!in_array($numeroAleatorio, $numerosUtilizados)) {
+                        $numerosUtilizados[] = $numeroAleatorio;
+                        break;
+                    }
+                }
+                $resultCode = $numeroAleatorio;
+
+
+                Mail::to($email)->send(new ValidationCode($resultCode, $monto));
+
+
+                return response()->json(["response" => "code generated succesfully", "code" => $resultCode], Response::HTTP_OK);
+            } else {
+                return response()->json(["response" => "saldo insuficiente"], Response::HTTP_BAD_REQUEST);
+            }
+        } catch (\Exception $e) {
+            return response()->json(["response" => "error al generar el codigo", "error" => $e], Response::HTTP_BAD_REQUEST);
+        }
+    }
 }
