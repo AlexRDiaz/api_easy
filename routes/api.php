@@ -348,7 +348,7 @@ Route::middleware(['cors'])->group(function () {
 
 
 
-    /*
+    
     Route::prefix('seller/ordenesretiro')->group(function () {
         Route::get('/retiro/{id}', [OrdenesRetiroAPIController::class, 'getOrdenesRetiroNew']);
         Route::get('/ret-count/{id}', [OrdenesRetiroAPIController::class, 'getOrdenesRetiroCount']);
@@ -357,7 +357,8 @@ Route::middleware(['cors'])->group(function () {
         Route::post('/withdrawal-provider/{id}', [OrdenesRetiroAPIController::class, 'withdrawalProvider']);
         Route::post('/withdrawal-provider-aproved/{id}', [OrdenesRetiroAPIController::class, 'postWhitdrawalProviderAproved']);
     });
-    */
+    
+    /* for new version
     Route::prefix('seller/ordenesretiro')->group(function () {
         Route::get('/', [OrdenesRetiroAPIController::class, 'index']);
         Route::get('/retiro/{id}', [OrdenesRetiroAPIController::class, 'getOrdenesRetiroNew']);
@@ -373,6 +374,7 @@ Route::middleware(['cors'])->group(function () {
         Route::post('/updaterealizado/{id}', [OrdenesRetiroAPIController::class, 'updateRealizado']);
 
     });
+    */
 
 
 

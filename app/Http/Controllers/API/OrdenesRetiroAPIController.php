@@ -36,6 +36,7 @@ class OrdenesRetiroAPIController extends Controller
         $monto = $request->input('monto');
         $fecha = $request->input('fecha');
         $email  = $request->input('email');
+        // $email = "easyecommercetest@gmail.com";
         $idVendedor  = $request->input('id_vendedor');
 
         // //     // Generar código único

@@ -1373,25 +1373,7 @@ class TransaccionesAPIController extends Controller
                 $orden->save();
                 $orden->monto = str_replace(',', '.', $orden->monto);
 
-
-                //Transaccion update
-                $foundTrans = Transaccion::where('id_origen', $orden->id)
-                    ->where('id_vendedor', $orden->id_vendedor)
-                    ->first();
-
-
-                $foundTrans->comentario = "debito por retiro REALIZADO";
-                $foundTrans = Transaccion::where('id_origen', $orden->id)
-                    ->where('id_vendedor', $orden->id_vendedor)
-                    ->first();
-
-                if ($foundTrans) {
-                    $foundTrans->comentario = "debito por retiro REALIZADO";
-                    $foundTrans->marca_de_tiempo = new DateTime();
-                    $foundTrans->save();
-                } else {
-                    $this->DebitLocal($orden->id_vendedor, $orden->monto, $orden->id, "retiro-" . $orden->id, 'retiro', 'orden de retiro' . $orden->estado, $data['generated_by']);
-                }
+                $this->DebitLocal($orden->id_vendedor, $orden->monto, $orden->id, "retiro-" . $orden->id, 'retiro', 'orden de retiro' . $orden->estado, $data['generated_by']);
 
                 DB::commit(); // Confirma la transacción si todas las operaciones tienen éxito  
                 return response()->json([
