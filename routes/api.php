@@ -348,7 +348,7 @@ Route::middleware(['cors'])->group(function () {
 
 
 
-
+    /*
     Route::prefix('seller/ordenesretiro')->group(function () {
         Route::get('/retiro/{id}', [OrdenesRetiroAPIController::class, 'getOrdenesRetiroNew']);
         Route::get('/ret-count/{id}', [OrdenesRetiroAPIController::class, 'getOrdenesRetiroCount']);
@@ -356,8 +356,22 @@ Route::middleware(['cors'])->group(function () {
         Route::post('/withdrawal/{id}', [OrdenesRetiroAPIController::class, 'withdrawal']);
         Route::post('/withdrawal-provider/{id}', [OrdenesRetiroAPIController::class, 'withdrawalProvider']);
         Route::post('/withdrawal-provider-aproved/{id}', [OrdenesRetiroAPIController::class, 'postWhitdrawalProviderAproved']);
-        //new old
+    });
+    */
+    Route::prefix('seller/ordenesretiro')->group(function () {
+        Route::get('/', [OrdenesRetiroAPIController::class, 'index']);
+        Route::get('/retiro/{id}', [OrdenesRetiroAPIController::class, 'getOrdenesRetiroNew']);
+        Route::get('/ret-count/{id}', [OrdenesRetiroAPIController::class, 'getOrdenesRetiroCount']);
+
+        Route::post('/{id}', [OrdenesRetiroAPIController::class, 'getOrdenesRetiro']);
         Route::post('/withdrawal/generate-code', [OrdenesRetiroAPIController::class, 'postWithdrawalProvider']);
+        Route::post('/withdrawal/{id}', [OrdenesRetiroAPIController::class, 'withdrawal']);
+        Route::put('/withdrawal/done/{id}', [OrdenesRetiroAPIController::class, 'putRealizado']);
+
+        //  *
+        Route::get('/totalforsellers', [OrdenesRetiroAPIController::class, 'totalForSellers']);
+        Route::post('/updaterealizado/{id}', [OrdenesRetiroAPIController::class, 'updateRealizado']);
+
     });
 
 
@@ -469,6 +483,9 @@ Route::middleware(['cors'])->group(function () {
     Route::prefix('providertransaction')->group(function () {
         Route::post('provider/{id}', [ProviderTransactionsAPIController::class, 'getByProvider']);
     });
+
+            //  * test email
+        Route::post('sendemail', [App\Http\Controllers\API\OrdenesRetiroAPIController::class, 'sendEmail']);
 });
 
 // api/upload

@@ -54,7 +54,9 @@ class OrdenesRetiro extends Model
 		'created_by_id',
 		'updated_by_id',
 		'id_vendedor',
-		'account_id'
+		'account_id',
+		'previous_value',
+		'current_value'
 	];
 
 	public function admin_user()
