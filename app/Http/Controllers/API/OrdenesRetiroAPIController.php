@@ -267,6 +267,8 @@ class OrdenesRetiroAPIController extends Controller
                 return response()->json(["response" => "saldo insuficiente"], Response::HTTP_BAD_REQUEST);
             }
         } catch (\Exception $e) {
+            error_log("error: $e");
+
             return response()->json(["response" => "error al generar el codigo", "error" => $e], Response::HTTP_BAD_REQUEST);
         }
     }
