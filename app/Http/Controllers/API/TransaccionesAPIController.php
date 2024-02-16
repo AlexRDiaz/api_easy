@@ -409,136 +409,157 @@ class TransaccionesAPIController extends Controller
         try {
             $data = $request->json()->all();
 
-            $startDateFormatted = new DateTime();
+            $tran = Transaccion::where('id_origen', $data['id_origen'])
+                ->where('tipo', 'credit')
+                ->where('origen', 'recaudo')
+                ->get();
 
-            // $pedido = PedidosShopify::findOrFail($data['id_origen']);
-            $pedido = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades', 'operadore', 'transactionTransportadora'])->findOrFail($data['id_origen']);
+            if ($tran->isNotEmpty()) {
+                error_log("YA existe una transaccion con:");
+                error_log("id_origen:" . $data['id_origen'] . "");
+                error_log("tipo: credit");
+                error_log("origen: recaudo");
 
-            $pedido->status = "ENTREGADO";
-            $pedido->fecha_entrega = now()->format('j/n/Y');
-            $pedido->status_last_modified_at = date('Y-m-d H:i:s');
-            $pedido->status_last_modified_by = $data['generated_by'];
-            $pedido->comentario = $data["comentario"];
-            $pedido->tipo_pago = $data["tipo"];
-            $pedido->costo_envio = $data['monto_debit'];
-            if ($data["archivo"] != "") {
-                $pedido->archivo = $data["archivo"];
-            }
-            $costoTransportadora = $pedido['transportadora'][0]['costo_transportadora'];
-            $pedido->costo_transportadora = $costoTransportadora;
-            $pedido->save();
-            $SellerCreditFinalValue = $this->updateProductAndProviderBalance(
-                // "TEST2C1003",
-                $pedido->sku,
-                $pedido->precio_total,
-                $pedido->cantidad_total,
-                $data['generated_by'],
-                $data['id_origen'],
-                // 22.90,
-            );
+                return response()->json([
+                    'error' => 'Esta transaccion ya existe'
+                ], 500);
+                //
+            } else {
+                
+                error_log("Transaccion nueva");
 
-            $request->merge(['comentario' => 'Recaudo  de valor por pedido' . $pedido->status]);
-            $request->merge(['origen' => 'recaudo']);
+                $startDateFormatted = new DateTime();
 
-            if ($SellerCreditFinalValue['total'] != null) {
-                $request->merge(['monto' => $SellerCreditFinalValue['total']]);
-            }
+                // $pedido = PedidosShopify::findOrFail($data['id_origen']);
+                $pedido = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades', 'operadore', 'transactionTransportadora',])->findOrFail($data['id_origen']);
 
-            $this->Credit($request);
+                $pedido->status = "ENTREGADO";
+                $pedido->fecha_entrega = now()->format('j/n/Y');
+                $pedido->status_last_modified_at = date('Y-m-d H:i:s');
+                $pedido->status_last_modified_by = $data['generated_by'];
+                $pedido->comentario = $data["comentario"];
+                $pedido->tipo_pago = $data["tipo"];
+                $pedido->costo_envio = $data['monto_debit'];
+                if ($data["archivo"] != "") {
+                    $pedido->archivo = $data["archivo"];
+                }
+                $costoTransportadora = $pedido['transportadora'][0]['costo_transportadora'];
+                $pedido->costo_transportadora = $costoTransportadora;
+                $pedido->save();
+                $SellerCreditFinalValue = $this->updateProductAndProviderBalance(
+                    // "TEST2C1003",
+                    $pedido->sku,
+                    $pedido->precio_total,
+                    $pedido->cantidad_total,
+                    $data['generated_by'],
+                    $data['id_origen'],
+                    // 22.90,
+                );
+
+                $request->merge(['comentario' => 'Recaudo  de valor por pedido ' . $pedido->status]);
+                $request->merge(['origen' => 'recaudo']);
+
+                if ($SellerCreditFinalValue['total'] != null) {
+                    $request->merge(['monto' => $SellerCreditFinalValue['total']]);
+                }
+
+                $this->Credit($request);
 
 
-            // !*********
-            if ($SellerCreditFinalValue['valor_producto'] != null) {
+                // !*********
+                if ($SellerCreditFinalValue['valor_producto'] != null) {
 
-                $request->merge(['comentario' => 'Costo de de valor de Producto en Bodega ' . $pedido->status]);
-                $request->merge(['origen' => 'valor producto bodega']);
-                $request->merge(['monto' => $SellerCreditFinalValue['valor_producto']]);
+                    $request->merge(['comentario' => 'Costo de de valor de Producto en Bodega ' . $pedido->status]);
+                    $request->merge(['origen' => 'valor producto bodega']);
+                    $request->merge(['monto' => $SellerCreditFinalValue['valor_producto']]);
+
+                    $this->Debit($request);
+                }
+                // !*********
+
+                $request->merge(['comentario' => 'Costo de envio por pedido ' . $pedido->status]);
+                $request->merge(['origen' => 'envio']);
+                $request->merge(['monto' => $data['monto_debit']]);
 
                 $this->Debit($request);
-            }
-            // !*********
-
-            $request->merge(['comentario' => 'Costo de envio por pedido ' . $pedido->status]);
-            $request->merge(['origen' => 'envio']);
-            $request->merge(['monto' => $data['monto_debit']]);
-
-            $this->Debit($request);
 
 
 
-            $vendedor = Vendedore::where("id_master", $data['id'])->get();
+                $vendedor = Vendedore::where("id_master", $data['id'])->get();
 
-            if ($vendedor[0]->referer != null) {
-                $refered = Vendedore::where('id_master', $vendedor[0]->referer)->get();
-                $vendedorId = $vendedor[0]->referer;
-                $generated_by = $data['generated_by'];
-                $user = UpUser::where("id", $vendedorId)->with('vendedores')->first();
-                $vendedor = $user['vendedores'][0];
-                $saldo = $vendedor->saldo;
-                $nuevoSaldo = $saldo + $refered[0]->referer_cost;
-                $vendedor->saldo = $nuevoSaldo;
+                if ($vendedor[0]->referer != null) {
+                    $refered = Vendedore::where('id_master', $vendedor[0]->referer)->get();
+                    $vendedorId = $vendedor[0]->referer;
+                    $generated_by = $data['generated_by'];
+                    $user = UpUser::where("id", $vendedorId)->with('vendedores')->first();
+                    $vendedor = $user['vendedores'][0];
+                    $saldo = $vendedor->saldo;
+                    $nuevoSaldo = $saldo + $refered[0]->referer_cost;
+                    $vendedor->saldo = $nuevoSaldo;
 
-                $newTrans = new Transaccion();
+                    $newTrans = new Transaccion();
 
-                $newTrans->tipo = "credit";
-                $newTrans->monto = $refered[0]->referer_cost;
-                $newTrans->valor_actual = $nuevoSaldo;
-                $newTrans->valor_anterior = $saldo;
-                $newTrans->marca_de_tiempo = $startDateFormatted;
-                $newTrans->id_origen = $data['id_origen'];
-                $newTrans->codigo = $data['codigo'];
+                    $newTrans->tipo = "credit";
+                    $newTrans->monto = $refered[0]->referer_cost;
+                    $newTrans->valor_actual = $nuevoSaldo;
+                    $newTrans->valor_anterior = $saldo;
+                    $newTrans->marca_de_tiempo = $startDateFormatted;
+                    $newTrans->id_origen = $data['id_origen'];
+                    $newTrans->codigo = $data['codigo'];
 
-                $newTrans->origen = "referido";
-                $newTrans->comentario = "comision por referido";
+                    $newTrans->origen = "referido";
+                    $newTrans->comentario = "comision por referido";
 
-                $newTrans->id_vendedor = $vendedorId;
-                $newTrans->state = 1;
-                $newTrans->generated_by = $generated_by;
+                    $newTrans->id_vendedor = $vendedorId;
+                    $newTrans->state = 1;
+                    $newTrans->generated_by = $generated_by;
 
-                $this->transaccionesRepository->create($newTrans);
-                $this->vendedorRepository->update($nuevoSaldo, $user['vendedores'][0]['id']);
-            }
+                    $this->transaccionesRepository->create($newTrans);
+                    $this->vendedorRepository->update($nuevoSaldo, $user['vendedores'][0]['id']);
+                }
 
-            // error_log("add en tpt");
+                // error_log("add en tpt");
 
-            $idTransportadora = $pedido['transportadora'][0]['id'];
-            $fechaEntrega = now()->format('j/n/Y');
+                $idTransportadora = $pedido['transportadora'][0]['id'];
+                $fechaEntrega = now()->format('j/n/Y');
 
-            $precioTotal = $pedido['precio_total'];
-            $idOper = null;
-            if ($pedido['operadore']->isEmpty()) {
-                error_log("operadore vacio");
-                // error_log("idO: " . $idOper);
-            } else {
-                error_log("operadore NO vacio");
-                $idOper = $pedido['operadore'][0]['id'];
-                error_log("idO: " . $idOper);
-            }
+                $precioTotal = $pedido['precio_total'];
+                $idOper = null;
+                if ($pedido['operadore']->isEmpty()) {
+                    error_log("operadore vacio");
+                    // error_log("idO: " . $idOper);
+                } else {
+                    error_log("operadore NO vacio");
+                    $idOper = $pedido['operadore'][0]['id'];
+                    error_log("idO: " . $idOper);
+                }
 
-            if ($pedido['transactionTransportadora'] == null) {
-                // error_log("new tpt");
-                $transaccionNew = new TransaccionPedidoTransportadora();
-                $transaccionNew->status = "ENTREGADO";
-                $transaccionNew->fecha_entrega = $fechaEntrega;
-                $transaccionNew->precio_total = $precioTotal;
-                $transaccionNew->costo_transportadora = $costoTransportadora;
-                $transaccionNew->id_pedido = $data['id_origen'];
-                $transaccionNew->id_transportadora = $idTransportadora;
-                $transaccionNew->id_operador = $idOper;
+                if ($pedido['transactionTransportadora'] == null) {
+                    // error_log("new tpt");
+                    $transaccionNew = new TransaccionPedidoTransportadora();
+                    $transaccionNew->status = "ENTREGADO";
+                    $transaccionNew->fecha_entrega = $fechaEntrega;
+                    $transaccionNew->precio_total = $precioTotal;
+                    $transaccionNew->costo_transportadora = $costoTransportadora;
+                    $transaccionNew->id_pedido = $data['id_origen'];
+                    $transaccionNew->id_transportadora = $idTransportadora;
+                    $transaccionNew->id_operador = $idOper;
 
-                $transaccionNew->save();
-            } else {
-                // error_log("upt tpt");
-                TransaccionPedidoTransportadora::where('id', $pedido['transactionTransportadora']['id'])->update([
-                    'status' => 'ENTREGADO',
-                    'costo_transportadora' => $costoTransportadora,
+                    $transaccionNew->save();
+                } else {
+                    // error_log("upt tpt");
+                    TransaccionPedidoTransportadora::where('id', $pedido['transactionTransportadora']['id'])->update([
+                        'status' => 'ENTREGADO',
+                        'costo_transportadora' => $costoTransportadora,
+                    ]);
+                }
+
+
+                DB::commit(); // Confirma la transacción si todas las operaciones tienen éxito
+                return response()->json([
+                    "res" => "transaccion exitosa"
                 ]);
             }
-
-            DB::commit(); // Confirma la transacción si todas las operaciones tienen éxito
-            return response()->json([
-                "res" => "transaccion exitosa"
-            ]);
         } catch (\Exception $e) {
             DB::rollback(); // En caso de error, revierte todos los cambios realizados en la transacción
             // Maneja el error aquí si es necesario
