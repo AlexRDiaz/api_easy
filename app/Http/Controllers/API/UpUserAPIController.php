@@ -10,6 +10,9 @@ use App\Models\Provider;
 use App\Models\RolesFront;
 use App\Models\Ruta;
 use App\Models\Transportadora;
+use App\Models\TransportadorasRutasLink;
+use App\Models\UpUsersVendedoresLink;
+use App\Models\TransportadorasUsersPermissionsUserLink;
 use App\Models\UpRole;
 use App\Models\UpUser;
 use App\Models\UpUsersRoleLink;
@@ -1203,5 +1206,226 @@ class UpUserAPIController extends Controller
         // Utiliza compact() para enviar la respuesta
         return response()->json(['user' => $upUser], Response::HTTP_OK);
     }
+
+    public function updateTransport(Request $request, $id)
+    {
+        try {
+            $request->validate([
+                'username' => 'required|string|max:255',
+                'email' => 'required|email|unique:up_users,email,' . $id,
+
+            ]);
+
+            $user = UpUser::find($id);
+
+            if ($user) {
+                $user->username = $request->input('username');
+                $user->email = $request->input('email');
+                $user->save();
+
+                $transport = $user->transportadora()->first();
+                if ($transport) {
+                    $transport->nombre = $request->input('username');
+                    $transport->costo_transportadora = $request->input('costo_transportadora');
+                    $transport->telefono_1 = $request->input('telefono_1');
+                    $transport->telefono_2 = $request->input('telefono_2');
+
+                    $transport->save();
+
+                    $rutaIds = $request->input('rutas'); // Asume que 'ruta' es un array de IDs
+                    if (is_array($rutaIds)) {
+                        $transport->rutas()->sync($rutaIds);
+                    }
+                }
+
+            }
+            // else {
+            // return response()->json(['message' => 'Usuario no encontrado'], 404);
+            return response()->json(['message' => 'Usuario actualizado con éxito'], 200);
+
+            // }
+        } catch (\Throwable $th) {
+            return response()->json(['message' => 'Error !'], 404);
+
+        }
+    }
+
+
+    public function updateSeller(Request $request, $id)
+    {
+        try {
+            $request->validate([
+                'username' => 'required|string|max:255',
+                'email' => 'required|email|unique:up_users,email,' . $id,
+
+            ]);
+
+            $user = UpUser::find($id);
+
+            if ($user) {
+                $user->username = $request->input('username');
+                $user->email = $request->input('email');
+                $user->save();
+
+                $seller = $user->vendedores()->first();
+                if ($seller) {
+                    $seller->nombre_comercial = $request->input('nombre_comercial');
+                    $seller->telefono_1 = $request->input( 'telefono_1');
+                    $seller->telefono_2 = $request->input( 'telefono_2');
+                    $seller->costo_envio = $request->input('costo_envio');
+                    $seller->costo_devolucion = $request->input('costo_devolucion');
+                    $seller->url_tienda = $request->input( 'url_tienda');
+                    $seller->save();
+                }
+
+            }
+            // else {
+            // return response()->json(['message' => 'Usuario no encontrado'], 404);
+            return response()->json(['message' => 'Usuario actualizado con éxito'], 200);
+
+            // }
+        } catch (\Throwable $th) {
+            return response()->json(['message' => 'Error !'], 404);
+
+        }
+    }
+
+    public function storeGeneralNewUser(Request $request)
+    {
+        try {
+            $request->validate([
+                'username' => 'required|string|max:255',
+                'email' => 'required|email|unique:up_users',
+            ]);
+
+            // generación del código
+
+            $numerosUtilizados = [];
+            while (count($numerosUtilizados) < 10000000) {
+                $numeroAleatorio = str_pad(mt_rand(1, 99999999), 8, '0', STR_PAD_LEFT);
+                if (!in_array($numeroAleatorio, $numerosUtilizados)) {
+                    $numerosUtilizados[] = $numeroAleatorio;
+                    break;
+                }
+            }
+            $resultCode = $numeroAleatorio;
+
+            //  creación del usuario
+
+            $user = new UpUser();
+            $user->username = $request->input('username');
+            $user->email = $request->input('email');
+            $user->codigo_generado = $resultCode;
+            $user->password = bcrypt($request->input('password'));
+            $user->confirmed = $request->input('confirmed');
+            $user->estado = "NO VALIDADO";
+            $user->provider = "local";
+            $user->blocked = "0";
+            $user->confirmed = 1;
+            $user->fecha_alta = $request->input('fecha_alta');
+            $permisosCadena = json_encode($request->input('PERMISOS'));
+            $user->permisos = $permisosCadena;
+            $user->save();
+
+            $newUpUsersRoleLink = new UpUsersRoleLink();
+            $newUpUsersRoleLink->user_id = $user->id;
+            $newUpUsersRoleLink->role_id = 1;
+            $newUpUsersRoleLink->save();
+
+            $userRoleFront = new UpUsersRolesFrontLink();
+            $userRoleFront->user_id = $user->id;
+            $userRoleFront->roles_front_id = $request->input('roles_front');
+            $userRoleFront->save();
+
+            // 1	LOGISTICA
+            // 2	VENDEDOR
+            // 3	TRANSPORTADOR
+            // 4	OPERADOR
+            // 5	PROVEEDOR
+
+            $typeU = $request->input('userType');
+
+            if ($typeU == "3") {
+                if ($request->has(['nombre_transportadora', 'telefono1', 'telefono2', 'costo_transportadora', 'rutas'])) {
+                    $transport = new Transportadora();
+                    $transport->nombre = $request->input('nombre_transportadora');
+                    $transport->telefono_1 = $request->input('telefono1');
+                    $transport->telefono_2 = $request->input('telefono2');
+                    $transport->costo_transportadora = $request->input('costo_transportadora');
+                    $transport->save();
+
+                    $transportadoraUserPermissionsUserLinks = new TransportadorasUsersPermissionsUserLink();
+                    $transportadoraUserPermissionsUserLinks->transportadora_id = $transport->id;
+                    $transportadoraUserPermissionsUserLinks->user_id = $user->id;
+                    $transportadoraUserPermissionsUserLinks->save();
+
+                    $rutasIds = $request->input('rutas');
+                    foreach ($rutasIds as $rutaId) {
+                        $transportadoraRutaLinks = new TransportadorasRutasLink();
+                        $transportadoraRutaLinks->transportadora_id = $transport->id;
+                        $transportadoraRutaLinks->ruta_id = $rutaId;
+                        $transportadoraRutaLinks->save();
+                    }
+                    // $user->transportadora()->attach($user->id, [],$transport->id,);
+                }
+                Mail::to($user->email)->send(new UserValidation($resultCode));
+            //     return response()->json(['message' => 'Usuario creado con éxito', 'user_id' => $user->id], 200);
+
+
+            } else 
+            if ($typeU == "2") {
+                if ($request->has(['nombre_comercial', 'telefono1', 'telefono2', 'costo_envio', 'costo_devolucion', 'url_tienda'])) {
+                    $newSeller = new Vendedore();
+                    $newSeller->nombre_comercial = $request->input('nombre_comercial');
+                    $newSeller->telefono_1 = $request->input('telefono1');
+                    $newSeller->telefono_2 = $request->input('telefono2');
+                    $newSeller->costo_envio = $request->input('costo_envio');
+                    $newSeller->costo_devolucion = $request->input('costo_devolucion');
+                    $newSeller->fecha_alta = $request->input('fecha_alta');
+                    $newSeller->id_master = $user->id;
+                    $newSeller->url_tienda = $request->input('url_tienda');
+                    $newSeller->referer_cost = "0.10";
+                    $newSeller->save();
+
+                    $upUserVendedoreLinks = new UpUsersVendedoresLink();
+                    $upUserVendedoreLinks->user_id = $user->id;
+                    $upUserVendedoreLinks->vendedor_id = $newSeller->id;
+                    $upUserVendedoreLinks->save();
+                }
+                Mail::to($user->email)->send(new UserValidation($resultCode));
+            }
+            return response()->json(['message' => 'Usuario creado con éxito', 'user_id' => $user->id], 200);
+
+        } catch (\Throwable $th) {
+            // Log the error
+            return response()->json(['message' => 'Error! ' . $th->getMessage()], 400);
+        }
+        
+    }
+
+    public function updateUserPassword(Request $request, $id)
+    {
+        try {
+
+            $data = $request->json()->all();
+            $newPassword = $data['password'];
+
+            $user = UpUser::find($id);
+
+            if ($user) {
+                $user->password = bcrypt($newPassword);
+                $user->save();
+
+                return response()->json(["message" => "Actualización de contraseña exitosa"], 200);
+            }
+            return response()->json(["message" => 'No se encontro el Usuario'], 404);
+
+        } catch (\Throwable $th) {
+            return response()->json(["message" => 'No se pudo ejecutar la actualización de contraseña.'], 404);
+
+        }
+    }
+
+
 }
 
