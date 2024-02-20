@@ -3358,7 +3358,7 @@ class PedidosShopifyAPIController extends Controller
                         $lastTry++;
                         $edited_novelty["state"] = 'gestioned';
                         $edited_novelty["comment"] = $data["comment"];
-                        $edited_novelty["verified"] = $data["comment"];
+                        // $edited_novelty["verified"] = $data["verified"];
                         $edited_novelty["id_user"] = $data["id_user"];
                         $edited_novelty["m_t_g"] = $startDateFormatted;
                     } elseif ($lastTry == 5) {
@@ -3366,28 +3366,41 @@ class PedidosShopifyAPIController extends Controller
                     }
                     break;
 
-                case 2:
-                    $edited_novelty["state"] = 'resolved';
-                    $edited_novelty["comment"] = $data['comment'];
-                    $edited_novelty["id_user"] = $data['id_user'];
-                    $edited_novelty["m_t_g"] = $startDateFormatted;
-                    break;
-
-                default:
-                    $edited_novelty["state"] = 'ok';
-                    $edited_novelty["comment"] = $data['comment'];
-                    $edited_novelty["id_user"] = $data['id_user'];
-                    $edited_novelty["m_t_g"] = $startDateFormatted;
-                    break;
-            }
-
-            // Actualizar el valor de 'try' y otros campos
-            $edited_novelty['try'] = $lastTry;
-
-            $order["gestioned_novelty"] = json_encode($edited_novelty);
-            $order->save();
-
-            return response()->json(["response" => "Novelty updated successfully", "edited_novelty" => $edited_novelty], Response::HTTP_OK);
+                    case 2:
+                        $edited_novelty["state"] = 'resolved';
+                        $edited_novelty["comment"] = $data['comment'];
+                        $edited_novelty["id_user"] = $data['id_user'];
+                        $edited_novelty["m_t_g"] = $startDateFormatted;
+    
+                        $order->status = "NOVEDAD RESUELTA";
+                        $order->save();
+    
+                        break;
+    
+                    default:
+                        $edited_novelty["state"] = 'ok';
+                        $edited_novelty["comment"] = $data['comment'];
+                        $edited_novelty["id_user"] = $data['id_user'];
+                        $edited_novelty["m_t_g"] = $startDateFormatted;
+                        break;
+                }
+    
+                $edited_novelty['try'] = $lastTry;
+    
+    
+                $comment = $edited_novelty['comment'];
+                $parts = explode('UID:', $comment, 2);
+                if (count($parts) === 2) {
+                    $new_comment = $parts[0] .  "({$edited_novelty['try']})" . $parts[1];
+                } else {
+                    $new_comment = $comment;
+                }
+    
+                $edited_novelty["comment"]  = $new_comment;
+                $order["gestioned_novelty"] = json_encode($edited_novelty);
+                $order->save();
+    
+                return response()->json(["response" => "Novelty updated successfully", "edited_novelty" => $edited_novelty], Response::HTTP_OK);
         } catch (\Throwable $th) {
             return response()->json(["response" => "Failed to update novelty (-_-)/ "], Response::HTTP_NOT_FOUND);
         }
