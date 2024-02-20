@@ -329,6 +329,7 @@ class PedidosShopifyAPIController extends Controller
             ->with('ruta')
             ->with('subRuta')
             ->with('confirmedBy')
+            ->with('statusLastModifiedBy')
             ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
             ->where(function ($pedidos) use ($searchTerm, $filteFields) {
                 foreach ($filteFields as $field) {

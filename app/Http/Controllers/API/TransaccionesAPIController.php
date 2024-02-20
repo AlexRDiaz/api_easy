@@ -368,7 +368,8 @@ class TransaccionesAPIController extends Controller
             $data = $request->json()->all();
             $order = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades'])->find($id);
             $order->estado_devolucion = "EN BODEGA PROVEEDOR";
-            $order->marca_t_d = date("d/m/Y H:i");
+            // $order->marca_t_d = date("d/m/Y H:i");
+            $order->marca_t_d_l = date("d/m/Y H:i");
             $order->received_by = $data['generated_by'];
             if ($order->status == "NOVEDAD") {
 
