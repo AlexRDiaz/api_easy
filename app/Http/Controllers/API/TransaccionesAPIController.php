@@ -409,29 +409,13 @@ class TransaccionesAPIController extends Controller
         try {
             $data = $request->json()->all();
 
-            $tran = Transaccion::where('id_origen', $data['id_origen'])
-                ->where('tipo', 'credit')
-                ->where('origen', 'recaudo')
-                ->get();
+            $startDateFormatted = new DateTime();
 
-            if ($tran->isNotEmpty()) {
-                error_log("YA existe una transaccion con:");
-                error_log("id_origen:" . $data['id_origen'] . "");
-                error_log("tipo: credit");
-                error_log("origen: recaudo");
+            // $pedido = PedidosShopify::findOrFail($data['id_origen']);
+            $pedido = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades', 'operadore', 'transactionTransportadora',])->findOrFail($data['id_origen']);
 
-                return response()->json([
-                    'error' => 'Esta transaccion ya existe'
-                ], 500);
-                //
-            } else {
-                
+            if ($pedido->costo_envio == null) {
                 error_log("Transaccion nueva");
-
-                $startDateFormatted = new DateTime();
-
-                // $pedido = PedidosShopify::findOrFail($data['id_origen']);
-                $pedido = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades', 'operadore', 'transactionTransportadora',])->findOrFail($data['id_origen']);
 
                 $pedido->status = "ENTREGADO";
                 $pedido->fecha_entrega = now()->format('j/n/Y');
@@ -559,7 +543,14 @@ class TransaccionesAPIController extends Controller
                 return response()->json([
                     "res" => "transaccion exitosa"
                 ]);
+            }else{
+                error_log("Este pedido ya tiene marcado el costo_envio");
+
+                return response()->json([
+                    'error' => 'Ocurrió un error al procesar la solicitud'
+                ], 500); 
             }
+            
         } catch (\Exception $e) {
             DB::rollback(); // En caso de error, revierte todos los cambios realizados en la transacción
             // Maneja el error aquí si es necesario
