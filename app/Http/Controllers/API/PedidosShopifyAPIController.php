@@ -320,16 +320,7 @@ class PedidosShopifyAPIController extends Controller
         }
 
         // ! *************************************
-
-        $pedidos = PedidosShopify::with(['operadore.up_users'])
-            ->with('transportadora')
-            ->with('users.vendedores')
-            ->with('novedades')
-            ->with('pedidoFecha')
-            ->with('ruta')
-            ->with('subRuta')
-            ->with('confirmedBy')
-            ->with('statusLastModifiedBy')
+            $pedidos = PedidosShopify::with(['operadore.up_users','novedades','confirmedBy','statusLastModifiedBy','transportadora','users.vendedores'])
             ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
             ->where(function ($pedidos) use ($searchTerm, $filteFields) {
                 foreach ($filteFields as $field) {
@@ -3320,7 +3311,8 @@ class PedidosShopifyAPIController extends Controller
 
             $order = PedidosShopify::find($id);
 
-            $edited_novelty = $order["gestioned_novelty"] != null ? json_decode($order["gestioned_novelty"], true) : [];
+            $edited_novelty = !empty($order["gestioned_novelty"]) ? json_decode($order["gestioned_novelty"], true) : [];
+
             // Actualizar o crear la propiedad
             $edited_novelty[$propertyName] = $propertyValue;
 
