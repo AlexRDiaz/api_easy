@@ -415,7 +415,7 @@ class TransaccionesAPIController extends Controller
             // $pedido = PedidosShopify::findOrFail($data['id_origen']);
             $pedido = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades', 'operadore', 'transactionTransportadora',])->findOrFail($data['id_origen']);
 
-            if ($pedido->costo_envio == null) {
+            // if ($pedido->costo_envio == null) {
                 error_log("Transaccion nueva");
 
                 $pedido->status = "ENTREGADO";
@@ -544,13 +544,13 @@ class TransaccionesAPIController extends Controller
                 return response()->json([
                     "res" => "transaccion exitosa"
                 ]);
-            }else{
-                error_log("Este pedido ya tiene marcado el costo_envio");
+            // }else{
+            //     error_log("Este pedido ya tiene marcado el costo_envio");
 
-                return response()->json([
-                    'error' => 'Ocurrió un error al procesar la solicitud'
-                ], 500); 
-            }
+            //     return response()->json([
+            //         'error' => 'Ocurrió un error al procesar la solicitud'
+            //     ], 500); 
+            // }
             
         } catch (\Exception $e) {
             DB::rollback(); // En caso de error, revierte todos los cambios realizados en la transacción
