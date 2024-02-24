@@ -110,7 +110,8 @@ class UpUser extends Model implements Authenticatable, JWTSubject
 		'blocked' => 'bool',
 		'created_by_id' => 'int',
 		'updated_by_id' => 'int',
-		'accepted_terms_conditions' => 'bool'
+		'accepted_terms_conditions' => 'bool',
+		'active' => 'bool'
 	];
 
 	protected $hidden = [
@@ -141,7 +142,8 @@ class UpUser extends Model implements Authenticatable, JWTSubject
 		'accepted_terms_conditions',
 		'webhook_autome',
 		'enable_autome',
-		'config_autome'
+		'config_autome',
+		'active'
 	];
 
 	public function admin_user()

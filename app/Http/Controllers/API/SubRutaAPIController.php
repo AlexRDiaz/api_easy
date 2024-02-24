@@ -7,7 +7,9 @@ use App\Models\SubRuta;
 use App\Models\Transportadora;
 use App\Models\Ruta;
 use App\Models\Operadore;
+use App\Models\SubRutasRutaLink;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SubRutaAPIController extends Controller
 {
@@ -21,6 +23,48 @@ class SubRutaAPIController extends Controller
         return response()->json($subrutas);
     }
 
+    public function store(Request $request)
+    {
+        //
+
+        DB::beginTransaction();
+
+        try {
+            //
+            $newSubRuta = new SubRuta();
+            $newSubRuta->titulo = $request->input('subroute_name');
+            $newSubRuta->id_operadora = $request->input('id_carrier'); //its for id_carrier
+            $newSubRuta->save();
+
+            $subRutasRutaLinkOrder = 0;
+            $lastSubRutasRutaLink = SubRutasRutaLink::where('ruta_id', $request->input('id_route'))
+                ->orderBy('id', 'desc')
+                ->first();
+
+            if ($lastSubRutasRutaLink) {
+                $subRutasRutaLinkOrder = $lastSubRutasRutaLink->sub_ruta_order + 1;
+            } else {
+                $subRutasRutaLinkOrder = 1;
+            }
+
+            $SubRutaLinkRuta = new SubRutasRutaLink();
+            $SubRutaLinkRuta->sub_ruta_id = $newSubRuta->id;
+            $SubRutaLinkRuta->ruta_id = $request->input('id_route');
+            $SubRutaLinkRuta->sub_ruta_order = $subRutasRutaLinkOrder;
+            $SubRutaLinkRuta->save();
+
+            DB::commit();
+
+            return response()->json(['message' => 'Ruta creada exitosamente.'], 200);
+            //
+        } catch (\Exception $e) {
+            DB::rollback();
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function getSubrutas()
     {
         // Obtener las subrutas con su nombre e ID, ignorando casos vacíos
@@ -29,10 +73,10 @@ class SubRutaAPIController extends Controller
             ->selectRaw('CONCAT(titulo, "-", id) as nombre_id')
             ->pluck('nombre_id')
             ->toArray();
-    
+
         return response()->json($subrutas);
     }
-    
+
     public function getSubroutesByTransportadoraId($transportadoraId)
     {
         try {
@@ -51,7 +95,6 @@ class SubRutaAPIController extends Controller
             }
 
             return response()->json($subrutasTransformed);
-
         } catch (\Exception $e) {
             // Log::error("Error fetching subrutas: " . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);

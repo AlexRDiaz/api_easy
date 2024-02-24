@@ -275,23 +275,26 @@ class TransportadorasAPIController extends Controller
 
 
 
-    public function getRutasOfTransport($transportadoraId)
+    public function getRutasByCarrier($transportadoraId)
     {
         // Obtener la transportadora con sus rutas relacionadas
         $transportadora = Transportadora::with(['rutas'])->find($transportadoraId);
 
-        // Verificar si la transportadora existe
         if (!$transportadora) {
             return response()->json(['error' => 'Transportadora no encontrada'], 404);
         }
 
-        // Obtener las rutas de la transportadora y formatear los resultados
-        $rutas = $transportadora->rutas->map(function ($ruta) {
-            return $ruta->titulo . ' - ' . $ruta->id;
+        //all
+        // $rutas = $transportadora->rutas->map(function ($ruta) {
+        //     return $ruta->titulo . '-' . $ruta->id;
+        // });
+        $rutasActivas = $transportadora->rutas->filter(function ($ruta) {
+            return $ruta->active == 1;
+        })->map(function ($ruta) {
+            return $ruta->titulo . '-' . $ruta->id;
         });
 
-        // Hacer algo con las rutas formateadas (por ejemplo, devolverlas en una respuesta JSON)
-        return response()->json(['rutas' => $rutas]);
+        return response()->json(['rutas' => $rutasActivas]);
     }
 
     public function getTransportadorasOfRuta($rutaId)

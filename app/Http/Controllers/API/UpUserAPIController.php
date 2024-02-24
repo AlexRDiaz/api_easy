@@ -5,6 +5,9 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Mail\UserValidation;
 use App\Models\Integration;
+use App\Models\Operadore;
+use App\Models\OperadoresSubRutaLink;
+use App\Models\OperadoresTransportadoraLink;
 use App\Models\PedidosShopify;
 use App\Models\Provider;
 use App\Models\RolesFront;
@@ -15,12 +18,14 @@ use App\Models\UpUsersVendedoresLink;
 use App\Models\TransportadorasUsersPermissionsUserLink;
 use App\Models\UpRole;
 use App\Models\UpUser;
+use App\Models\UpUsersOperadoreLink;
 use App\Models\UpUsersRoleLink;
 use App\Models\UpUsersRolesFrontLink;
 use App\Models\Vendedore;
 use DateTime;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Ramsey\Uuid\Uuid;
@@ -436,6 +441,7 @@ class UpUserAPIController extends Controller
     {
         // Agrega tu lógica para eliminar un UpUser aquí.
     }
+
     public function login(Request $request)
     {
         $credentials = $request->only('email', 'password');
@@ -552,23 +558,20 @@ class UpUserAPIController extends Controller
         try {
             $data = $request->json()->all();
             $myuuid = Uuid::uuid4();
-            $data["id"]= $myuuid;
+            $data["id"] = $myuuid;
             $user = UpUser::find($id);
 
-            if ($user->payment_information == null ||$user->payment_information == "" ) {
-            
+            if ($user->payment_information == null || $user->payment_information == "") {
+
                 $jsonData = json_encode([$data]);
                 $encryptedData = encrypt($jsonData);
                 $user->payment_information = $encryptedData;
-
-
             } else {
                 $currentPaymentInformation =  $this->getPaymentInformationLocal($id);
-                  array_push($currentPaymentInformation, $data);
-               $jsonData2 = json_encode($currentPaymentInformation);
-                  $encryptedData2 = encrypt($jsonData2);
-              $user->payment_information = $encryptedData2;
-
+                array_push($currentPaymentInformation, $data);
+                $jsonData2 = json_encode($currentPaymentInformation);
+                $encryptedData2 = encrypt($jsonData2);
+                $user->payment_information = $encryptedData2;
             }
 
             $user->save();
@@ -579,18 +582,18 @@ class UpUserAPIController extends Controller
         }
     }
 
-     public function modifyAccount(Request $request, $id)
+    public function modifyAccount(Request $request, $id)
     {
         try {
 
             $data = $request->json()->all();
-             $user = UpUser::find($id);
+            $user = UpUser::find($id);
             // $myuuid = Uuid::uuid4();
             // $data["account_data"]["id"]= $myuuid;
 
-                $jsonData = json_encode($data["account_data"]);
-                $encryptedData = encrypt($jsonData);
-                $user->payment_information = $encryptedData;
+            $jsonData = json_encode($data["account_data"]);
+            $encryptedData = encrypt($jsonData);
+            $user->payment_information = $encryptedData;
 
 
             $user->save();
@@ -608,13 +611,12 @@ class UpUserAPIController extends Controller
 
 
             $user = UpUser::find($id);
-            if($user->payment_information!=null){
-            $decriptedData = decrypt($user->payment_information);
-            
-            return response()->json(['message' => 'Get successfully', 'data' => json_decode($decriptedData)], Response::HTTP_OK);
-            }else{
-                return response()->json(['message' => 'Empty', 'data' => []], Response::HTTP_OK);
+            if ($user->payment_information != null) {
+                $decriptedData = decrypt($user->payment_information);
 
+                return response()->json(['message' => 'Get successfully', 'data' => json_decode($decriptedData)], Response::HTTP_OK);
+            } else {
+                return response()->json(['message' => 'Empty', 'data' => []], Response::HTTP_OK);
             }
         } catch (\Exception $e) {
             return response()->json(['error' => 'Get failed', $e], Response::HTTP_BAD_REQUEST);
@@ -1111,7 +1113,7 @@ class UpUserAPIController extends Controller
         $filtersOr = $data['or'];
         $Map = $data['and'];
         $searchValue = $data['searchValue'];
-    
+
         $users = UpUser::with(['operadores.sub_rutas.rutas', 'rolesFronts', 'operadores.transportadoras'])
             ->whereHas('rolesFronts', function ($query) {
                 $query->where('titulo', 'OPERADOR');
@@ -1128,7 +1130,7 @@ class UpUserAPIController extends Controller
                         // Si es un campo anidado
                         $relations = explode('.', $field);
                         $property = array_pop($relations);
-            
+
                         $users->orWhereHas(implode('.', $relations), function ($q) use ($property, $searchValue) {
                             $q->where($property, 'LIKE', '%' . $searchValue . '%');
                         });
@@ -1138,7 +1140,7 @@ class UpUserAPIController extends Controller
                     }
                 }
             })
-            
+
             ->where((function ($users) use ($Map) {
                 foreach ($Map as $condition) {
                     foreach ($condition as $key => $valor) {
@@ -1152,16 +1154,16 @@ class UpUserAPIController extends Controller
                     }
                 }
             }));
-        
-    
+
+
         $users = $users->get();
-    
+
         return response()->json([
             'data' => $users,
             'total' => $users->count()
         ], 200);
     }
-    
+
     private function recursiveWhereHas($query, $relation, $property, $searchTerm)
     {
         if ($searchTerm == "null") {
@@ -1237,7 +1239,6 @@ class UpUserAPIController extends Controller
                         $transport->rutas()->sync($rutaIds);
                     }
                 }
-
             }
             // else {
             // return response()->json(['message' => 'Usuario no encontrado'], 404);
@@ -1246,7 +1247,6 @@ class UpUserAPIController extends Controller
             // }
         } catch (\Throwable $th) {
             return response()->json(['message' => 'Error !'], 404);
-
         }
     }
 
@@ -1270,14 +1270,13 @@ class UpUserAPIController extends Controller
                 $seller = $user->vendedores()->first();
                 if ($seller) {
                     $seller->nombre_comercial = $request->input('nombre_comercial');
-                    $seller->telefono_1 = $request->input( 'telefono_1');
-                    $seller->telefono_2 = $request->input( 'telefono_2');
+                    $seller->telefono_1 = $request->input('telefono_1');
+                    $seller->telefono_2 = $request->input('telefono_2');
                     $seller->costo_envio = $request->input('costo_envio');
                     $seller->costo_devolucion = $request->input('costo_devolucion');
-                    $seller->url_tienda = $request->input( 'url_tienda');
+                    $seller->url_tienda = $request->input('url_tienda');
                     $seller->save();
                 }
-
             }
             // else {
             // return response()->json(['message' => 'Usuario no encontrado'], 404);
@@ -1286,7 +1285,6 @@ class UpUserAPIController extends Controller
             // }
         } catch (\Throwable $th) {
             return response()->json(['message' => 'Error !'], 404);
-
         }
     }
 
@@ -1322,7 +1320,8 @@ class UpUserAPIController extends Controller
             $user->provider = "local";
             $user->blocked = "0";
             $user->confirmed = 1;
-            $user->fecha_alta = $request->input('fecha_alta');
+            // $user->fecha_alta = $request->input('fecha_alta');
+            $user->fecha_alta = date("d/m/Y");
             $permisosCadena = json_encode($request->input('PERMISOS'));
             $user->permisos = $permisosCadena;
             $user->save();
@@ -1369,7 +1368,7 @@ class UpUserAPIController extends Controller
                     // $user->transportadora()->attach($user->id, [],$transport->id,);
                 }
                 Mail::to($user->email)->send(new UserValidation($resultCode));
-            //     return response()->json(['message' => 'Usuario creado con éxito', 'user_id' => $user->id], 200);
+                //     return response()->json(['message' => 'Usuario creado con éxito', 'user_id' => $user->id], 200);
 
 
             } else 
@@ -1393,14 +1392,35 @@ class UpUserAPIController extends Controller
                     $upUserVendedoreLinks->save();
                 }
                 Mail::to($user->email)->send(new UserValidation($resultCode));
-            }
-            return response()->json(['message' => 'Usuario creado con éxito', 'user_id' => $user->id], 200);
+            } elseif ($typeU == "4") {
+                // "operatorName","phone","operatorCost","idCarrier" ,"idSubRoute"
+                $operator = new Operadore();
+                $operator->telefono = $request->input('phone');
+                $operator->costo_operador = $request->input('operatorCost');
+                $operator->save();
 
+                $upUserOperador = new UpUsersOperadoreLink();
+                $upUserOperador->user_id = $user->id;
+                $upUserOperador->operadore_id = $operator->id;
+                $upUserOperador->save();
+
+                $OperadoresTransporta = new OperadoresTransportadoraLink();
+                $OperadoresTransporta->operadore_id = $operator->id;
+                $OperadoresTransporta->transportadora_id = $request->input('idCarrier');
+                $OperadoresTransporta->save();
+
+                $OperadoresSubRuta = new OperadoresSubRutaLink();
+                $OperadoresSubRuta->operadore_id = $operator->id;
+                $OperadoresSubRuta->sub_ruta_id = $request->input('idSubRoute');
+                $OperadoresSubRuta->save();
+                Mail::to($user->email)->send(new UserValidation($resultCode));
+            }
+
+            return response()->json(['message' => 'Usuario creado con éxito', 'user_id' => $user->id], 200);
         } catch (\Throwable $th) {
             // Log the error
             return response()->json(['message' => 'Error! ' . $th->getMessage()], 400);
         }
-        
     }
 
     public function updateUserPassword(Request $request, $id)
@@ -1419,13 +1439,41 @@ class UpUserAPIController extends Controller
                 return response()->json(["message" => "Actualización de contraseña exitosa"], 200);
             }
             return response()->json(["message" => 'No se encontro el Usuario'], 404);
-
         } catch (\Throwable $th) {
             return response()->json(["message" => 'No se pudo ejecutar la actualización de contraseña.'], 404);
-
         }
     }
 
+    public function updateOperator(Request $request, $id)
+    {
+        try {
+            $request->validate([
+                'username' => 'required|string|max:255',
+                'email' => 'required|email|unique:up_users,email,' . $id,
 
+            ]);
+
+            $user = UpUser::find($id);
+
+            if ($user) {
+                $user->username = $request->input('username');
+                $user->email = $request->input('email');
+                $user->save();
+
+                $operador = Operadore::find($request->input('idOper'));
+                $operador->costo_operador = $request->input('cost');
+                $operador->telefono = $request->input('phone');
+                $operador->save();
+
+                $OperadorSubRuta = OperadoresSubRutaLink::where('operadore_id', $request->input('idOper'))->first();
+                $OperadorSubRuta->sub_ruta_id = $request->input('idSubRoute');
+                $OperadorSubRuta->save();
+            }
+            return response()->json(['message' => 'Usuario actualizado con éxito'], 200);
+
+            // }
+        } catch (\Throwable $th) {
+            return response()->json(['message' => 'Error !'], 404);
+        }
+    }
 }
-
