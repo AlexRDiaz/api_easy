@@ -25,6 +25,8 @@ use DateTime;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+
+use function Laravel\Prompts\error;
 use function PHPUnit\Framework\isEmpty;
 
 use Illuminate\Support\Facades\Log;
@@ -416,134 +418,134 @@ class TransaccionesAPIController extends Controller
             $pedido = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades', 'operadore', 'transactionTransportadora',])->findOrFail($data['id_origen']);
 
             // if ($pedido->costo_envio == null) {
-                error_log("Transaccion nueva");
+            error_log("Transaccion nueva");
 
-                $pedido->status = "ENTREGADO";
-                $pedido->fecha_entrega = now()->format('j/n/Y');
-                $pedido->status_last_modified_at = date('Y-m-d H:i:s');
-                $pedido->status_last_modified_by = $data['generated_by'];
-                $pedido->comentario = $data["comentario"];
-                $pedido->tipo_pago = $data["tipo"];
-                $pedido->costo_envio = $data['monto_debit'];
-                if ($data["archivo"] != "") {
-                    $pedido->archivo = $data["archivo"];
-                }
-                $costoTransportadora = $pedido['transportadora'][0]['costo_transportadora'];
-                $pedido->costo_transportadora = $costoTransportadora;
-                $pedido->save();
-                $SellerCreditFinalValue = $this->updateProductAndProviderBalance(
-                    // "TEST2C1003",
-                    $pedido->sku,
-                    $pedido->precio_total,
-                    $pedido->cantidad_total,
-                    $data['generated_by'],
-                    $data['id_origen'],
-                    // 22.90,
-                );
+            $pedido->status = "ENTREGADO";
+            $pedido->fecha_entrega = now()->format('j/n/Y');
+            $pedido->status_last_modified_at = date('Y-m-d H:i:s');
+            $pedido->status_last_modified_by = $data['generated_by'];
+            $pedido->comentario = $data["comentario"];
+            $pedido->tipo_pago = $data["tipo"];
+            $pedido->costo_envio = $data['monto_debit'];
+            if ($data["archivo"] != "") {
+                $pedido->archivo = $data["archivo"];
+            }
+            $costoTransportadora = $pedido['transportadora'][0]['costo_transportadora'];
+            $pedido->costo_transportadora = $costoTransportadora;
+            $pedido->save();
+            $SellerCreditFinalValue = $this->updateProductAndProviderBalance(
+                // "TEST2C1003",
+                $pedido->sku,
+                $pedido->precio_total,
+                $pedido->cantidad_total,
+                $data['generated_by'],
+                $data['id_origen'],
+                // 22.90,
+            );
 
-                $request->merge(['comentario' => 'Recaudo  de valor por pedido ' . $pedido->status]);
-                $request->merge(['origen' => 'recaudo']);
+            $request->merge(['comentario' => 'Recaudo  de valor por pedido ' . $pedido->status]);
+            $request->merge(['origen' => 'recaudo']);
 
-                if ($SellerCreditFinalValue['total'] != null) {
-                    $request->merge(['monto' => $SellerCreditFinalValue['total']]);
-                }
+            if ($SellerCreditFinalValue['total'] != null) {
+                $request->merge(['monto' => $SellerCreditFinalValue['total']]);
+            }
 
-                $this->Credit($request);
+            $this->Credit($request);
 
 
-                // !*********
-                if ($SellerCreditFinalValue['valor_producto'] != null) {
+            // !*********
+            if ($SellerCreditFinalValue['valor_producto'] != null) {
 
-                    $request->merge(['comentario' => 'Costo de de valor de Producto en Bodega ' . $pedido->status]);
-                    $request->merge(['origen' => 'valor producto bodega']);
-                    $request->merge(['monto' => $SellerCreditFinalValue['valor_producto']]);
-
-                    $this->Debit($request);
-                }
-                // !*********
-
-                $request->merge(['comentario' => 'Costo de envio por pedido ' . $pedido->status]);
-                $request->merge(['origen' => 'envio']);
-                $request->merge(['monto' => $data['monto_debit']]);
+                $request->merge(['comentario' => 'Costo de de valor de Producto en Bodega ' . $pedido->status]);
+                $request->merge(['origen' => 'valor producto bodega']);
+                $request->merge(['monto' => $SellerCreditFinalValue['valor_producto']]);
 
                 $this->Debit($request);
+            }
+            // !*********
+
+            $request->merge(['comentario' => 'Costo de envio por pedido ' . $pedido->status]);
+            $request->merge(['origen' => 'envio']);
+            $request->merge(['monto' => $data['monto_debit']]);
+
+            $this->Debit($request);
 
 
 
-                $vendedor = Vendedore::where("id_master", $data['id'])->get();
+            $vendedor = Vendedore::where("id_master", $data['id'])->get();
 
-                if ($vendedor[0]->referer != null) {
-                    $refered = Vendedore::where('id_master', $vendedor[0]->referer)->get();
-                    $vendedorId = $vendedor[0]->referer;
-                    $generated_by = $data['generated_by'];
-                    $user = UpUser::where("id", $vendedorId)->with('vendedores')->first();
-                    $vendedor = $user['vendedores'][0];
-                    $saldo = $vendedor->saldo;
-                    $nuevoSaldo = $saldo + $refered[0]->referer_cost;
-                    $vendedor->saldo = $nuevoSaldo;
+            if ($vendedor[0]->referer != null) {
+                $refered = Vendedore::where('id_master', $vendedor[0]->referer)->get();
+                $vendedorId = $vendedor[0]->referer;
+                $generated_by = $data['generated_by'];
+                $user = UpUser::where("id", $vendedorId)->with('vendedores')->first();
+                $vendedor = $user['vendedores'][0];
+                $saldo = $vendedor->saldo;
+                $nuevoSaldo = $saldo + $refered[0]->referer_cost;
+                $vendedor->saldo = $nuevoSaldo;
 
-                    $newTrans = new Transaccion();
+                $newTrans = new Transaccion();
 
-                    $newTrans->tipo = "credit";
-                    $newTrans->monto = $refered[0]->referer_cost;
-                    $newTrans->valor_actual = $nuevoSaldo;
-                    $newTrans->valor_anterior = $saldo;
-                    $newTrans->marca_de_tiempo = $startDateFormatted;
-                    $newTrans->id_origen = $data['id_origen'];
-                    $newTrans->codigo = $data['codigo'];
+                $newTrans->tipo = "credit";
+                $newTrans->monto = $refered[0]->referer_cost;
+                $newTrans->valor_actual = $nuevoSaldo;
+                $newTrans->valor_anterior = $saldo;
+                $newTrans->marca_de_tiempo = $startDateFormatted;
+                $newTrans->id_origen = $data['id_origen'];
+                $newTrans->codigo = $data['codigo'];
 
-                    $newTrans->origen = "referido";
-                    $newTrans->comentario = "comision por referido";
+                $newTrans->origen = "referido";
+                $newTrans->comentario = "comision por referido";
 
-                    $newTrans->id_vendedor = $vendedorId;
-                    $newTrans->state = 1;
-                    $newTrans->generated_by = $generated_by;
+                $newTrans->id_vendedor = $vendedorId;
+                $newTrans->state = 1;
+                $newTrans->generated_by = $generated_by;
 
-                    $this->transaccionesRepository->create($newTrans);
-                    $this->vendedorRepository->update($nuevoSaldo, $user['vendedores'][0]['id']);
-                }
+                $this->transaccionesRepository->create($newTrans);
+                $this->vendedorRepository->update($nuevoSaldo, $user['vendedores'][0]['id']);
+            }
 
-                // error_log("add en tpt");
+            // error_log("add en tpt");
 
-                $idTransportadora = $pedido['transportadora'][0]['id'];
-                $fechaEntrega = now()->format('j/n/Y');
+            $idTransportadora = $pedido['transportadora'][0]['id'];
+            $fechaEntrega = now()->format('j/n/Y');
 
-                $precioTotal = $pedido['precio_total'];
-                $idOper = null;
-                if ($pedido['operadore']->isEmpty()) {
-                    error_log("operadore vacio");
-                    // error_log("idO: " . $idOper);
-                } else {
-                    error_log("operadore NO vacio");
-                    $idOper = $pedido['operadore'][0]['id'];
-                    error_log("idO: " . $idOper);
-                }
+            $precioTotal = $pedido['precio_total'];
+            $idOper = null;
+            if ($pedido['operadore']->isEmpty()) {
+                error_log("operadore vacio");
+                // error_log("idO: " . $idOper);
+            } else {
+                error_log("operadore NO vacio");
+                $idOper = $pedido['operadore'][0]['id'];
+                error_log("idO: " . $idOper);
+            }
 
-                if ($pedido['transactionTransportadora'] == null) {
-                    // error_log("new tpt");
-                    $transaccionNew = new TransaccionPedidoTransportadora();
-                    $transaccionNew->status = "ENTREGADO";
-                    $transaccionNew->fecha_entrega = $fechaEntrega;
-                    $transaccionNew->precio_total = $precioTotal;
-                    $transaccionNew->costo_transportadora = $costoTransportadora;
-                    $transaccionNew->id_pedido = $data['id_origen'];
-                    $transaccionNew->id_transportadora = $idTransportadora;
-                    $transaccionNew->id_operador = $idOper;
+            if ($pedido['transactionTransportadora'] == null) {
+                // error_log("new tpt");
+                $transaccionNew = new TransaccionPedidoTransportadora();
+                $transaccionNew->status = "ENTREGADO";
+                $transaccionNew->fecha_entrega = $fechaEntrega;
+                $transaccionNew->precio_total = $precioTotal;
+                $transaccionNew->costo_transportadora = $costoTransportadora;
+                $transaccionNew->id_pedido = $data['id_origen'];
+                $transaccionNew->id_transportadora = $idTransportadora;
+                $transaccionNew->id_operador = $idOper;
 
-                    $transaccionNew->save();
-                } else {
-                    // error_log("upt tpt");
-                    TransaccionPedidoTransportadora::where('id', $pedido['transactionTransportadora']['id'])->update([
-                        'status' => 'ENTREGADO',
-                        'costo_transportadora' => $costoTransportadora,
-                    ]);
-                }
-
-
-                DB::commit(); // Confirma la transacción si todas las operaciones tienen éxito
-                return response()->json([
-                    "res" => "transaccion exitosa"
+                $transaccionNew->save();
+            } else {
+                // error_log("upt tpt");
+                TransaccionPedidoTransportadora::where('id', $pedido['transactionTransportadora']['id'])->update([
+                    'status' => 'ENTREGADO',
+                    'costo_transportadora' => $costoTransportadora,
                 ]);
+            }
+
+
+            DB::commit(); // Confirma la transacción si todas las operaciones tienen éxito
+            return response()->json([
+                "res" => "transaccion exitosa"
+            ]);
             // }else{
             //     error_log("Este pedido ya tiene marcado el costo_envio");
 
@@ -551,7 +553,7 @@ class TransaccionesAPIController extends Controller
             //         'error' => 'Ocurrió un error al procesar la solicitud'
             //     ], 500); 
             // }
-            
+
         } catch (\Exception $e) {
             DB::rollback(); // En caso de error, revierte todos los cambios realizados en la transacción
             // Maneja el error aquí si es necesario
@@ -1381,14 +1383,32 @@ class TransaccionesAPIController extends Controller
             if ($orden->estado == "APROBADO") {
                 $orden->estado = "REALIZADO";
                 $orden->comprobante = $data['comprobante'];
-                $orden->fecha_transferencia = $data['fecha_transferencia'];
+                $orden->comentario = $data['comentario'];
+                // $orden->fecha_transferencia = $data['fecha_transferencia'];
+                $orden->fecha_transferencia = date("d/m/Y H:i:s");
                 $orden->updated_at = new DateTime();
                 $orden->save();
                 $orden->monto = str_replace(',', '.', $orden->monto);
 
-                $this->DebitLocal($orden->id_vendedor, $orden->monto, $orden->id, "retiro-" . $orden->id, 'retiro', 'orden de retiro' . $orden->estado, $data['generated_by']);
+                $lastTransaccion = Transaccion::where('id_origen', $id)
+                    ->orderBy('id', 'desc')
+                    ->first();
 
-                DB::commit(); // Confirma la transacción si todas las operaciones tienen éxito  
+                if ($lastTransaccion == null) {
+                    error_log("Nuevo registro");
+                    $this->DebitLocal($orden->id_vendedor, $orden->monto, $orden->id, "retiro-" . $orden->id, 'retiro', 'debito por retiro ' . $orden->estado, $data['generated_by']);
+                } else {
+                    if ($lastTransaccion->tipo != "debit" && $lastTransaccion->origen != "retiro") {
+                        error_log("El ultimo registro con id_origen:$id se encuentra en $lastTransaccion->origen");
+                        $this->DebitLocal($orden->id_vendedor, $orden->monto, $orden->id, "retiro-" . $orden->id, 'retiro', 'debito por retiro ' . $orden->estado, $data['generated_by']);
+                    } else {
+                        error_log("El ultimo registro con id_origen:$id se encuentra en debit just update comment");
+                        $lastTransaccion->comentario = 'debito por retiro ' . $orden->estado;
+                        $lastTransaccion->save();
+                    }
+                }
+
+                DB::commit();
                 return response()->json([
                     "res" => "transaccion exitosa",
                     "orden" => $orden
@@ -1418,7 +1438,8 @@ class TransaccionesAPIController extends Controller
             $data = $request->json()->all();
             $withdrawal = new OrdenesRetiro();
             $withdrawal->monto = $data["monto"];
-            $withdrawal->fecha = new  DateTime();
+            // $withdrawal->fecha = new  DateTime();
+            $withdrawal->fecha = date("d/m/Y H:i:s");
             $withdrawal->codigo_generado = $data["codigo"];
             $withdrawal->estado = 'APROBADO';
             $withdrawal->id_vendedor =  $data["id_vendedor"];
@@ -1438,6 +1459,34 @@ class TransaccionesAPIController extends Controller
             DB::rollback();
 
             return response()->json(["response" => "error al cambiar de estado", "error" => $e], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
+    public function approveWhitdrawal(Request $request, $id)
+    {
+        //for old version: approve and debit
+        error_log("rw-TransportadorasAPIController-approveWhitdrawal");
+        DB::beginTransaction();
+
+        try {
+            $data = $request->json()->all();
+            // $pedido = PedidosShopify::findOrFail($data['id_origen']);
+            $withdrawal = OrdenesRetiro::findOrFail($id);
+            $withdrawal->estado = "APROBADO";
+            $withdrawal->updated_at = new DateTime();
+            $withdrawal->codigo = $withdrawal->codigo_generado;
+            $withdrawal->save();
+            $monto = str_replace(',', '.', $withdrawal->monto);
+            $this->DebitLocal($data["id_vendedor"], $monto, $withdrawal->id, "retiro-" . $withdrawal->id, "retiro", "debito por retiro solicitado", $data["id_vendedor"]);
+
+            DB::commit();
+            return response()->json(["response" => "cambio de estado y debit exitoso", "solicitud" => $withdrawal], 200);
+        } catch (\Exception $e) {
+            DB::rollback(); // En caso de error, revierte todos los cambios realizados en la transacción
+            error_log("$e");
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

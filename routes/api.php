@@ -510,6 +510,12 @@ Route::middleware(['cors'])->group(function () {
     Route::prefix('transportadora')->group(function () {
         Route::get('rutas/{id}', [TransportadorasAPIController::class, 'getRutasByCarrier']);
     });
+
+    //  *
+    Route::prefix('transacciones')->group(function () {
+        Route::post('approvewithdrawal/{id}', [TransaccionesAPIController::class, 'approveWhitdrawal']);
+    });
+
 });
 
 // api/upload

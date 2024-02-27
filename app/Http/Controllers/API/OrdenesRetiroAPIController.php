@@ -22,21 +22,21 @@ class OrdenesRetiroAPIController extends Controller
 
         return response()->json($trasnportadora);
     }
+
     public function withdrawal(Request $request, $id)
     {
         //     // Obtiene los datos del cuerpo de la solicitud
         $data = $request->validate([
             'monto' => 'required',
-            'fecha' => 'required',
             'email' => 'required|email',
             'id_vendedor' => 'required'
         ]);
 
         // //     // Obtener datos del request
         $monto = $request->input('monto');
-        $fecha = $request->input('fecha');
+        // $fecha = $request->input('fecha');
+        $fecha = date("d/m/Y H:i:s");
         $email  = $request->input('email');
-        // $email = "easyecommercetest@gmail.com";
         $idVendedor  = $request->input('id_vendedor');
 
         // //     // Generar código único
@@ -129,7 +129,9 @@ class OrdenesRetiroAPIController extends Controller
 
         $retiros = OrdenesRetiro::with('users_permissions_user')->whereHas('users_permissions_user', function ($query) use ($id) {
             $query->where('up_users.id', $id);
-        })->get();
+        })
+            ->orderBy('id', 'desc')
+            ->get();
 
 
         return response()->json($retiros);
