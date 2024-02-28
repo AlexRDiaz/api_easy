@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\API\TransaccionesAPIController;
 use App\Mail\ValidationCode;
 use App\Models\OrdenesRetiro;
 use App\Models\OrdenesRetirosUsersPermissionsUserLink;
@@ -434,4 +435,67 @@ class OrdenesRetiroAPIController extends Controller
         // return $lastWithdrawal;
         return response()->json($lastWithdrawal, 200);
     }
+
+    public function putIntern(Request $request, $id)
+    {
+        try {
+            $data = $request->json()->all();
+
+            $withdrawal = OrdenesRetiro::findOrFail($id);
+            $withdrawal->comprobante = $data["comprobante"];
+            $withdrawal->comentario = $data["comentario"];
+            // $withdrawal->fecha_transferencia =  Carbon::now()->format('j/n/Y H:i:s');
+            $withdrawal->save();
+
+            return response()->json(["response" => "edited succesfully"], Response::HTTP_OK);
+
+        } catch (\Exception $e) {
+            return response()->json(["response" => "edidted failed", "error" => $e], Response::HTTP_BAD_REQUEST);
+
+        }
+    }
+
+    public function putRechazado(Request $request, $id)
+    {
+        DB::beginTransaction();
+        try {
+            $transaccionesRepository = app()->make('App\Repositories\transaccionesRepository');
+            $vendedorRepository = app()->make('App\Repositories\vendedorRepository');
+
+            $transactionsController = new TransaccionesAPIController($transaccionesRepository, $vendedorRepository);
+
+
+            $data = $request->json()->all();
+            $monto = $data["monto"];
+            $idOrdenRetiro = $id;
+            $userSesion = $data["idSesion"];
+
+            $withdrawal = OrdenesRetiro::findOrFail($id);
+            $withdrawal->estado = "RECHAZADO";
+            $withdrawal->save();
+
+            if ($withdrawal) {
+                $transactionsController->CreditLocal(
+                    $userSesion,
+                    $monto,
+                    $idOrdenRetiro,
+                    "0000",
+                    "reembolso",
+                    "reembolso orden retiro cancelada",
+                    $userSesion
+                );
+
+            }
+
+            DB::commit(); // Confirma la transacción si todas las operaciones tienen éxito
+
+            return response()->json(["response" => "update succesfully"], Response::HTTP_OK);
+        } catch (\Exception $e) {
+            DB::rollback(); // En caso de error, revierte todos los cambios realizados en la transacción
+
+            return response()->json(["response" => "edidted failed", "error" => $e], Response::HTTP_BAD_REQUEST);
+
+        }
+    }
+
 }

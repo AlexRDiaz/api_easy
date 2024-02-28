@@ -1288,6 +1288,32 @@ class UpUserAPIController extends Controller
         }
     }
 
+    public function updateLogisticUser(Request $request, $id)
+    {
+        try {
+            $request->validate([
+                'username' => 'required|string|max:255',
+                'email' => 'required|email|unique:up_users,email,' . $id,
+
+            ]);
+
+            $user = UpUser::find($id);
+
+            if ($user) {
+                $user->username = $request->input('username');
+                $user->email = $request->input('email');
+                $user->persona_cargo = $request->input('persona_cargo');
+                $user->telefono_1 = $request->input('telefono_1');
+                $user->telefono_2 = $request->input('telefono_2');
+                $user->save();
+            }
+            return response()->json(['message' => 'Usuario actualizado con éxito'], 200);
+        } catch (\Throwable $th) {
+            return response()->json(['message' => 'Error !'], 404);
+        }
+    }
+
+
     public function storeGeneralNewUser(Request $request)
     {
         try {
@@ -1413,6 +1439,14 @@ class UpUserAPIController extends Controller
                 $OperadoresSubRuta->operadore_id = $operator->id;
                 $OperadoresSubRuta->sub_ruta_id = $request->input('idSubRoute');
                 $OperadoresSubRuta->save();
+                Mail::to($user->email)->send(new UserValidation($resultCode));
+            } else if($typeU == "1"){
+                if ($request->has(['telefono1', 'telefono2', 'persona_cargo'])) {
+                    $user->persona_cargo = $request->input('persona_cargo');
+                    $user->telefono_1 = $request->input('telefono1');
+                    $user->telefono_2 = $request->input('telefono2');
+                    $user->save();
+                }
                 Mail::to($user->email)->send(new UserValidation($resultCode));
             }
 

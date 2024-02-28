@@ -1383,8 +1383,8 @@ class TransaccionesAPIController extends Controller
             if ($orden->estado == "APROBADO") {
                 $orden->estado = "REALIZADO";
                 $orden->comprobante = $data['comprobante'];
-                // $orden->comentario = $data['comentario'];
-                $orden->fecha_transferencia = $data['fecha_transferencia'];
+                $orden->comentario = $data['comentario'];
+                // $orden->fecha_transferencia = $data['fecha_transferencia'];
                 $orden->fecha_transferencia = date("d/m/Y H:i:s");
                 $orden->updated_at = new DateTime();
                 $orden->save();
