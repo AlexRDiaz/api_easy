@@ -218,7 +218,11 @@ class OrdenesRetiroAPIController extends Controller
         $ordenes = DB::table('ordenes_retiros as o')
             ->join('ordenes_retiros_users_permissions_user_links as oul', 'o.id', '=', 'oul.ordenes_retiro_id')
             ->where('oul.user_id', $id)
-            ->where('o.estado', 'REALIZADO')
+            // ->where('o.estado', 'REALIZADO')
+            ->where(function ($query) {
+                $query->where('o.estado', 'APROBADO')
+                    ->orWhere('o.estado', 'REALIZADO');
+            })
             ->select('o.*');
 
         $total_retiros = $ordenes->sum('o.monto');
@@ -228,6 +232,49 @@ class OrdenesRetiroAPIController extends Controller
         return response()->json($pedidos);
     }
 
+
+    public function getCountOrders(Request $request, $idUser)
+    {
+        $aprobados = OrdenesRetirosUsersPermissionsUserLink::with('ordenes_retiro')
+            ->where('user_id', $idUser)
+            ->whereHas('ordenes_retiro', function ($query) use ($idUser) {
+                $query->where('estado', 'APROBADO');
+            })
+            ->get();
+
+        $realizados = OrdenesRetirosUsersPermissionsUserLink::with('ordenes_retiro')
+            ->where('user_id', $idUser)
+            ->whereHas('ordenes_retiro', function ($query) use ($idUser) {
+                $query->where('estado', 'REALIZADO');
+            })
+            ->get();
+
+        $conteoAprobados = $aprobados->count();
+        $conteoRealizados = $realizados->count();
+
+        $sumaMontoAprobados = $aprobados->sum(function ($item) {
+            return (float) $item->ordenes_retiro->monto;
+        });
+
+        $sumaMontoRealizados = $realizados->sum(function ($item) {
+            return (float) $item->ordenes_retiro->monto;
+        });
+
+        return response()->json([
+            'aprobados' => [
+                'conteo' => $conteoAprobados,
+                'suma_monto' => $sumaMontoAprobados,
+            ],
+            'realizados' => [
+                'conteo' => $conteoRealizados,
+                'suma_monto' => $sumaMontoRealizados,
+            ],
+        ]);
+
+
+    }
+
+    
     // new-old
     public function postWithdrawalProvider(Request $request)
     {

@@ -374,7 +374,7 @@ Route::middleware(['cors'])->group(function () {
         Route::post('/withdrawal-provider-aproved/{id}', [OrdenesRetiroAPIController::class, 'postWhitdrawalProviderAproved']);
         Route::put('/withdrawal/update-intern/{id}', [OrdenesRetiroAPIController::class, 'putIntern']);
         Route::put('/withdrawal/denied/{id}', [OrdenesRetiroAPIController::class, 'putRechazado']);
-
+        Route::get('/count-a-r/{id}', [OrdenesRetiroAPIController::class, 'getCountOrders']);
     });
 
     /* for new version

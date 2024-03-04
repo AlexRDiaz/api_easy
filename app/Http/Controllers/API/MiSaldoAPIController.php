@@ -36,6 +36,8 @@ class MiSaldoAPIController extends Controller
         // }
 
         $sumaEntregados = PedidosShopify::where('id_comercial', $upuser)
+            ->where('estado_interno', 'CONFIRMADO')
+            ->where('estado_logistico', 'ENVIADO')
             ->where('status', 'ENTREGADO')
             ->sum('precio_total');
 
@@ -57,6 +59,8 @@ class MiSaldoAPIController extends Controller
 
         $sumaCostodb = DB::table('pedidos_shopifies')
             ->selectRaw('SUM(' . $sumaCostoInicial . ') as sumaCosto')
+            ->where('estado_interno', 'CONFIRMADO')
+            ->where('estado_logistico', 'ENVIADO')
             ->where('id_comercial', $upuser)
             ->where(function ($query) {
                 $query->where('status', 'ENTREGADO')
@@ -93,14 +97,25 @@ class MiSaldoAPIController extends Controller
 
         $sumaDevolucion = DB::table('pedidos_shopifies')
             ->where('id_comercial', $upuser)
-            ->where(function ($query) {
-                $query->orWhere('estado_devolucion', 'ENTREGADO EN OFICINA')
-                    ->orWhere('estado_devolucion', 'DEVOLUCION EN RUTA')
-                    ->orWhere('estado_devolucion', 'EN BODEGA')
-                ->orWhere('estado_devolucion', 'EN BODEGA PROVEEDOR');
+            // ->where(function ($query) {
+            //     $query->orWhere('estado_devolucion', 'ENTREGADO EN OFICINA')
+            //         ->orWhere('estado_devolucion', 'DEVOLUCION EN RUTA')
+            //         ->orWhere('estado_devolucion', 'EN BODEGA')
+            //     ->orWhere('estado_devolucion', 'EN BODEGA PROVEEDOR');
 
-            })
+            // })
+            ->where('estado_interno', 'CONFIRMADO')
+            ->where('estado_logistico', 'ENVIADO')
             ->where('status', 'NOVEDAD')
+            ->where(function ($query) {
+                $query->where('estado_devolucion', '<>', 'PENDIENTE')
+                    ->where(function ($query) {
+                        $query->orWhere('estado_devolucion', 'ENTREGADO EN OFICINA')
+                            ->orWhere('estado_devolucion', 'DEVOLUCION EN RUTA')
+                            ->orWhere('estado_devolucion', 'EN BODEGA')
+                            ->orWhere('estado_devolucion', 'EN BODEGA PROVEEDOR');
+                    });
+            })
             ->sum(DB::raw($sumaDevolucionInicial));
 
         // foreach ($searchWithDrawal as $retiro) {
@@ -113,7 +128,11 @@ class MiSaldoAPIController extends Controller
         // }
         $sumaRetiros = OrdenesRetiro::join('ordenes_retiros_users_permissions_user_links as l', 'ordenes_retiros.id', '=', 'l.ordenes_retiro_id')
             ->where('l.user_id', $upuser)
-            ->where('ordenes_retiros.estado', 'REALIZADO')
+            // ->where('ordenes_retiros.estado', 'REALIZADO')
+            ->where(function ($query) {
+                $query->where('ordenes_retiros.estado', 'APROBADO')
+                    ->orWhere('ordenes_retiros.estado', 'REALIZADO');
+            })
             ->sum('ordenes_retiros.monto');
 
         $responseFinal = ($sumaEntregados - ($sumaCosto + $sumaDevolucion + $sumaRetiros));
