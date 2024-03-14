@@ -20,7 +20,9 @@ class ProviderTransaction extends Model
         'origin_code',
         'provider_id',
         'comment',
-        'generated_by'
+        'generated_by',
+        'status',
+        'description'
 
         
     ];
@@ -32,9 +34,25 @@ class ProviderTransaction extends Model
         
     ];
 
-	public function pedido()
-	{
-		return $this->belongsTo(PedidosShopify::class, 'origin_id', 'id');
-	}
+    public function pedido()
+    {
+        if (strpos($this->origin_code, 'Retiro-') === false) {
+            return $this->belongsTo(PedidosShopify::class, 'origin_id', 'id');
+        } else {
+            return null;
+        }
+    }
+    public function orden_retiro()
+    {
+        if (strpos($this->origin_code, 'Retiro-') !== false) {
+            // Si el código de origen contiene 'Retiro-', devolver null
+            // return null;
+            return $this->belongsTo(OrdenesRetiro::class, 'origin_id', 'id');
+
+        } else {
+            // Si el código de origen no contiene 'Retiro-', devolver la relación con el pedido
+            return $this->belongsTo(OrdenesRetiro::class, 'origin_id', 'id');
+        }
+    }
 
 }

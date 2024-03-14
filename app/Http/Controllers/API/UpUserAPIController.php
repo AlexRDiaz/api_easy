@@ -8,6 +8,7 @@ use App\Models\Integration;
 use App\Models\Operadore;
 use App\Models\OperadoresSubRutaLink;
 use App\Models\OperadoresTransportadoraLink;
+use App\Models\OrdenesRetiro;
 use App\Models\PedidosShopify;
 use App\Models\Provider;
 use App\Models\RolesFront;
@@ -604,6 +605,31 @@ class UpUserAPIController extends Controller
         }
     }
 
+    public function getPaymentInformationfromWithdrawal($id)
+    {
+        try {
+            $ordenR = OrdenesRetiro::where("id", $id)->first();
+            if ($ordenR->account_id != null) {
+                $userId = $ordenR->id_vendedor;
+                $user = UpUser::find($userId);
+                if ($user->payment_information != null) {
+                    $decriptedData = decrypt($user->payment_information);
+                    $decodedData = json_decode($decriptedData, true);
+    
+                    foreach ($decodedData as $data) {
+                        if ($data['id'] === $ordenR->account_id) {
+                            return response()->json(['message' => 'Get successfully', 'data' => $data], Response::HTTP_OK);
+                        }
+                    }
+                }
+            } else {
+                return response()->json(['message' => 'Empty', 'data' => []], Response::HTTP_OK);
+            }
+        } catch (\Exception $e) {
+            return response()->json(['error' => 'Get failed', $e], Response::HTTP_BAD_REQUEST);
+        }
+    }
+    
 
     public function getPaymentInformation($id)
     {

@@ -163,6 +163,7 @@ Route::middleware(['cors'])->group(function () {
 
         Route::put('/users/update-paiment-information/{id}', [UpUserAPIController::class, 'updatePaymentInformation']);
         Route::get('/users/get-paiment-information/{id}', [UpUserAPIController::class, 'getPaymentInformation']);
+        Route::get('/users/get-paiment-information-from-withdrawal/{id}', [UpUserAPIController::class, 'getPaymentInformationfromWithdrawal']);
 
 
         Route::get('integrations/user/{id}', [IntegrationAPIController::class, 'getIntegrationsByUser']);
@@ -221,6 +222,7 @@ Route::middleware(['cors'])->group(function () {
     Route::put('/vendedores-cost/{id}', [App\Http\Controllers\API\VendedoreAPIController::class, 'updateRefererCost']);
 
     Route::get('/vendedores/saldo/{id}', [VendedoreAPIController::class, 'getSaldo']);
+    Route::get('/proveedores/saldo/{id}', [App\Http\Controllers\API\ProviderAPIController::class, 'getSaldoP']);
     Route::get('/vendedores/refereds/{id}', [VendedoreAPIController::class, 'getRefereds']);
     Route::get('/vendedores-principals', [App\Http\Controllers\API\VendedoreAPIController::class, 'obtenerUsuariosPrincipales']);
 

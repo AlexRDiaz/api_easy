@@ -27,6 +27,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property int|null $created_by_id
  * @property int|null $updated_by_id
  * @property string|null $id_vendedor
+ * @property int|null $rol_id
+ * @property string|null $account_id 
  * 
  * @property AdminUser|null $admin_user
  * @property Collection|OrdenesRetirosUsersPermissionsUserLink[] $ordenes_retiros_users_permissions_user_links
@@ -56,7 +58,9 @@ class OrdenesRetiro extends Model
 		'id_vendedor',
 		'account_id',
 		'previous_value',
-		'current_value'
+		'current_value',
+		'rol_id'
+
 	];
 
 	public function admin_user()

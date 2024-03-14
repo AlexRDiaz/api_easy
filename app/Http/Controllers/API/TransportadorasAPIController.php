@@ -144,7 +144,7 @@ class TransportadorasAPIController extends Controller
         }
 
         // Opcional: Verificar si el modelo es uno de los permitidos
-        $allowedModels = ['Transportadora', 'UpUser', 'Vendedore', 'UpUsersVendedoresLink', 'UpUsersRolesFrontLink', 'OrdenesRetiro','PedidosShopify'];
+        $allowedModels = ['Transportadora', 'UpUser', 'Vendedore', 'UpUsersVendedoresLink', 'UpUsersRolesFrontLink', 'OrdenesRetiro','PedidosShopify','Provider'];
         if (!in_array($modelName, $allowedModels)) {
             return response()->json(['error' => 'Acceso al modelo no permitido'], 403);
         }

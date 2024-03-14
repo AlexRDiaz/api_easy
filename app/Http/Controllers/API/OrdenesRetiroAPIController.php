@@ -62,6 +62,7 @@ class OrdenesRetiroAPIController extends Controller
         $withdrawal->codigo_generado = $resultCode;
         $withdrawal->estado = 'PENDIENTE';
         $withdrawal->id_vendedor = $idVendedor;
+        $withdrawal->rol_id = 2;
         $withdrawal->save();
 
         $ordenUser = new OrdenesRetirosUsersPermissionsUserLink();
@@ -508,8 +509,15 @@ class OrdenesRetiroAPIController extends Controller
         try {
             $transaccionesRepository = app()->make('App\Repositories\transaccionesRepository');
             $vendedorRepository = app()->make('App\Repositories\vendedorRepository');
+            $providerTransactionRepository = app()->make('App\Repositories\providerTransactionRepository');
+            $providerRepository = app()->make('App\Repositories\providerRepository');
 
-            $transactionsController = new TransaccionesAPIController($transaccionesRepository, $vendedorRepository);
+            $transactionsController = new TransaccionesAPIController(
+                $transaccionesRepository,
+                $vendedorRepository,
+                $providerTransactionRepository,
+                $providerRepository
+            );
 
 
             $data = $request->json()->all();
@@ -522,15 +530,26 @@ class OrdenesRetiroAPIController extends Controller
             $withdrawal->save();
 
             if ($withdrawal) {
-                $transactionsController->CreditLocal(
-                    $userSesion,
-                    $monto,
-                    $idOrdenRetiro,
-                    "0000",
-                    "reembolso",
-                    "reembolso orden retiro cancelada",
-                    $userSesion
-                );
+                if ($data["rol_id"] == 2) {
+                    $transactionsController->CreditLocal(
+                        $userSesion,
+                        $monto,
+                        $idOrdenRetiro,
+                        "0000",
+                        "reembolso",
+                        "reembolso orden retiro cancelada",
+                        $userSesion
+                    );
+                } else {
+                    $transactionsController->CreditLocalProvider(
+                        $userSesion,
+                        $monto,
+                        $idOrdenRetiro,
+                        "reembolso-". $idOrdenRetiro,
+                        "reembolso proveedor",
+                        $userSesion
+                    );
+                }
 
             }
 

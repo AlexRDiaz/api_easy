@@ -19,6 +19,8 @@ use App\Models\TransaccionPedidoTransportadora;
 use App\Models\TransportadorasShippingCost;
 use App\Repositories\transaccionesRepository;
 use App\Repositories\vendedorRepository;
+use App\Repositories\providerRepository;
+use App\Repositories\providerTransactionRepository;
 
 use Carbon\Carbon;
 use DateTime;
@@ -35,11 +37,16 @@ class TransaccionesAPIController extends Controller
 {
     protected $transaccionesRepository;
     protected $vendedorRepository;
+    protected $providerTransactionRepository;
+    protected $providerRepository;
 
-    public function __construct(transaccionesRepository $transaccionesRepository, vendedorRepository $vendedorRepository)
+    public function __construct(transaccionesRepository $transaccionesRepository, vendedorRepository $vendedorRepository, providerTransactionRepository $providerTransactionRepository,
+    providerRepository $providerRepository)
     {
         $this->transaccionesRepository = $transaccionesRepository;
         $this->vendedorRepository = $vendedorRepository;
+        $this->providerTransactionRepository = $providerTransactionRepository;
+        $this->providerRepository = $providerRepository;
     }
 
 
@@ -189,6 +196,54 @@ class TransaccionesAPIController extends Controller
         return response()->json("Monto acreditado");
     }
 
+    public function DebitLocalProvider(
+        $idWithdrawal,
+        $code,
+        $vendedorId,
+        $monto,
+        $transaction_type,
+        $comment,
+        $status,
+        $description,
+        $generatedby
+    ) {
+        $startDateFormatted = new DateTime();
+        $user = UpUser::where("id", $vendedorId)->with('providers')->first();
+
+        $provider = $user['providers'][0];
+        $saldo = $provider->saldo;
+        $nuevoSaldo = $saldo - $monto;
+        $user->saldo = $nuevoSaldo;
+
+        $newTrans = new ProviderTransaction();
+
+        // $newTrans->transaction_type = "Retiro";
+        $newTrans->transaction_type = $transaction_type;
+        $newTrans->amount = $monto;
+        $newTrans->previous_value = $saldo;
+        $newTrans->current_value = $nuevoSaldo;
+        // $newTrans->timestamp = $startDateFormatted;
+        $newTrans->timestamp = now();
+        $newTrans->origin_id = $idWithdrawal;
+        $newTrans->origin_code = $code;
+        $newTrans->provider_id = $user['providers'][0]['id'];
+        // $newTrans->provider_id = $user['id'];
+        // $newTrans->comment = "retiro proveedor";
+        $newTrans->comment = $comment;
+        $newTrans->generated_by = $generatedby;
+        // $newTrans->generated_by = $user['providers'][0]['id'];
+        // $newTrans->provider_id = $user['id'];
+        // $newTrans->status = "APROBADO";
+        $newTrans->status = $status;
+        // $newTrans->description = "Retiro de billetera APROBADO";
+        $newTrans->description = $description;
+
+        $this->providerTransactionRepository->create($newTrans);
+        $this->providerRepository->update($nuevoSaldo, $user['providers'][0]['id']);
+
+        return response()->json("Monto debitado");
+    }
+
     public function DebitLocal($vendedorId, $monto, $idOrigen, $codigo, $origen, $comentario, $generated_by)
     {
         $startDateFormatted = new DateTime();
@@ -253,6 +308,42 @@ class TransaccionesAPIController extends Controller
         return response()->json("Monto acreditado");
     }
 
+    public function CreditLocalProvider($vendedorId, $monto, $idOrigen, $codigo, $comentario, $generated_by)
+    {
+        $startDateFormatted = new DateTime();
+        $user = UpUser::where("id", $vendedorId)->with('providers')->first();
+        $provider = $user['providers'][0];
+        $saldo = $provider->saldo;
+        $nuevoSaldo = $saldo + $monto;
+        $provider->saldo = $nuevoSaldo;
+
+
+        // $newTrans = new Transaccion();
+        $newTrans = new ProviderTransaction();
+
+        $newTrans->transaction_type = "Reembolso";
+        $newTrans->amount = $monto;
+        $newTrans->previous_value = $saldo;
+
+        $newTrans->current_value = $nuevoSaldo;
+        // $newTrans->marca_de_tiempo = $startDateFormatted;
+        $newTrans->timestamp = now();
+        $newTrans->origin_id = $idOrigen;
+        $newTrans->origin_code = $codigo;
+        $newTrans->provider_id = $user['providers'][0]['id'];
+        $newTrans->comment = $comentario;
+        $newTrans->generated_by = $generated_by;
+        $newTrans->status = "RECHAZADO";
+        $newTrans->description = "Retiro cancelado, generado por error";
+
+
+
+        $this->providerTransactionRepository->create($newTrans);
+        $this->providerRepository->update($nuevoSaldo, $user['providers'][0]['id']);
+
+        return response()->json("Monto acreditado");
+    }
+
     public function Debit(Request $request)
     {
         $data = $request->json()->all();
@@ -299,7 +390,7 @@ class TransaccionesAPIController extends Controller
         return response()->json("Monto debitado");
     }
 
-    public function updateProductAndProviderBalance($skuProduct, $totalPrice, $quantity, $generated_by, $id_origin)
+    public function updateProductAndProviderBalance($skuProduct, $totalPrice, $quantity, $generated_by, $id_origin, $orderStatus,$codeOrder)
     {
         DB::beginTransaction();
         try {
@@ -344,10 +435,13 @@ class TransaccionesAPIController extends Controller
                 'current_value' => $provider->saldo,
                 'timestamp' => now(),
                 'origin_id' => $id_origin,
-                'origin_code' => $skuProduct,
+                'origin_code' => $codeOrder,
+                // 'origin_code' => $skuProduct,
                 'provider_id' => $providerId,
                 'comment' => $productName,
                 'generated_by' => $generated_by,
+                'status' => $orderStatus,
+                'description' => "Valor por guia ENTREGADA"
             ]);
             $providerTransaction->save();
 
@@ -378,7 +472,7 @@ class TransaccionesAPIController extends Controller
 
                 if ($order->costo_devolucion == null) { // Verifica si está vacío convirtiendo a un array
                     $order->costo_devolucion = $order->users[0]->vendedores[0]->costo_devolucion;
-                    $this->DebitLocal($order->users[0]->vendedores[0]->id_master, $order->users[0]->vendedores[0]->costo_devolucion, $order->id, $order->users[0]->vendedores[0]->nombre_comercial . "-" . $order->numero_orden, "devolucion",  "Costo de devolución desde operador por pedido en " . $order->status . " y " . $order->estado_devolucion,  $data['generated_by']);
+                    $this->DebitLocal($order->users[0]->vendedores[0]->id_master, $order->users[0]->vendedores[0]->costo_devolucion, $order->id, $order->users[0]->vendedores[0]->nombre_comercial . "-" . $order->numero_orden, "devolucion", "Costo de devolución desde operador por pedido en " . $order->status . " y " . $order->estado_devolucion, $data['generated_by']);
 
 
 
@@ -440,6 +534,9 @@ class TransaccionesAPIController extends Controller
                 $pedido->cantidad_total,
                 $data['generated_by'],
                 $data['id_origen'],
+                $pedido->status,
+                $data['codigo'],
+
                 // 22.90,
             );
 
@@ -1241,6 +1338,198 @@ class TransaccionesAPIController extends Controller
         return response()->json($transaccion);
     }
 
+    // public function rollbackTransaction(Request $request)
+    // {
+    //     DB::beginTransaction();
+
+
+    //     $data = $request->json()->all();
+    //     $generated_by = $data['generated_by'];
+
+    //     $ids = $data['ids'];
+    //     $idOrigen = $data["id_origen"];
+    //     $reqTrans = [];
+    //     $reqPedidos = [];
+
+    //     $firstIdTransaction = $ids[0];
+    //     $transactionFounded = Transaccion::where("id", $firstIdTransaction)->first();
+    //     $idTransFounded = $transactionFounded->id_origen;
+    //     $providerTransaction = ProviderTransaction::where("origin_id", $idTransFounded)->first();
+    //     // $totalIds = count($ids);
+
+    //     // $shouldProcessProviderTransaction = $totalIds == 3 || $totalIds == 6;
+    //     // $shouldProcessProviderTransaction = $totalIds == 3;
+    //     $shouldProcessProviderTransaction = $providerTransaction != null && $providerTransaction->state == 1;
+
+
+    //     try {
+    //         //code...
+    //         $transaction = null;
+
+    //         foreach ($ids as $id) {
+
+    //             $transaction = Transaccion::where("id", $id)->first();
+
+    //             if ($transaction->origen == "retiro") {
+    //                 $retiro = OrdenesRetiro::find($transaction->id_origen);
+    //                 $retiro->estado = "RECHAZADO";
+
+    //                 if ($transaction->tipo == "debit") {
+    //                     $this->CreditLocal(
+    //                         $transaction->id_vendedor,
+    //                         $transaction->monto,
+    //                         $transaction->id_origen,
+    //                         $transaction->codigo,
+    //                         "reembolso",
+    //                         "reembolso por retiro cancelado",
+    //                         $generated_by
+    //                     );
+    //                 }
+    //             } else {
+
+    //                 $order = PedidosShopify::find($transaction->id_origen);
+    //                 if ($order->status != "PEDIDO PROGRAMADO") {
+    //                     $order->status = "PEDIDO PROGRAMADO";
+    //                     $order->estado_devolucion = "PENDIENTE";
+    //                     $order->costo_devolucion = null;
+    //                     $order->costo_envio = null;
+    //                     $order->costo_transportadora = null;
+    //                     $order->estado_interno = "PENDIENTE";
+    //                     $order->estado_logistico = "PENDIENTE";
+    //                     $order->estado_pagado = "PENDIENTE";
+    //                     $order->save();
+    //                 }
+
+
+
+    //                 array_push($reqTrans, $transaction);
+    //                 $pedido = PedidosShopify::where("id", $transaction->id_origen)->first();
+
+    //                 if ($transaction->state == 1) {
+
+    //                     array_push($reqPedidos, $pedido);
+
+    //                     $vendedor = UpUser::find($transaction->id_vendedor)->vendedores;
+    //                     if ($transaction->tipo == "credit") {
+    //                         $this->DebitLocal(
+    //                             $transaction->id_vendedor,
+    //                             $transaction->monto,
+    //                             $transaction->id_origen,
+    //                             $transaction->codigo,
+    //                             "reembolso",
+    //                             "reembolso por restauracion de pedido",
+    //                             $generated_by
+    //                         );
+    //                     }
+    //                     if ($transaction->tipo == "debit") {
+    //                         $this->CreditLocal(
+    //                             $transaction->id_vendedor,
+    //                             $transaction->monto,
+    //                             $transaction->id_origen,
+    //                             $transaction->codigo,
+    //                             "reembolso",
+    //                             "reembolso por restauracion de pedido",
+    //                             $generated_by
+    //                         );
+    //                     }
+    //                     $transaction->state = 0;
+    //                     $transaction->save();
+    //                     $this->vendedorRepository->update($vendedor[0]->saldo, $vendedor[0]->id);
+    //                 }
+    //             }
+    //         }
+    //         if ($shouldProcessProviderTransaction) {
+    //             if (isset($transaction)) { // Verifica si $transaction está definida
+    //                 $idOriginOfTransaction = $transaction->id_origen;
+
+    //                 $providerTransaction = ProviderTransaction::where("origin_id", $idOriginOfTransaction)->first();
+
+    //                 if ($providerTransaction && $providerTransaction->state == 1) {
+    //                     // error_log("$transaction->id_vendedor");
+    //                     $productId = substr($providerTransaction->origin_code, strrpos($providerTransaction->origin_code, 'C') + 1);
+
+    //                     // Buscar el producto por ID
+    //                     $product = Product::with('warehouse')->find($productId);
+
+    //                     // if ($product === null) {
+    //                     //     DB::commit();
+    //                     //     return ["total" => null, "valor_producto" => null, "error" => "Product Not Found!"];
+    //                     // }
+
+    //                     $providerId = $product->warehouse->provider_id;
+
+    //                     $user = Provider::with("user")->where("id", $providerId)->first();
+    //                     $userId = $user->user->id;
+
+    //                     error_log("1.$providerTransaction->origin_id");
+    //                     error_log("2.$providerTransaction->origin_code");
+    //                     error_log("3.$userId");
+    //                     error_log("4.$providerTransaction->amount");
+
+    //                     $this->DebitLocalProvider(
+    //                         $providerTransaction->origin_id,
+    //                         $providerTransaction->origin_code,
+    //                         $userId,
+    //                         $providerTransaction->amount,
+    //                         "Restauracion",
+    //                         "Restauracion de Guia",
+    //                         "RESTAURACION",
+    //                         "Restauracion de Valores de Guia",
+    //                         $generated_by
+    //                     );
+    //                     $providerTransaction->state = 0;
+    //                     $providerTransaction->save();
+    //                 }
+    //             }
+    //         }
+
+
+    //         //  *
+    //         $transactionOrderCarrier = TransaccionPedidoTransportadora::where("id_pedido", $idOrigen)->first();
+    //         // error_log("transactionOrderCarrier");
+    //         if ($transactionOrderCarrier != null) {
+    //             error_log("exist data tpt");
+    //             // error_log("delete from tpt $transactionOrderCarrier->id");
+    //             $deliveredDate = $transactionOrderCarrier->fecha_entrega;
+    //             $tptCarrierId = $transactionOrderCarrier->id_transportadora;
+    //             $tpt = new TransaccionPedidoTransportadoraAPIController();
+    //             $tpt->destroy($transactionOrderCarrier->id);
+    //             // error_log("**** need to recal tsc ****");
+    //             $dateFormatted = Carbon::createFromFormat('j/n/Y', $deliveredDate)->format('Y-m-d');
+
+    //             $transportadoraShippingCost = TransportadorasShippingCost::where('id_transportadora', $tptCarrierId)
+    //                 ->whereDate('time_stamp', $dateFormatted)
+    //                 ->first();
+    //             // error_log("upt from tsc $transportadoraShippingCost");
+
+    //             if ($transportadoraShippingCost != null) {
+    //                 // error_log("exists data transShippingCost");
+    //                 $tsc = new TransportadorasShippingCostAPIController();
+    //                 $tsc->recalculateValues($transportadoraShippingCost->id, $deliveredDate, $tptCarrierId);
+    //                 // error_log("updated data transShippingCost");
+    //             } else {
+    //                 error_log("no data tsc");
+    //             }
+    //         } else {
+    //             error_log("no data tpt");
+    //         }
+    //         //  **
+    //         $pedidos = !empty($ids) ? $ids[0] : null;
+
+    //         DB::commit();
+    //         return response()->json([
+    //             "transacciones" => $transaction,
+    //             "pedidos" => $pedidos
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         DB::rollback();
+    //         return response()->json([
+    //             'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage(),
+    //             "req" => $reqTrans
+    //         ], 500);
+    //     }
+    // }
+
     public function rollbackTransaction(Request $request)
     {
         DB::beginTransaction();
@@ -1254,8 +1543,20 @@ class TransaccionesAPIController extends Controller
         $reqTrans = [];
         $reqPedidos = [];
 
+        $firstIdTransaction = $ids[0];
+        $transactionFounded = Transaccion::where("id", $firstIdTransaction)->first();
+        $idTransFounded = $transactionFounded->id_origen;
+        $providerTransaction = ProviderTransaction::where("origin_id", $idTransFounded)->first();
+        // $totalIds = count($ids);
+
+        // $shouldProcessProviderTransaction = $totalIds == 3 || $totalIds == 6;
+        // $shouldProcessProviderTransaction = $totalIds == 3;
+        $shouldProcessProviderTransaction = $providerTransaction != null && $providerTransaction->state == 1;
+
+
         try {
             //code...
+            $transaction = null;
 
             foreach ($ids as $id) {
 
@@ -1285,6 +1586,9 @@ class TransaccionesAPIController extends Controller
                         $order->costo_devolucion = null;
                         $order->costo_envio = null;
                         $order->costo_transportadora = null;
+                        $order->estado_interno = "PENDIENTE";
+                        $order->estado_logistico = "PENDIENTE";
+                        $order->estado_pagado = "PENDIENTE";
                         $order->save();
                     }
 
@@ -1326,6 +1630,51 @@ class TransaccionesAPIController extends Controller
                     }
                 }
             }
+            if ($shouldProcessProviderTransaction) {
+                if (isset($transaction)) { // Verifica si $transaction está definida
+                    $idOriginOfTransaction = $transaction->id_origen;
+
+                    $providerTransaction = ProviderTransaction::where("origin_id", $idOriginOfTransaction)->first();
+
+                    if ($providerTransaction && $providerTransaction->state == 1) {
+                        // error_log("$transaction->id_vendedor");
+                        $productId = substr($providerTransaction->origin_code, strrpos($providerTransaction->origin_code, 'C') + 1);
+
+                        // Buscar el producto por ID
+                        $product = Product::with('warehouse')->find($productId);
+
+                        // if ($product === null) {
+                        //     DB::commit();
+                        //     return ["total" => null, "valor_producto" => null, "error" => "Product Not Found!"];
+                        // }
+
+                        $providerId = $product->warehouse->provider_id;
+
+                        $user = Provider::with("user")->where("id", $providerId)->first();
+                        $userId = $user->user->id;
+
+                        error_log("1.$providerTransaction->origin_id");
+                        error_log("2.$providerTransaction->origin_code");
+                        error_log("3.$userId");
+                        error_log("4.$providerTransaction->amount");
+
+                        $this->DebitLocalProvider(
+                            $providerTransaction->origin_id,
+                            $providerTransaction->origin_code,
+                            $userId,
+                            $providerTransaction->amount,
+                            "Restauracion",
+                            "Restauracion de Guia",
+                            "RESTAURACION",
+                            "Restauracion de Valores de Guia",
+                            $generated_by
+                        );
+                        $providerTransaction->state = 0;
+                        $providerTransaction->save();
+                    }
+                }
+            }
+
 
             //  *
             $transactionOrderCarrier = TransaccionPedidoTransportadora::where("id_pedido", $idOrigen)->first();
@@ -1357,20 +1706,22 @@ class TransaccionesAPIController extends Controller
                 error_log("no data tpt");
             }
             //  **
+            $pedidos = !empty($ids) ? $ids[0] : null;
 
             DB::commit();
             return response()->json([
                 "transacciones" => $transaction,
-                "pedidps" => $ids[0]
-
+                "pedidos" => $pedidos
             ]);
         } catch (\Exception $e) {
             DB::rollback();
             return response()->json([
-                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage(),
+                "req" => $reqTrans
             ], 500);
         }
     }
+
 
     public function debitWithdrawal(Request $request, $id)
     {
@@ -1390,41 +1741,77 @@ class TransaccionesAPIController extends Controller
                 $orden->save();
                 $orden->monto = str_replace(',', '.', $orden->monto);
 
-                $lastTransaccion = Transaccion::where('id_origen', $id)
-                    ->orderBy('id', 'desc')
-                    ->first();
+                $rolInvoke = $data['rol_id'];
 
-                if ($lastTransaccion == null) {
-                    error_log("Nuevo registro");
-                    $this->DebitLocal($orden->id_vendedor, $orden->monto, $orden->id, "retiro-" . $orden->id, 'retiro', 'debito por retiro ' . $orden->estado, $data['generated_by']);
-                } else {
-                    if ($lastTransaccion->tipo != "debit" && $lastTransaccion->origen != "retiro") {
-                        error_log("El ultimo registro con id_origen:$id se encuentra en $lastTransaccion->origen");
+                $lastTransaccion = null;
+
+                if ($rolInvoke == "2") {
+                    $lastTransaccion = Transaccion::where('id_origen', $id)
+                        ->orderBy('id', 'desc')
+                        ->first();
+
+                    if ($lastTransaccion == null) {
+                        error_log("Nuevo registro");
                         $this->DebitLocal($orden->id_vendedor, $orden->monto, $orden->id, "retiro-" . $orden->id, 'retiro', 'debito por retiro ' . $orden->estado, $data['generated_by']);
                     } else {
-                        error_log("El ultimo registro con id_origen:$id se encuentra en debit just update comment");
-                        $lastTransaccion->comentario = 'debito por retiro ' . $orden->estado;
-                        $lastTransaccion->save();
+                        if ($lastTransaccion->tipo != "debit" && $lastTransaccion->origen != "retiro") {
+                            error_log("El ultimo registro con id_origen:$id se encuentra en $lastTransaccion->origen");
+                            $this->DebitLocal($orden->id_vendedor, $orden->monto, $orden->id, "retiro-" . $orden->id, 'retiro', 'debito por retiro ' . $orden->estado, $data['generated_by']);
+                        } else {
+                            error_log("El ultimo registro con id_origen:$id se encuentra en debit just update comment");
+                            $lastTransaccion->comentario = 'debito por retiro ' . $orden->estado;
+                            $lastTransaccion->save();
+                        }
+                    }
+                } else {
+                    error_log("$rolInvoke");
+                    $lastTransaccion = ProviderTransaction::where('origin_id', $id)
+                        ->orderBy('id', 'desc')
+                        ->first();
+                        
+                        error_log("$lastTransaccion");
+                    
+                    if ($lastTransaccion == null) {
+                        error_log("Nuevo registro");
+                        $this->DebitLocalProvider(
+                            $orden->id,
+                            "Retiro-".$orden->id,
+                            $orden->id_vendedor,
+                            $orden->monto,
+                            "Retiro",
+                            "retiro proveedor",
+                            "APROBADO",
+                            "Retiro de billetera APROBADO",
+                            $data['generated_by']
+                        );
+                    } else {
+                        // ! falta validar la condicion del if
+                        if (
+                            // $lastTransaccion->tipo != "debit"
+                            // && $lastTransaccion->origen != "retiro"
+                            $lastTransaccion->transaction_type != "Retiro"
+                        ) {
+                            error_log("El ultimo registro con id_origen:$id se encuentra en $lastTransaccion->origen");
+
+                            $this->DebitLocalProvider(
+                                $orden->id,
+                                "Retiro-".$orden->id,
+                                $orden->id_vendedor,
+                                $orden->monto,
+                                "Retiro",
+                                "retiro proveedor",
+                                "APROBADO",
+                                "Retiro de billetera APROBADO",
+                                $data['generated_by']
+                            );
+                        } else {
+                            error_log("El ultimo registro con id_origen:$id se encuentra en debit just update comment");
+                            $lastTransaccion->comment = 'debito por retiro ' . $orden->estado;
+                            $lastTransaccion->save();
+                        }
                     }
                 }
-
-                DB::commit();
-                return response()->json([
-                    "res" => "transaccion exitosa",
-                    "orden" => $orden
-                ]);
-            } else {
-                return response()->json([
-                    "error" => "Solicitud no tiene estado APROBADO",
-                    Response::HTTP_BAD_REQUEST
-                ]);
             }
-        } catch (\Exception $e) {
-            DB::rollback(); // En caso de error, revierte todos los cambios realizados en la transacción
-            // Maneja el error aquí si es necesario
-            return response()->json([
-                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
-            ], 500);
         }
     }
 
@@ -1442,8 +1829,9 @@ class TransaccionesAPIController extends Controller
             $withdrawal->fecha = date("d/m/Y H:i:s");
             $withdrawal->codigo_generado = $data["codigo"];
             $withdrawal->estado = 'APROBADO';
-            $withdrawal->id_vendedor =  $data["id_vendedor"];
-            $withdrawal->account_id = "EEEETEST";
+            $withdrawal->id_vendedor = $data["id_vendedor"];
+            $withdrawal->account_id = $data["id_account"];
+            // $withdrawal->account_id = "EEEETEST";
 
             $withdrawal->save();
 
@@ -1452,7 +1840,20 @@ class TransaccionesAPIController extends Controller
             $ordenUser->user_id = $id;
             $ordenUser->save();
 
-            $this->DebitLocal($data["id_vendedor"], $data["monto"], $withdrawal->id, "retiro-" . $withdrawal->id, "retiro", "debito por retiro solicitado", $data["id_vendedor"]);
+            // $this->DebitLocal($data["id_vendedor"], $data["monto"], $withdrawal->id, "retiro-" . $withdrawal->id, "retiro", "debito por retiro solicitado", $data["id_vendedor"]);
+            
+            $this->DebitLocalProvider(
+                $withdrawal->id,
+                "Retiro-" . $withdrawal->id,
+                $data["id_vendedor"],
+                $data["monto"],
+                "Retiro",
+                "retiro proveedor",
+                "APROBADO",
+                "Retiro de billetera APROBADO",
+                $data["id_vendedor"]
+            );
+
             DB::commit();
             return response()->json(["response" => "solicitud generada exitosamente", "solicitud" => $withdrawal], Response::HTTP_OK);
         } catch (\Exception $e) {

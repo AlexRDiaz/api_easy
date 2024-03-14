@@ -9,6 +9,8 @@ use App\Models\Provider;
 use App\Models\UpUser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+
 
 /**
  * Class ProviderAPIController
@@ -70,5 +72,19 @@ class ProviderAPIController extends Controller
 
         // Respuesta de éxito
         return response()->json(['message' => 'Registro actualizado con éxito', "res" => $provider], 200);
+    }
+    public function getSaldoP($id)
+    {
+        $provider = Provider::where("user_id",$id)->first();
+        $saldo = $provider->saldo;
+
+        // whereHas('user', function ($query) use ($id) {
+            // $query->where('user.user_id', $id);
+        // })->first();
+        if (!$saldo) {
+            return response()->json(['message' => 'Provider not found'], Response::HTTP_NOT_FOUND);
+        }
+        return response()->json(['saldo' => $saldo], Response::HTTP_OK);
+        // return response()->json(['saldo' => $saldo], Response::HTTP_OK);
     }
 }
