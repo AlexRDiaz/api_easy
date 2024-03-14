@@ -145,13 +145,14 @@ class TransportadorasAPIController extends Controller
 
         // Opcional: Verificar si el modelo es uno de los permitidos
         $allowedModels = ['Transportadora', 'UpUser', 'Vendedore', 'UpUsersVendedoresLink', 'UpUsersRolesFrontLink', 'OrdenesRetiro','PedidosShopify','Provider'];
+
         if (!in_array($modelName, $allowedModels)) {
             return response()->json(['error' => 'Acceso al modelo no permitido'], 403);
         }
 
         if (isset($data['data_filter'])) {
             $dateFilter = $data["date_filter"];
-            $selectedFilter = "fecha_entrega";
+                $selectedFilter = "fecha_entrega";
             if ($dateFilter != "FECHA ENTREGA") {
                 $selectedFilter = "marca_tiempo_envio";
             }
@@ -204,6 +205,8 @@ class TransportadorasAPIController extends Controller
                     $databackend->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
                 }
             }
+
+
         })
             ->where((function ($databackend) use ($Map) {
                 foreach ($Map as $condition) {
@@ -227,13 +230,6 @@ class TransportadorasAPIController extends Controller
             }))->where((function ($databackend) use ($not) {
                 foreach ($not as $condition) {
                     foreach ($condition as $key => $valor) {
-                        // if (strpos($key, '.') !== false) {
-                        //     $relacion = substr($key, 0, strpos($key, '.'));
-                        //     $propiedad = substr($key, strpos($key, '.') + 1);
-                        //     $this->recursiveWhereHas($databackend, $relacion, $propiedad, $valor);
-                        // } else {
-                        //     $databackend->where($key, '!=', $valor);
-                        // }
                         if ($valor === '') {
                             $databackend->whereRaw("$key <> ''");
                         } else {
@@ -259,7 +255,6 @@ class TransportadorasAPIController extends Controller
 
         return response()->json($databackend);
     }
-
     private function recursiveWhereHas($query, $relation, $property, $searchTerm)
     {
         if ($searchTerm == "null") {
