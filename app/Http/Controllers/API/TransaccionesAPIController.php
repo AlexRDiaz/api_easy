@@ -1812,6 +1812,11 @@ class TransaccionesAPIController extends Controller
                     }
                 }
             }
+        } catch (\Exception $e) {
+            DB::rollback();
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage(),
+            ], 500);
         }
     }
 
