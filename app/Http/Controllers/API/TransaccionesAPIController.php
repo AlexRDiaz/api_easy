@@ -1738,21 +1738,21 @@ class TransaccionesAPIController extends Controller
                 // $orden->fecha_transferencia = $data['fecha_transferencia'];
                 $orden->fecha_transferencia = date("d/m/Y H:i:s");
                 $orden->updated_at = new DateTime();
-                $orden->save();
                 $orden->monto = str_replace(',', '.', $orden->monto);
+                $orden->save();
 
                 $rolInvoke = $data['rol_id'];
 
-                $lastTransaccion = null;
+                if ($rolInvoke != 5 ) {
 
-                if ($rolInvoke == "2") {
                     $lastTransaccion = Transaccion::where('id_origen', $id)
                         ->orderBy('id', 'desc')
                         ->first();
 
                     if ($lastTransaccion == null) {
                         error_log("Nuevo registro");
-                        $this->DebitLocal($orden->id_vendedor, $orden->monto, $orden->id, "retiro-" . $orden->id, 'retiro', 'debito por retiro ' . $orden->estado, $data['generated_by']);
+                        $trans = $this->DebitLocal($orden->id_vendedor, $orden->monto, $orden->id, "retiro-" . $orden->id, 'retiro', 'debito por retiro ' . $orden->estado, $data['generated_by']);
+                        error_log($trans);
                     } else {
                         if ($lastTransaccion->tipo != "debit" && $lastTransaccion->origen != "retiro") {
                             error_log("El ultimo registro con id_origen:$id se encuentra en $lastTransaccion->origen");
@@ -1764,12 +1764,9 @@ class TransaccionesAPIController extends Controller
                         }
                     }
                 } else {
-                    error_log("$rolInvoke");
                     $lastTransaccion = ProviderTransaction::where('origin_id', $id)
                         ->orderBy('id', 'desc')
                         ->first();
-                        
-                        error_log("$lastTransaccion");
                     
                     if ($lastTransaccion == null) {
                         error_log("Nuevo registro");
@@ -1812,6 +1809,7 @@ class TransaccionesAPIController extends Controller
                     }
                 }
             }
+            DB::commit();
         } catch (\Exception $e) {
             DB::rollback();
             return response()->json([
