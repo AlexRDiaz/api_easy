@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Controllers\API\CarrierCoverageAPIController;
+use App\Http\Controllers\API\CarrierExternalAPIController;
+use App\Http\Controllers\API\DpaProvinciaAPIController;
 use App\Http\Controllers\API\GenerateReportAPIController;
 use App\Http\Controllers\API\IntegrationAPIController;
 use App\Http\Controllers\API\OrdenesRetiroAPIController;
@@ -521,6 +524,28 @@ Route::middleware(['cors'])->group(function () {
         Route::post('approvewithdrawal/{id}', [TransaccionesAPIController::class, 'approveWhitdrawal']);
     });
 
+    //  *
+    Route::prefix('provincias')->group(function () {
+        Route::get('/', [DpaProvinciaAPIController::class, 'index']);
+        Route::get('cantones/{id}', [DpaProvinciaAPIController::class, 'getCantones']);
+    });
+
+    //  *
+    Route::prefix('carrierexternal')->group(function () {
+        Route::post('all/', [CarrierExternalAPIController::class, 'index']);
+        // Route::get('cantones/{id}', [DpaProvinciaAPIController::class, 'getCantones']);
+        Route::get('/{id}', [CarrierExternalAPIController::class, 'show']);
+        Route::post('/', [CarrierExternalAPIController::class, 'store']);
+        Route::put('/{id}', [CarrierExternalAPIController::class, 'update']);
+        Route::post('coveragebyprov', [CarrierExternalAPIController::class, 'getCoverageByProvincia']);
+        Route::post('newcoverage/', [CarrierExternalAPIController::class, 'newCoverage']);
+    });
+
+    //  *
+    Route::prefix('carriercoverage')->group(function () {
+        Route::post('all', [CarrierCoverageAPIController::class, 'getAll']);
+        Route::put('/{id}', [CarrierCoverageAPIController::class, 'update']);
+    });
 });
 
 // api/upload

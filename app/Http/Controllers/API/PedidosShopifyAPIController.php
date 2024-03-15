@@ -20,6 +20,7 @@ use App\Models\TransaccionPedidoTransportadora;
 use App\Models\TransportStats;
 use App\Models\UpUser;
 use App\Models\UpUsersPedidosShopifiesLink;
+use App\Models\Vendedore;
 use Carbon\Carbon;
 use DateTime;
 use GuzzleHttp\Client;
