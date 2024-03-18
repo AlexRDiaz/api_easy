@@ -1586,9 +1586,9 @@ class TransaccionesAPIController extends Controller
                         $order->costo_devolucion = null;
                         $order->costo_envio = null;
                         $order->costo_transportadora = null;
-                        $order->estado_interno = "PENDIENTE";
-                        $order->estado_logistico = "PENDIENTE";
-                        $order->estado_pagado = "PENDIENTE";
+                        // $order->estado_interno = "PENDIENTE";
+                        // $order->estado_logistico = "PENDIENTE";
+                        // $order->estado_pagado = "PENDIENTE";
                         $order->save();
                     }
 
