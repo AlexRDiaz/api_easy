@@ -527,7 +527,8 @@ Route::middleware(['cors'])->group(function () {
     //  *
     Route::prefix('provincias')->group(function () {
         Route::get('/', [DpaProvinciaAPIController::class, 'index']);
-        Route::get('cantones/{id}', [DpaProvinciaAPIController::class, 'getCantones']);
+        // Route::get('cantones/{id}', [DpaProvinciaAPIController::class, 'getCantones']);
+        Route::get('coverages/{id}', [DpaProvinciaAPIController::class, 'getCoverages']);
     });
 
     //  *

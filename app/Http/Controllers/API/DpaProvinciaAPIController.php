@@ -109,4 +109,13 @@ class DpaProvinciaAPIController extends Controller
 
         return response()->json($formattedData);
     }
+
+    public function getCoverages(string $id)
+    {
+        $coverageExternal = dpaProvincia::with(['coverage_externals'])
+            ->where('id', $id)
+            ->get(['id', 'provincia']); // Selecciona solo los campos 'id' y 'provincia' de dpaProvincia
+
+        return response()->json($coverageExternal);
+    }
 }
