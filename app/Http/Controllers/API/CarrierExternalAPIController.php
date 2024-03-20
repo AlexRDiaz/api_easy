@@ -216,7 +216,7 @@ class CarrierExternalAPIController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Ocurrió un error al consultar: ' . $e->getMessage()
-            ], 500);
+            ], 508);
         }
     }
 
