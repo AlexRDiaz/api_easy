@@ -201,7 +201,7 @@ class CarrierExternalAPIController extends Controller
     {
         //
         try {
-            // error_log("CarrierExternalAPIController-show");
+            error_log("CarrierExternalAPIController-show");
             // $carriers = CarriersExternal::with('carrier_coverages')
             //     ->where('id', $id)
             //     ->get();
@@ -209,8 +209,8 @@ class CarrierExternalAPIController extends Controller
             $carriers = CarriersExternal::with(['carrier_coverages' => function ($query) {
                 $query->where('active', 1);
             }])
-                ->where('id', $id)
-                ->get();
+            ->where('id', $id)
+            ->get();
 
             return response()->json(['data' => $carriers]);
         } catch (\Exception $e) {
