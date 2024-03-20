@@ -544,11 +544,11 @@ Route::middleware(['cors'])->group(function () {
 
     //  *
     Route::prefix('carriercoverage')->group(function () {
-        Route::post('all', [CarrierCoverageAPIController::class, 'getAll']);
+        Route::post('/all', [CarrierCoverageAPIController::class, 'getAll']);
         Route::put('/{id}', [CarrierCoverageAPIController::class, 'update']);
     });
 
-    Route::post('carrierexternal/showbyid/{id}', [App\Http\Controllers\API\CarrierExternalAPIController::class, 'show']);
+    Route::get('carrierexternal/showbyid/{id}', [App\Http\Controllers\API\CarrierExternalAPIController::class, 'show']);
 
 });
 
