@@ -547,6 +547,9 @@ Route::middleware(['cors'])->group(function () {
         Route::post('all', [CarrierCoverageAPIController::class, 'getAll']);
         Route::put('/{id}', [CarrierCoverageAPIController::class, 'update']);
     });
+
+    Route::post('carrierexternal/showbyid/{id}', [App\Http\Controllers\API\CarrierExternalAPIController::class, 'show']);
+
 });
 
 // api/upload
