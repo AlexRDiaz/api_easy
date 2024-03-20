@@ -208,24 +208,24 @@ class CarrierExternalAPIController extends Controller
             //     ->where('id', $id)
             //     ->get();
             // return response()->json($carriers, 200);
+            $carriers = null;
             try {
                 $carriers = CarriersExternal::with(['carrier_coverages' => function ($query) {
                     $query->where('active', 1);
                 }])
                     ->where('id', $id)
                     ->first();
-
-                if ($carriers == null) {
-                    return response()->json(['message' => 'Not Found!'], 404);
-                }
-
-                return response()->json(['data' => $carriers]);
-                
             } catch (\Exception $e) {
                 return response()->json([
                     'error' => 'Ocurrió un error al consultar: ' . $e->getMessage()
-                ], 500);
+                ], 505);
             }
+
+            if ($carriers == null) {
+                return response()->json(['message' => 'Not Found!'], 404);
+            }
+
+            return response()->json(['data' => $carriers]);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Ocurrió un error al consultar: ' . $e->getMessage()
