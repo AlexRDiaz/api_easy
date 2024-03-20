@@ -212,15 +212,15 @@ class CarrierExternalAPIController extends Controller
                 ->where('id', $id)
                 ->get();
 
-            // if (!$carriers) {
-            //     return response()->json(['message' => 'Not Found!'], 404);
-            // }
+            if ($carriers->isEmpty()) {
+                return response()->json(['message' => 'Not Found!'], 404);
+            }
 
             return response()->json(['data' => $carriers]);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'Ocurrió un error al consultar: ' . $e->getMessage()
-            ], 508);
+            ], 500);
         }
     }
 
