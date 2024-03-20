@@ -533,8 +533,9 @@ Route::middleware(['cors'])->group(function () {
 
     //  *
     Route::prefix('carrierexternal')->group(function () {
-        Route::post('/all', [CarrierExternalAPIController::class, 'index']);
-        Route::get('/show/{id}', [CarrierExternalAPIController::class, 'show']);
+        Route::post('all/', [CarrierExternalAPIController::class, 'index']);
+        // Route::get('cantones/{id}', [DpaProvinciaAPIController::class, 'getCantones']);
+        Route::get('/{id}', [CarrierExternalAPIController::class, 'show']);
         Route::post('/', [CarrierExternalAPIController::class, 'store']);
         Route::put('/{id}', [CarrierExternalAPIController::class, 'update']);
         Route::post('/coveragebyprov', [CarrierExternalAPIController::class, 'getCoverageByProvincia']);
@@ -546,9 +547,6 @@ Route::middleware(['cors'])->group(function () {
         Route::post('/all', [CarrierCoverageAPIController::class, 'getAll']);
         Route::put('/{id}', [CarrierCoverageAPIController::class, 'update']);
     });
-
-    Route::get('carrierexternal/showbyid/{id}', [App\Http\Controllers\API\CarrierExternalAPIController::class, 'show']);
-
 });
 
 // api/upload
