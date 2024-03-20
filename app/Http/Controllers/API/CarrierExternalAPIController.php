@@ -208,11 +208,13 @@ class CarrierExternalAPIController extends Controller
             //     ->where('id', $id)
             //     ->get();
             // return response()->json($carriers, 200);
-            $carriers = CarriersExternal::with(['carrier_coverages'])
+            $carriers = CarriersExternal::with(['carrier_coverages' => function ($query) {
+                $query->where('active', 1);
+            }])
                 ->where('id', $id)
-                ->get();
+                ->first();
 
-            if ($carriers->isEmpty()) {
+            if ($carriers==null) {
                 return response()->json(['message' => 'Not Found!'], 404);
             }
 
