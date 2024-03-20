@@ -533,13 +533,13 @@ Route::middleware(['cors'])->group(function () {
 
     //  *
     Route::prefix('carrierexternal')->group(function () {
-        Route::post('all/', [CarrierExternalAPIController::class, 'index']);
+        Route::post('/all', [CarrierExternalAPIController::class, 'index']);
         // Route::get('cantones/{id}', [DpaProvinciaAPIController::class, 'getCantones']);
         Route::get('/{id}', [CarrierExternalAPIController::class, 'show']);
         Route::post('/', [CarrierExternalAPIController::class, 'store']);
         Route::put('/{id}', [CarrierExternalAPIController::class, 'update']);
-        Route::post('coveragebyprov', [CarrierExternalAPIController::class, 'getCoverageByProvincia']);
-        Route::post('newcoverage/', [CarrierExternalAPIController::class, 'newCoverage']);
+        Route::post('/coveragebyprov', [CarrierExternalAPIController::class, 'getCoverageByProvincia']);
+        Route::post('/newcoverage', [CarrierExternalAPIController::class, 'newCoverage']);
     });
 
     //  *
