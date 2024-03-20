@@ -531,17 +531,18 @@ Route::middleware(['cors'])->group(function () {
         Route::get('coverages/{id}', [DpaProvinciaAPIController::class, 'getCoverages']);
     });
 
+    /*
     //  *
     Route::prefix('carrierexternal')->group(function () {
-        Route::post('/all', [App\Http\Controllers\API\CarrierExternalAPIController::class, 'index']);
+        Route::post('/all', [CarrierExternalAPIController::class, 'index']);
         // Route::get('cantones/{id}', [DpaProvinciaAPIController::class, 'getCantones']);
-        Route::get('/{id}', [App\Http\Controllers\API\CarrierExternalAPIController::class, 'show']);
+        Route::get('/{id}', [CarrierExternalAPIController::class, 'show']);
         Route::post('/', [CarrierExternalAPIController::class, 'store']);
         Route::put('/{id}', [CarrierExternalAPIController::class, 'update']);
         Route::post('/coveragebyprov', [CarrierExternalAPIController::class, 'getCoverageByProvincia']);
         Route::post('/newcoverage', [CarrierExternalAPIController::class, 'newCoverage']);
     });
-
+*/
     //  *
     Route::prefix('carriercoverage')->group(function () {
         Route::post('/all', [CarrierCoverageAPIController::class, 'getAll']);
@@ -587,6 +588,17 @@ Route::prefix('stockhistory')->group(function () {
     Route::get('byproduct/{id}', [StockHistoryAPIController::class, 'showByProduct']);
 });
 
+
+ //  *
+ Route::prefix('carrierexternal')->group(function () {
+    Route::post('/all', [CarrierExternalAPIController::class, 'index']);
+    // Route::get('cantones/{id}', [DpaProvinciaAPIController::class, 'getCantones']);
+    Route::get('/{id}', [CarrierExternalAPIController::class, 'show']);
+    Route::post('/', [CarrierExternalAPIController::class, 'store']);
+    Route::put('/{id}', [CarrierExternalAPIController::class, 'update']);
+    Route::post('/coveragebyprov', [CarrierExternalAPIController::class, 'getCoverageByProvincia']);
+    Route::post('/newcoverage', [CarrierExternalAPIController::class, 'newCoverage']);
+});
 
 
 Route::post('operadoresoftransport', [App\Http\Controllers\API\UpUserAPIController::class, 'getOperatorsTransportLaravel']);
