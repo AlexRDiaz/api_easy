@@ -396,12 +396,13 @@ class CarrierExternalAPIController extends Controller
     public function showById(string $id)
     {
         //
+        ini_set('memory_limit', '512M');
         try {
             error_log("CarrierExternalAPIController-showById");
             error_log("$id");
 
             $carriers = null;
-            try {
+            // try {
                 $carriers = CarriersExternal::with(['carrier_coverages' => function ($query) {
                     $query->where('active', 1);
                 }])
@@ -409,13 +410,13 @@ class CarrierExternalAPIController extends Controller
                     ->get();
 
                 // ->first();
-            } catch (\Exception $e) {
-                error_log("ERRORRR showById $e");
+            // } catch (\Exception $e) {
+            //     error_log("ERRORRR showById $e");
 
-                return response()->json([
-                    'ERRORRR showById: ' . $e
-                ], 505);
-            }
+            //     return response()->json([
+            //         'ERRORRR showById: ' . $e
+            //     ], 505);
+            // }
 
             //this works
             // $carriers = CarriersExternal::where('id', $id)
