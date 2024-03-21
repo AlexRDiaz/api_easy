@@ -18,6 +18,8 @@ class CarrierExternalAPIController extends Controller
     public function index(Request $request)
     {
 
+        error_log("CarrierExternalAPIController-index");
+        error_log("$request");
         $data = $request->json()->all();
         $searchTerm = $data['search'];
 
@@ -201,7 +203,8 @@ class CarrierExternalAPIController extends Controller
     {
         //
         try {
-            error_log("CarrierExternalAPIController-show");
+            error_log("CarrierExternalAPIController-index");
+            error_log("$id");
             // return response()->json(['CarrierExternalAPIController-show']);
 
             // $carriers = CarriersExternal::with('carrier_coverages')
@@ -214,14 +217,17 @@ class CarrierExternalAPIController extends Controller
                     $query->where('active', 1);
                 }])
                     ->where('id', $id)
-                    ->first();
+                    ->get();
+
+                // ->first();
             } catch (\Exception $e) {
                 return response()->json([
                     'error' => 'Ocurrió un error al consultar: ' . $e->getMessage()
                 ], 505);
             }
 
-            if ($carriers == null) {
+            // if ($carriers == null) {
+            if ($carriers->isEmpty()) {
                 return response()->json(['message' => 'Not Found!'], 404);
             }
 
@@ -247,6 +253,10 @@ class CarrierExternalAPIController extends Controller
     public function update(Request $request, string $id)
     {
         //
+        error_log("CarrierExternalAPIController-update");
+        error_log("$id");
+        error_log("$request");
+
         $carrier = CarriersExternal::find($id); // Encuentra al usuario por su ID
 
         if ($carrier) {
@@ -377,6 +387,29 @@ class CarrierExternalAPIController extends Controller
             error_log("$e");
             return response()->json([
                 'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+    public function showById(string $id)
+    {
+        //
+        try {
+            error_log("CarrierExternalAPIController-showById");
+            error_log("$id");
+
+            $carriers = CarriersExternal::where('id', $id)
+                ->get();
+
+            if ($carriers->isEmpty()) {
+                return response()->json(['message' => 'Not Found!'], 404);
+            }
+
+            return response()->json(['data' => $carriers]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Ocurrió un error al consultar carriers externals: ' . $e->getMessage()
             ], 500);
         }
     }

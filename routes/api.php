@@ -548,7 +548,10 @@ Route::middleware(['cors'])->group(function () {
         Route::post('/all', [CarrierCoverageAPIController::class, 'getAll']);
         Route::put('/{id}', [CarrierCoverageAPIController::class, 'update']);
     });
+
 });
+
+Route::get('external/getbyid/{id}', [App\Http\Controllers\API\CarrierExternalAPIController::class, 'showById']);
 
 // api/upload
 //Route::get('/tu-ruta', 'TuController@tuMetodo')->middleware('cors');
@@ -589,8 +592,8 @@ Route::prefix('stockhistory')->group(function () {
 });
 
 
- //  *
- Route::prefix('carrierexternal')->group(function () {
+//  *
+Route::prefix('carrierexternal')->group(function () {
     Route::post('/all', [CarrierExternalAPIController::class, 'index']);
     // Route::get('cantones/{id}', [DpaProvinciaAPIController::class, 'getCantones']);
     Route::get('/{id}', [CarrierExternalAPIController::class, 'show']);
