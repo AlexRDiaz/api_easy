@@ -400,8 +400,13 @@ class CarrierExternalAPIController extends Controller
             error_log("CarrierExternalAPIController-showById");
             error_log("$id");
 
-            $carriers = CarriersExternal::with(['carrier_coverages'])
-                ->where('id', $id)
+            // $carriers = CarriersExternal::with(['carrier_coverages' => function ($query) {
+            //     $query->where('active', 1);
+            // }])
+            //     ->where('id', $id)
+            //     ->get();
+
+            $carriers = CarriersExternal::where('id', $id)
                 ->get();
 
             if ($carriers->isEmpty()) {
