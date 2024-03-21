@@ -548,10 +548,16 @@ Route::middleware(['cors'])->group(function () {
         Route::post('/all', [CarrierCoverageAPIController::class, 'getAll']);
         Route::put('/{id}', [CarrierCoverageAPIController::class, 'update']);
     });
-
 });
 
+Route::get('external/all', [App\Http\Controllers\API\CarrierExternalAPIController::class, 'index']);
 Route::get('external/getbyid/{id}', [App\Http\Controllers\API\CarrierExternalAPIController::class, 'showById']);
+Route::post('external/new', [App\Http\Controllers\API\CarrierExternalAPIController::class, 'store']);
+Route::put('external/{id}', [App\Http\Controllers\API\CarrierExternalAPIController::class, 'update']);
+Route::post('/newcoverage', [App\Http\Controllers\API\CarrierExternalAPIController::class, 'newCoverage']);
+
+Route::post('coverage/all', [App\Http\Controllers\API\CarrierCoverageAPIController::class, 'getAll']);
+
 
 // api/upload
 //Route::get('/tu-ruta', 'TuController@tuMetodo')->middleware('cors');

@@ -66,12 +66,13 @@ class CarrierExternalAPIController extends Controller
     public function store(Request $request)
     {
         //
+        error_log("CarrierExternalAPIController-store");
+        error_log("$request");
+
         DB::beginTransaction();
 
         try {
             // ini_set('memory_limit', '256M'); // Puedes ajustar el valor según tus necesidades
-
-            error_log("CarrierExternalAPIController-store");
             //code...
             $data = $request->json()->all();
             $name = $data['name'];
@@ -116,14 +117,14 @@ class CarrierExternalAPIController extends Controller
                     $tipo = $ciudad["tipo"];
                     $idRefProv = $ciudad["id_provincia"];
 
-                    error_log("$c-" . $idRefCiudad . ":" . $ciudadName . "prov: $idRefProv-$provinciaName");
+                    // error_log("$c-" . $idRefCiudad . ":" . $ciudadName . "prov: $idRefProv-$provinciaName");
                     $c++;
 
                     $idProv_local = 0;
 
                     $provinciaSinAcentos = strtolower(iconv('UTF-8', 'ASCII//TRANSLIT',  $provinciaName));
                     $provinciaSearch = preg_replace('/[^a-zA-Z0-9]/', '', $provinciaSinAcentos);
-                    error_log("provinciaSinAcentos: $provinciaSearch");
+                    // error_log("provinciaSinAcentos: $provinciaSearch");
 
 
                     foreach ($provinciaslist as $provincia) {
@@ -137,7 +138,7 @@ class CarrierExternalAPIController extends Controller
                             break;
                         }
                     }
-                    error_log("idProv_local: $idProv_local");
+                    // error_log("idProv_local: $idProv_local");
 
                     $idCoverage = 0;
                     // error_log("getCoberturas: $getCoberturas");
@@ -162,11 +163,11 @@ class CarrierExternalAPIController extends Controller
                         }
                         # code...
                     }
-                    error_log("idCoverage: $idCoverage");
+                    // error_log("idCoverage: $idCoverage");
 
 
                     if ($idCoverage == 0) {
-                        error_log("creat ciudad-cobertura");
+                        // error_log("creat ciudad-cobertura");
 
                         $newCoverageExt = new CoverageExternal();
                         $newCoverageExt->ciudad = $ciudadName;
@@ -185,7 +186,7 @@ class CarrierExternalAPIController extends Controller
                 }
             }
 
-            DB::commit();
+            // DB::commit();
             return response()->json(["message" => "Se creo con exito"], 200);
         } catch (\Exception $e) {
             DB::rollback();
@@ -399,7 +400,10 @@ class CarrierExternalAPIController extends Controller
             error_log("CarrierExternalAPIController-showById");
             error_log("$id");
 
-            $carriers = CarriersExternal::where('id', $id)
+            $carriers = CarriersExternal::with(['carrier_coverages' => function ($query) {
+                $query->where('active', 1);
+            }])
+                ->where('id', $id)
                 ->get();
 
             if ($carriers->isEmpty()) {
