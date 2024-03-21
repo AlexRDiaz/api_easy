@@ -410,8 +410,10 @@ class CarrierExternalAPIController extends Controller
 
                 // ->first();
             } catch (\Exception $e) {
+                error_log("ERRORRR showById $e");
+
                 return response()->json([
-                    'ERRORRR showById: '.$e
+                    'ERRORRR showById: ' . $e
                 ], 505);
             }
 
