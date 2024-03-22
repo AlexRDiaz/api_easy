@@ -446,10 +446,10 @@ class TransaccionesAPIController extends Controller
             $providerTransaction->save();
 
             DB::commit(); // Confirmar los cambios
-            return ["total" => $total, "valor_producto" => $diferencia, "error" => null];
+            return ["total" => $total, "valor_producto" => $diferencia, "value_product_warehouse" => $price , "error" => null];
         } catch (\Exception $e) {
             DB::rollback();
-            return ["total" => null, "valor_producto" => null, "error" => $e->getMessage()];
+            return ["total" => null, "valor_producto" => null, "value_product_warehouse" => $price, "error" => $e->getMessage()];
         }
     }
 
@@ -524,9 +524,11 @@ class TransaccionesAPIController extends Controller
             if ($data["archivo"] != "") {
                 $pedido->archivo = $data["archivo"];
             }
+
             $costoTransportadora = $pedido['transportadora'][0]['costo_transportadora'];
             $pedido->costo_transportadora = $costoTransportadora;
-            $pedido->save();
+            // $pedido->save();
+
             $SellerCreditFinalValue = $this->updateProductAndProviderBalance(
                 // "TEST2C1003",
                 $pedido->sku,
@@ -540,6 +542,12 @@ class TransaccionesAPIController extends Controller
                 // 22.90,
             );
 
+            if($SellerCreditFinalValue['value_product_warehouse'] != null ){
+                $pedido->value_product_warehouse = $SellerCreditFinalValue['value_product_warehouse'];
+            }
+            $pedido->save();
+
+            
             $request->merge(['comentario' => 'Recaudo  de valor por pedido ' . $pedido->status]);
             $request->merge(['origen' => 'recaudo']);
 
@@ -1586,6 +1594,7 @@ class TransaccionesAPIController extends Controller
                         $order->costo_devolucion = null;
                         $order->costo_envio = null;
                         $order->costo_transportadora = null;
+                        $order->value_product_warehouse = null;
                         // $order->estado_interno = "PENDIENTE";
                         // $order->estado_logistico = "PENDIENTE";
                         // $order->estado_pagado = "PENDIENTE";
