@@ -61,4 +61,9 @@ class CarrierCoverage extends Model
 		return $this->belongsTo(CoverageExternal::class, 'id_coverage')
 			->with('dpa_provincia');
 	}
+
+	public function coverage_external_simple()
+	{
+		return $this->belongsTo(CoverageExternal::class, 'id_coverage');
+	}
 }

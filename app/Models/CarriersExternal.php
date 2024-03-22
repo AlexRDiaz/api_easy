@@ -52,4 +52,14 @@ class CarriersExternal extends Model
 	{
 		return $this->hasMany(CarrierCoverage::class, 'id_carrier')->with('coverage_external');
 	}
+
+	// public function carrier_coverages_simple()
+	// {
+	// 	return $this->hasMany(CarrierCoverage::class, 'id_carrier')->with('coverage_external_simple');
+	// }
+
+	public function carrier_coverages_simple()
+	{
+		return $this->hasMany(CarrierCoverage::class, 'id_carrier');
+	}
 }

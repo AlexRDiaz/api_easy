@@ -19,7 +19,7 @@ class CarrierExternalAPIController extends Controller
     {
 
         error_log("CarrierExternalAPIController-index");
-        error_log("$request");
+        // error_log("$request");
         $data = $request->json()->all();
         $searchTerm = $data['search'];
 
@@ -67,7 +67,7 @@ class CarrierExternalAPIController extends Controller
     {
         //
         error_log("CarrierExternalAPIController-store");
-        error_log("$request");
+        // error_log("$request");
 
         DB::beginTransaction();
 
@@ -256,7 +256,7 @@ class CarrierExternalAPIController extends Controller
         //
         error_log("CarrierExternalAPIController-update");
         error_log("$id");
-        error_log("$request");
+        // error_log("$request");
 
         $carrier = CarriersExternal::find($id); // Encuentra al usuario por su ID
 
@@ -402,21 +402,11 @@ class CarrierExternalAPIController extends Controller
             error_log("$id");
 
             $carriers = null;
-            // try {
-                $carriers = CarriersExternal::with(['carrier_coverages' => function ($query) {
-                    $query->where('active', 1);
-                }])
-                    ->where('id', $id)
-                    ->get();
-
-                // ->first();
-            // } catch (\Exception $e) {
-            //     error_log("ERRORRR showById $e");
-
-            //     return response()->json([
-            //         'ERRORRR showById: ' . $e
-            //     ], 505);
-            // }
+            $carriers = CarriersExternal::with(['carrier_coverages_simple' => function ($query) {
+                $query->where('active', 1);
+            }])
+                ->where('id', $id)
+                ->get();
 
             //this works
             // $carriers = CarriersExternal::where('id', $id)

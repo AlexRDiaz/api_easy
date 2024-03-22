@@ -531,7 +531,6 @@ Route::middleware(['cors'])->group(function () {
         Route::get('coverages/{id}', [DpaProvinciaAPIController::class, 'getCoverages']);
     });
 
-    /*
     //  *
     Route::prefix('carrierexternal')->group(function () {
         Route::post('/all', [CarrierExternalAPIController::class, 'index']);
@@ -542,21 +541,22 @@ Route::middleware(['cors'])->group(function () {
         Route::post('/coveragebyprov', [CarrierExternalAPIController::class, 'getCoverageByProvincia']);
         Route::post('/newcoverage', [CarrierExternalAPIController::class, 'newCoverage']);
     });
-*/
+
     //  *
     Route::prefix('carriercoverage')->group(function () {
         Route::post('/all', [CarrierCoverageAPIController::class, 'getAll']);
         Route::put('/{id}', [CarrierCoverageAPIController::class, 'update']);
     });
+
+    //new test
+    Route::get('external/getbyid/{id}', [App\Http\Controllers\API\CarrierExternalAPIController::class, 'showById']);
+    Route::post('coverages/all', [App\Http\Controllers\API\CarrierCoverageAPIController::class, 'getAllSimple']);
+
+
+    //
 });
 
-Route::get('external/all', [App\Http\Controllers\API\CarrierExternalAPIController::class, 'index']);
-Route::get('external/getbyid/{id}', [App\Http\Controllers\API\CarrierExternalAPIController::class, 'showById']);
-Route::post('external/new', [App\Http\Controllers\API\CarrierExternalAPIController::class, 'store']);
-Route::put('external/{id}', [App\Http\Controllers\API\CarrierExternalAPIController::class, 'update']);
-Route::post('/newcoverage', [App\Http\Controllers\API\CarrierExternalAPIController::class, 'newCoverage']);
 
-Route::post('coverage/all', [App\Http\Controllers\API\CarrierCoverageAPIController::class, 'getAll']);
 
 
 // api/upload
@@ -595,18 +595,6 @@ Route::prefix('stockhistory')->group(function () {
     Route::post('/', [StockHistoryAPIController::class, 'store']);
     Route::post('/v2', [StockHistoryAPIController::class, 'storeD']);
     Route::get('byproduct/{id}', [StockHistoryAPIController::class, 'showByProduct']);
-});
-
-
-//  *
-Route::prefix('carrierexternal')->group(function () {
-    Route::post('/all', [CarrierExternalAPIController::class, 'index']);
-    // Route::get('cantones/{id}', [DpaProvinciaAPIController::class, 'getCantones']);
-    Route::get('/{id}', [CarrierExternalAPIController::class, 'show']);
-    Route::post('/', [CarrierExternalAPIController::class, 'store']);
-    Route::put('/{id}', [CarrierExternalAPIController::class, 'update']);
-    Route::post('/coveragebyprov', [CarrierExternalAPIController::class, 'getCoverageByProvincia']);
-    Route::post('/newcoverage', [CarrierExternalAPIController::class, 'newCoverage']);
 });
 
 
