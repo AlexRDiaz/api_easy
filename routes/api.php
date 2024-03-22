@@ -550,7 +550,9 @@ Route::middleware(['cors'])->group(function () {
 
     //new test
     Route::get('external/getbyid/{id}', [App\Http\Controllers\API\CarrierExternalAPIController::class, 'showById']);
-    Route::post('coverages/all', [App\Http\Controllers\API\CarrierCoverageAPIController::class, 'getAllSimple']);
+    Route::post('coveragescarrier/all', [App\Http\Controllers\API\CarrierCoverageAPIController::class, 'getAllSimple']);
+    Route::get('coverages/all', [App\Http\Controllers\API\CoverageExternalAPIController::class, 'index']);
+
 
 
     //
