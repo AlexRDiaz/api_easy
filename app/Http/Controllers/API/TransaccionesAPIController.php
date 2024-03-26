@@ -410,7 +410,7 @@ class TransaccionesAPIController extends Controller
 
             if ($product === null) {
                 DB::commit();
-                return ["total" => null, "valor_producto" => null, "error" => "Product Not Found!"];
+                return ["total" => null, "valor_producto" => null,"value_product_warehouse" =>null, "error" => "Product Not Found!"];
             }
             
             error_log("ak-> $id_origin");
@@ -463,7 +463,6 @@ class TransaccionesAPIController extends Controller
                 ]);
                 $providerTransaction->save();
             }
-
             DB::commit(); // Confirmar los cambios
             return ["total" => $total, "valor_producto" => $diferencia, "value_product_warehouse" => $price*$quantity, "error" => null];
         } catch (\Exception $e) {
@@ -561,10 +560,10 @@ class TransaccionesAPIController extends Controller
                 // 22.90,
             );
 
-            if ($SellerCreditFinalValue['value_product_warehouse'] !== null) {
+            if (isset($SellerCreditFinalValue['value_product_warehouse']) && $SellerCreditFinalValue['value_product_warehouse'] !== null) {
                 $pedido->value_product_warehouse = $SellerCreditFinalValue['value_product_warehouse'];
             }
-            // error_log($SellerCreditFinalValue['value_product_warehouse']);
+            
             $pedido->save();
 
 
