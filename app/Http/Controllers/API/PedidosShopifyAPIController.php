@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Models\OrdenesRetiro;
 use App\Models\PedidoFecha;
 use App\Models\pedidos_shopifies;
 use App\Models\PedidosShopifiesPedidoFechaLink;
@@ -11,6 +12,7 @@ use App\Models\PedidosShopifiesSubRutaLink;
 use App\Models\PedidosShopifiesOperadoreLink;
 use App\Models\PedidosShopifiesTransportadoraLink;
 use App\Models\PedidosShopify;
+use App\Models\Provider;
 use App\Models\Warehouse;
 use App\Models\Transportadora;
 use App\Models\ProductoShopifiesPedidosShopifyLink;
@@ -204,7 +206,7 @@ class PedidosShopifyAPIController extends Controller
         // ! *************************************
         // ! ordenamiento ↓
         $orderBy = null;
-        if (isset($data['sort'])) {
+        if (isset ($data['sort'])) {
             $sort = $data['sort'];
             $sortParts = explode(':', $sort);
             if (count($sortParts) === 2) {
@@ -310,7 +312,7 @@ class PedidosShopifyAPIController extends Controller
         // ! *************************************
         // ! ordenamiento ↓
         $orderBy = null;
-        if (isset($data['sort'])) {
+        if (isset ($data['sort'])) {
             $sort = $data['sort'];
             $sortParts = explode(':', $sort);
             if (count($sortParts) === 2) {
@@ -396,7 +398,7 @@ class PedidosShopifyAPIController extends Controller
         $not = $data['not'];
 
         $orderBy = null;
-        if (isset($data['sort'])) {
+        if (isset ($data['sort'])) {
             $sort = $data['sort'];
             $sortParts = explode(':', $sort);
             if (count($sortParts) === 2) {
@@ -1583,6 +1585,33 @@ class PedidosShopifyAPIController extends Controller
         }
     }
 
+    private function applyConditionsAnd($query, $conditions, $not = false)
+{
+    $operator = $not ? '!=' : '=';
+
+    foreach ($conditions as $condition) {
+        foreach ($condition as $key => $value) {
+            if (strpos($key, '.') !== false) {
+                // Si la clave tiene un punto, es una relación anidada
+                // Dividimos la clave en partes para navegar por las relaciones
+                $keys = explode('.', $key);
+                $field = array_pop($keys);
+                $relation = implode('.', $keys);
+
+                // Aplicamos las condiciones en la relación más interna
+                $query->whereHas($relation, function ($query) use ($field, $operator, $value) {
+                    $query->where($field, $operator, $value);
+                });
+            } else {
+                // Si no hay un punto en la clave, es un campo directo de la tabla principal
+                $query->where($key, $operator, $value);
+            }
+        }
+    }
+}
+
+    
+
 
 
     public function CalculateValuesSeller(Request $request)
@@ -1636,7 +1665,77 @@ class PedidosShopifyAPIController extends Controller
         ]);
     }
 
+    public function CalculateValuesProvider(Request $request)
+    {
+        $data = $request->json()->all();
+        $startDate = Carbon::createFromFormat('j/n/Y', $data['start'])->format('Y-m-d');
+        $endDate = Carbon::createFromFormat('j/n/Y', $data['end'])->format('Y-m-d');
+        $Map = $data['and'];
+        $not = $data['not'];
+        $idUser = $data['id_user'];
+        $dateFilter = $data["date_filter"];
 
+
+        $selectedFilter = "fecha_entrega";
+        if ($dateFilter != "FECHA ENTREGA") {
+            $selectedFilter = "marca_tiempo_envio";
+        }
+
+        $query = PedidosShopify::query()
+        ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider'])
+        ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
+        ;
+    
+
+        $this->applyConditionsAnd($query, $Map);
+        $this->applyConditions($query, $not, true); 
+        $query1 = clone $query;
+        // $query2 = clone $query;
+        // $query3 = clone $query;
+        $saldoProvider = Provider::where('user_id',$idUser)->first();
+        $summary = [
+            // "ped"=>$query,
+            'totalValoresRecibidos' => $query1->whereIn('status', ['ENTREGADO'])->sum(DB::raw('REPLACE(value_product_warehouse, ",", "")')),
+
+           
+            // 'totalValoresRecibidos' => $query1->whereIn('status', ['ENTREGADO'])->
+            // whereHas('product.warehouse.provider', function ($query) use ($idUser) {
+            //     $query->where('user_id', $idUser);
+            // })->sum(DB::raw('REPLACE(value_product_warehouse, ",", "")')),
+
+            "totalRetirosEfectivo" => OrdenesRetiro::whereHas('users_permissions_user.providers', function ($query) use ($idUser) {
+                $query->where('user_id', $idUser);
+             })
+                ->where(function ($query) {
+                    $query->where('estado', 'APROBADO')
+                        ->orWhere('estado', 'REALIZADO');
+                })
+                ->whereRaw("STR_TO_DATE(" . "fecha" . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
+                ->sum('monto'),
+            'saldoActual' => $saldoProvider->saldo,
+
+            //     ->whereIn('status', ['ENTREGADO', 'NO ENTREGADO'])
+            //     ->join('up_users_pedidos_shopifies_links', 'pedidos_shopifies.id', '=', 'up_users_pedidos_shopifies_links.pedidos_shopify_id')
+            //     ->join('up_users', 'up_users_pedidos_shopifies_links.user_id', '=', 'up_users.id')
+            //     ->join('up_users_vendedores_links', 'up_users.id', '=', 'up_users_vendedores_links.user_id')
+            //     ->join('vendedores', 'up_users_vendedores_links.vendedor_id', '=', 'vendedores.id')
+            //     ->sum(DB::raw('REPLACE(vendedores.costo_envio, ",", "")')),
+
+            // 'totalCostoDevolucion' => $query3
+            //     ->whereIn('status', ['NOVEDAD'])
+            //     ->whereNotIn('estado_devolucion', ['PENDIENTE'])
+            //     ->join('up_users_pedidos_shopifies_links', 'pedidos_shopifies.id', '=', 'up_users_pedidos_shopifies_links.pedidos_shopify_id')
+            //     ->join('up_users', 'up_users_pedidos_shopifies_links.user_id', '=', 'up_users.id')
+            //     ->join('up_users_vendedores_links', 'up_users.id', '=', 'up_users_vendedores_links.user_id')
+            //     ->join('vendedores', 'up_users_vendedores_links.vendedor_id', '=', 'vendedores.id')
+            //     ->sum(DB::raw('REPLACE(vendedores.costo_devolucion, ",", "")')),
+
+        ];
+
+        return response()->json([
+            'data' => $summary,
+        ]);
+    }
 
 
 
@@ -2136,7 +2235,7 @@ class PedidosShopifyAPIController extends Controller
         $status = $data['status'];
         $internal = $data['internal'];
 
-        $pedidos = PedidosShopify::with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta'])
+        $pedidos = PedidosShopify::with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta','product.warehouse.provider'])
             //select('marca_t_i', 'fecha_entrega', DB::raw('concat(tienda_temporal, "-", numero_orden) as codigo'), 'nombre_shipping', 'ciudad_shipping', 'direccion_shipping', 'telefono_shipping', 'cantidad_total', 'producto_p', 'producto_extra', 'precio_total', 'comentario', 'estado_interno', 'status', 'estado_logistico', 'estado_devolucion', 'costo_envio', 'costo_devolucion')
             ->whereRaw("STR_TO_DATE(marca_t_i, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])->where((function ($pedidos) use ($and) {
                 foreach ($and as $condition) {
@@ -2151,12 +2250,12 @@ class PedidosShopifyAPIController extends Controller
                     }
                 }
             }));
-        if (!empty($status)) {
+        if (!empty ($status)) {
             $pedidos->whereIn('status', $status);
         }
-        if (!empty($internal)) {
+        if (!empty ($internal)) {
             $pedidos->whereIn('estado_interno', $internal);
-        }
+        } 
         $pedidos->orderBy('marca_t_i', 'asc');
         $response = $pedidos->get();
 
@@ -2549,6 +2648,187 @@ class PedidosShopifyAPIController extends Controller
         return response()->json([$pedido], 200);
     }
 
+    // public function getByDateRangeValuesAudit(Request $request)
+    // {
+    //     try {
+    //         ini_set('memory_limit', '512M');
+
+    //         $data = $request->json()->all();
+    //         $startDate = $data['start'];
+    //         $endDate = $data['end'];
+    //         $startDateFormatted = Carbon::createFromFormat('j/n/Y', $startDate)->format('Y-m-d');
+    //         $endDateFormatted = Carbon::createFromFormat('j/n/Y', $endDate)->format('Y-m-d');
+    //         $Map = $data['and'];
+
+    //         $pedidos = PedidosShopify::select(
+    //             'id',
+    //             'numero_orden',
+    //             'nombre_shipping',
+    //             'id_comercial',
+    //             'status',
+    //             'observacion',
+    //             'comentario',
+    //             'estado_interno',
+    //             'estado_logistico',
+    //             'estado_devolucion',
+    //             'costo_devolucion',
+    //             'costo_transportadora',
+    //             'costo_envio'
+    //         )
+    //             ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'ruta'])
+    //             ->where('estado_interno', "CONFIRMADO")
+    //             ->where('estado_logistico', "ENVIADO")
+    //             ->whereRaw("STR_TO_DATE(fecha_entrega, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
+    //             ->where((function ($pedidos) use ($Map) {
+    //                 foreach ($Map as $condition) {
+    //                     foreach ($condition as $key => $valor) {
+    //                         $parts = explode("/", $key);
+    //                         $type = $parts[0];
+    //                         $filter = $parts[1];
+
+    //                         if (strpos($filter, '.') !== false) {
+    //                             $relacion = substr($filter, 0, strpos($filter, '.'));
+    //                             $propiedad = substr($filter, strpos($filter, '.') + 1);
+    //                             $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+    //                         } else {
+    //                             if ($type == "equals") {
+    //                                 $pedidos->where($filter, '=', $valor);
+    //                             } else {
+    //                                 $pedidos->where($filter, 'LIKE', '%' . $valor . '%');
+    //                                 // $pedidos->where($filter, '=', $valor);
+    
+    //                             }
+    //                         }
+    //                     }
+    //                 }
+    //             }))->get();
+
+    //         $isIdComercialPresent = collect($Map)->contains(function ($condition) {
+    //             return isset ($condition['equals/id_comercial']);
+    //         });
+
+    //         $isIdTransportPresent = collect($Map)->contains(function ($condition) {
+    //             return isset ($condition['equals/transportadora.transportadora_id']);
+    //         });
+
+    //         // Obtener id_comercial del $Map si está presente
+    //         $id_comercial = null;
+    //         if ($isIdComercialPresent) {
+    //             foreach ($Map as $condition) {
+    //                 if (isset ($condition['equals/id_comercial'])) {
+    //                     $id_comercial = $condition['equals/id_comercial'];
+    //                     break; // Una vez que se encuentra, sal del bucle
+    //                 }
+    //             }
+    //         }
+
+    //         $estadoPedidos = $pedidos
+    //             ->whereIn('status', ['ENTREGADO', 'NO ENTREGADO', 'NOVEDAD'])
+    //             ->groupBy('status')
+    //             ->map(function ($group, $key) {
+    //                 if ($key === 'NOVEDAD') {
+    //                     $group = $group->where('estado_devolucion', '!=', 'PENDIENTE');
+    //                 }
+
+    //                 return $group->count();
+    //             });
+
+    //         $defaultStatuses = ['ENTREGADO', 'NO ENTREGADO', 'NOVEDAD'];
+
+    //         foreach ($defaultStatuses as $status) {
+    //             if (!isset ($estadoPedidos[$status])) {
+    //                 $estadoPedidos[$status] = 0;
+    //             }
+    //         }
+
+    //         $sumatoriaCostoTransportadora = $isIdTransportPresent
+    //             ? $pedidos
+    //                 ->where('estado_interno', "CONFIRMADO")
+    //                 ->where('estado_logistico', "ENVIADO")
+    //                 ->sum('costo_transportadora')
+    //             : null;
+
+    //         if ($sumatoriaCostoTransportadora === null) {
+    //             // Manejar el caso cuando el valor es null
+    //             $sumatoriaCostoTransportadora = 0.0;
+    //         }
+
+    //         // $sumatoriaCostoEntrega = $isIdComercialPresent
+    //         // ? $pedidos->whereIn('status', ['ENTREGADO', 'NO ENTREGADO'])
+    //         //     // ->where('id_comercial', $id_comercial) // $id_comercial debe ser el valor que se obtiene del $Map
+    //         //     ->where('id_comercial', 189) // $id_comercial debe ser el valor que se obtiene del $Map
+    //         //     ->where('estado_interno', 'CONFIRMADO')
+    //         //     ->where('estado_logistico', 'ENVIADO')
+    //         //     ->sum('costo_envio')
+    //         // : 0.0;
+
+    //         $sumaCostoInicial = Vendedore::where('id_master', $id_comercial)
+    //             ->sum('costo_envio');
+
+    //         //SUMA COSTO
+    //         // foreach ($searchGeneralProduct as $producto) {
+    //         //     if ($producto->id_comercial == $upuser && ($producto->status == "ENTREGADO" || $producto->status == "NO ENTREGADO")) {
+    //         //         $sumaCosto += $sumaCostoInicial;
+    //         //     }
+    //         // }
+
+    //         $sumaCostodb = DB::table('pedidos_shopifies')
+    //             ->selectRaw('SUM(' . $sumaCostoInicial . ') as sumaCosto')
+    //             ->where('estado_interno', 'CONFIRMADO')
+    //             ->where('estado_logistico', 'ENVIADO')
+    //             ->where('id_comercial', $id_comercial)
+    //             ->where(function ($query) {
+    //                 $query->where('status', 'ENTREGADO')
+    //                     ->orWhere('status', 'NO ENTREGADO');
+    //             })
+    //             ->first();
+    //         $sumaCosto = $sumaCostodb->sumaCosto;
+
+    //         $sumatoriaCostoDevolucion = $isIdComercialPresent
+    //             ? $pedidos
+    //                 ->where('estado_interno', "CONFIRMADO")
+    //                 ->where('estado_logistico', "ENVIADO")
+    //                 ->where('status', 'NOVEDAD')
+    //                 ->sum('costo_devolucion')
+    //             : 0.0;
+
+
+    //         $presentVendedor = 0;
+
+    //         if ($isIdComercialPresent) {
+    //             $presentVendedor = 1;
+    //         }
+    //         if ($isIdTransportPresent) {
+    //             $presentVendedor = 2;
+    //         }
+    //         if ($isIdTransportPresent && $isIdComercialPresent) {
+    //             $presentVendedor = 0;
+    //         }
+
+    //         return response()->json([
+    //             'Costo_Transporte' => $sumatoriaCostoTransportadora,
+    //             // 'Costo_Entrega' => $sumatoriaCostoEntrega,
+    //             'Costo_Entrega' => $sumaCosto,
+    //             'Costo_Devolución' => $sumatoriaCostoDevolucion,
+    //             'Filtro_Existente' => $presentVendedor,
+    //             'Estado_Pedidos' => $estadoPedidos,
+    //             // 'Cantidad_Total_Pedidos' => $pedidos->count()
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'Costo_Transporte' => 0,
+    //             'Costo_Entrega' => 0,
+    //             'Costo_Devolución' => 0,
+    //             'Filtro_Existente' => 0,
+    //             'Estado_Pedidos' => [
+    //                 'NOVEDAD' => 0,
+    //                 'ENTREGADO' => 0,
+    //                 'NO ENTREGADO' => 0,
+    //             ],
+    //             // 'Cantidad_Total_Pedidos' => 0
+    //         ], 200);
+    //     }
+    // }
     public function getByDateRangeValuesAudit(Request $request)
     {
         try {
@@ -2577,8 +2857,6 @@ class PedidosShopifyAPIController extends Controller
                 'costo_envio'
             )
                 ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'ruta'])
-                ->where('estado_interno', "CONFIRMADO")
-                ->where('estado_logistico', "ENVIADO")
                 ->whereRaw("STR_TO_DATE(fecha_entrega, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
                 ->where((function ($pedidos) use ($Map) {
                     foreach ($Map as $condition) {
@@ -2596,8 +2874,6 @@ class PedidosShopifyAPIController extends Controller
                                     $pedidos->where($filter, '=', $valor);
                                 } else {
                                     $pedidos->where($filter, 'LIKE', '%' . $valor . '%');
-                                    // $pedidos->where($filter, '=', $valor);
-    
                                 }
                             }
                         }
@@ -2605,23 +2881,12 @@ class PedidosShopifyAPIController extends Controller
                 }))->get();
 
             $isIdComercialPresent = collect($Map)->contains(function ($condition) {
-                return isset ($condition['equals/id_comercial']);
+                return isset($condition['equals/id_comercial']);
             });
 
             $isIdTransportPresent = collect($Map)->contains(function ($condition) {
-                return isset ($condition['equals/transportadora.transportadora_id']);
+                return isset($condition['equals/transportadora.transportadora_id']);
             });
-
-            // Obtener id_comercial del $Map si está presente
-            $id_comercial = null;
-            if ($isIdComercialPresent) {
-                foreach ($Map as $condition) {
-                    if (isset($condition['equals/id_comercial'])) {
-                        $id_comercial = $condition['equals/id_comercial'];
-                        break; // Una vez que se encuentra, sal del bucle
-                    }
-                }
-            }
 
             $estadoPedidos = $pedidos
                 ->whereIn('status', ['ENTREGADO', 'NO ENTREGADO', 'NOVEDAD'])
@@ -2643,10 +2908,7 @@ class PedidosShopifyAPIController extends Controller
             }
 
             $sumatoriaCostoTransportadora = $isIdTransportPresent
-                ? $pedidos
-                    ->where('estado_interno', "CONFIRMADO")
-                    ->where('estado_logistico', "ENVIADO")
-                    ->sum('costo_transportadora')
+                ? $pedidos->sum('costo_transportadora')
                 : null;
 
             if ($sumatoriaCostoTransportadora === null) {
@@ -2654,45 +2916,13 @@ class PedidosShopifyAPIController extends Controller
                 $sumatoriaCostoTransportadora = 0.0;
             }
 
-            // $sumatoriaCostoEntrega = $isIdComercialPresent
-            // ? $pedidos->whereIn('status', ['ENTREGADO', 'NO ENTREGADO'])
-            //     // ->where('id_comercial', $id_comercial) // $id_comercial debe ser el valor que se obtiene del $Map
-            //     ->where('id_comercial', 189) // $id_comercial debe ser el valor que se obtiene del $Map
-            //     ->where('estado_interno', 'CONFIRMADO')
-            //     ->where('estado_logistico', 'ENVIADO')
-            //     ->sum('costo_envio')
-            // : 0.0;
-
-            $sumaCostoInicial = Vendedore::where('id_master', $id_comercial)
-                ->sum('costo_envio');
-
-            //SUMA COSTO
-            // foreach ($searchGeneralProduct as $producto) {
-            //     if ($producto->id_comercial == $upuser && ($producto->status == "ENTREGADO" || $producto->status == "NO ENTREGADO")) {
-            //         $sumaCosto += $sumaCostoInicial;
-            //     }
-            // }
-
-            $sumaCostodb = DB::table('pedidos_shopifies')
-                ->selectRaw('SUM(' . $sumaCostoInicial . ') as sumaCosto')
-                ->where('estado_interno', 'CONFIRMADO')
-                ->where('estado_logistico', 'ENVIADO')
-                ->where('id_comercial', $id_comercial)
-                ->where(function ($query) {
-                    $query->where('status', 'ENTREGADO')
-                        ->orWhere('status', 'NO ENTREGADO');
-                })
-                ->first();
-            $sumaCosto = $sumaCostodb->sumaCosto;
-
-            $sumatoriaCostoDevolucion = $isIdComercialPresent
-                ? $pedidos
-                    ->where('estado_interno', "CONFIRMADO")
-                    ->where('estado_logistico', "ENVIADO")
-                    ->where('status', 'NOVEDAD')
-                    ->sum('costo_devolucion')
+            $sumatoriaCostoEntrega = $isIdComercialPresent
+                ? $pedidos->whereIn('status', ['ENTREGADO', 'NO ENTREGADO'])->sum('costo_envio')
                 : 0.0;
 
+            $sumatoriaCostoDevolucion = $isIdComercialPresent
+                ? $pedidos->sum('costo_devolucion')
+                : 0.0;
 
             $presentVendedor = 0;
 
@@ -2708,11 +2938,10 @@ class PedidosShopifyAPIController extends Controller
 
             return response()->json([
                 'Costo_Transporte' => $sumatoriaCostoTransportadora,
-                // 'Costo_Entrega' => $sumatoriaCostoEntrega,
-                'Costo_Entrega' => $sumaCosto,
+                'Costo_Entrega' => $sumatoriaCostoEntrega,
                 'Costo_Devolución' => $sumatoriaCostoDevolucion,
                 'Filtro_Existente' => $presentVendedor,
-                'Estado_Pedidos' => $estadoPedidos,
+                'Estado_Pedidos' =>   $estadoPedidos,
                 // 'Cantidad_Total_Pedidos' => $pedidos->count()
             ]);
         } catch (\Exception $e) {
@@ -2730,6 +2959,7 @@ class PedidosShopifyAPIController extends Controller
             ], 200);
         }
     }
+
 
     public function getOrdersForPrintedGuidesLaravelD(Request $request)
     {
@@ -3363,7 +3593,7 @@ class PedidosShopifyAPIController extends Controller
 
             $order = PedidosShopify::find($id);
 
-            $edited_novelty = !empty($order["gestioned_novelty"]) ? json_decode($order["gestioned_novelty"], true) : [];
+            $edited_novelty = !empty ($order["gestioned_novelty"]) ? json_decode($order["gestioned_novelty"], true) : [];
 
             // Actualizar o crear la propiedad
             $edited_novelty[$propertyName] = $propertyValue;
