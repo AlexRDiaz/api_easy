@@ -40,9 +40,12 @@ class TransaccionesAPIController extends Controller
     protected $providerTransactionRepository;
     protected $providerRepository;
 
-    public function __construct(transaccionesRepository $transaccionesRepository, vendedorRepository $vendedorRepository, providerTransactionRepository $providerTransactionRepository,
-    providerRepository $providerRepository)
-    {
+    public function __construct(
+        transaccionesRepository $transaccionesRepository,
+        vendedorRepository $vendedorRepository,
+        providerTransactionRepository $providerTransactionRepository,
+        providerRepository $providerRepository
+    ) {
         $this->transaccionesRepository = $transaccionesRepository;
         $this->vendedorRepository = $vendedorRepository;
         $this->providerTransactionRepository = $providerTransactionRepository;
@@ -409,47 +412,63 @@ class TransaccionesAPIController extends Controller
                 DB::commit();
                 return ["total" => null, "valor_producto" => null, "error" => "Product Not Found!"];
             }
+            
+            error_log("ak-> $id_origin");
+            error_log("ak-> $codeOrder");
 
-            $providerId = $product->warehouse->provider_id;
-            $productName = $product->product_name;
+            
+            $providerTransactionPrevious = ProviderTransaction::where('transaction_type', 'Pago Producto')
+            ->where('status', 'ENTREGADO')
+            ->where('origin_id', $id_origin)
+            ->where('origin_code', $codeOrder)
+            ->first();
 
-            $price = $product->price;
+            error_log("ak-> $providerTransactionPrevious");
+            
+            $price = 0;
 
-            // Log::info('price', [$price]);
+            if (!$providerTransactionPrevious) {
+                $providerId = $product->warehouse->provider_id;
+                $productName = $product->product_name;
 
+                $price = $product->price;
 
-            $amountToDeduct = $price * $quantity;
-
-            $total = $totalPrice;
-            $diferencia = $amountToDeduct;
-
-            $provider = Provider::findOrFail($providerId);
-            $provider->saldo += $amountToDeduct;
-            $provider->save();
+                // Log::info('price', [$price]);
 
 
-            $providerTransaction = new ProviderTransaction([
-                'transaction_type' => 'Pago Producto',
-                'amount' => $amountToDeduct,
-                'previous_value' => $provider->saldo - $amountToDeduct,
-                'current_value' => $provider->saldo,
-                'timestamp' => now(),
-                'origin_id' => $id_origin,
-                'origin_code' => $codeOrder,
-                // 'origin_code' => $skuProduct,
-                'provider_id' => $providerId,
-                'comment' => $productName,
-                'generated_by' => $generated_by,
-                'status' => $orderStatus,
-                'description' => "Valor por guia ENTREGADA"
-            ]);
-            $providerTransaction->save();
+                $amountToDeduct = $price * $quantity;
+
+                $total = $totalPrice;
+                $diferencia = $amountToDeduct;
+
+                $provider = Provider::findOrFail($providerId);
+                $provider->saldo += $amountToDeduct;
+                $provider->save();
+
+
+                $providerTransaction = new ProviderTransaction([
+                    'transaction_type' => 'Pago Producto',
+                    'amount' => $amountToDeduct,
+                    'previous_value' => $provider->saldo - $amountToDeduct,
+                    'current_value' => $provider->saldo,
+                    'timestamp' => now(),
+                    'origin_id' => $id_origin,
+                    'origin_code' => $codeOrder,
+                    // 'origin_code' => $skuProduct,
+                    'provider_id' => $providerId,
+                    'comment' => $productName,
+                    'generated_by' => $generated_by,
+                    'status' => $orderStatus,
+                    'description' => "Valor por guia ENTREGADA"
+                ]);
+                $providerTransaction->save();
+            }
 
             DB::commit(); // Confirmar los cambios
-            return ["total" => $total, "valor_producto" => $diferencia, "error" => null];
+            return ["total" => $total, "valor_producto" => $diferencia, "value_product_warehouse" => $price*$quantity, "error" => null];
         } catch (\Exception $e) {
             DB::rollback();
-            return ["total" => null, "valor_producto" => null, "error" => $e->getMessage()];
+            return ["total" => null, "valor_producto" => null, "value_product_warehouse" => $price* $quantity, "error" => $e->getMessage()];
         }
     }
 
@@ -524,9 +543,11 @@ class TransaccionesAPIController extends Controller
             if ($data["archivo"] != "") {
                 $pedido->archivo = $data["archivo"];
             }
+
             $costoTransportadora = $pedido['transportadora'][0]['costo_transportadora'];
             $pedido->costo_transportadora = $costoTransportadora;
-            $pedido->save();
+            // $pedido->save();
+
             $SellerCreditFinalValue = $this->updateProductAndProviderBalance(
                 // "TEST2C1003",
                 $pedido->sku,
@@ -539,6 +560,13 @@ class TransaccionesAPIController extends Controller
 
                 // 22.90,
             );
+
+            if ($SellerCreditFinalValue['value_product_warehouse'] !== null) {
+                $pedido->value_product_warehouse = $SellerCreditFinalValue['value_product_warehouse'];
+            }
+            // error_log($SellerCreditFinalValue['value_product_warehouse']);
+            $pedido->save();
+
 
             $request->merge(['comentario' => 'Recaudo  de valor por pedido ' . $pedido->status]);
             $request->merge(['origen' => 'recaudo']);
@@ -1259,7 +1287,7 @@ class TransaccionesAPIController extends Controller
         // ! *************************************
         // ! ordenamiento ↓
         $orderBy = null;
-        if (isset($data['sort'])) {
+        if (isset ($data['sort'])) {
             $sort = $data['sort'];
             $sortParts = explode(':', $sort);
             if (count($sortParts) === 2) {
@@ -1586,6 +1614,7 @@ class TransaccionesAPIController extends Controller
                         $order->costo_devolucion = null;
                         $order->costo_envio = null;
                         $order->costo_transportadora = null;
+                        $order->value_product_warehouse = null;
                         // $order->estado_interno = "PENDIENTE";
                         // $order->estado_logistico = "PENDIENTE";
                         // $order->estado_pagado = "PENDIENTE";
@@ -1631,7 +1660,7 @@ class TransaccionesAPIController extends Controller
                 }
             }
             if ($shouldProcessProviderTransaction) {
-                if (isset($transaction)) { // Verifica si $transaction está definida
+                if (isset ($transaction)) { // Verifica si $transaction está definida
                     $idOriginOfTransaction = $transaction->id_origen;
 
                     $providerTransaction = ProviderTransaction::where("origin_id", $idOriginOfTransaction)->first();
@@ -1706,7 +1735,7 @@ class TransaccionesAPIController extends Controller
                 error_log("no data tpt");
             }
             //  **
-            $pedidos = !empty($ids) ? $ids[0] : null;
+            $pedidos = !empty ($ids) ? $ids[0] : null;
 
             DB::commit();
             return response()->json([

@@ -295,6 +295,7 @@ Route::middleware(['cors'])->group(function () {
     Route::post('pedidos-shopify/routes/count', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getProductsDashboardRoutesCount']);
     Route::post('pedidos-shopify/products/values/transport', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'CalculateValuesTransport']);
     Route::post('pedidos-shopify/products/values/seller', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'CalculateValuesSeller']);
+    Route::post('pedidos-shopify/products/values/provider', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'CalculateValuesProvider']);
     Route::post('pedidos-shopify/testChatby', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'testChatby']);
 
 

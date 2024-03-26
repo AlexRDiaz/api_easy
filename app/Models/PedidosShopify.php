@@ -67,6 +67,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int|null $status_last_modified_by
  * @property int|null $confirmed_by
  * @property Carbon|null $confirmed_at
+ * @property float|null $value_product_warehouse
  * 
  * @property AdminUser|null $admin_user
  * @property Collection|Novedade[] $novedades
@@ -101,7 +102,8 @@ class PedidosShopify extends Model
 		'status_last_modified_at' => 'datetime',
 		'status_last_modified_by' => 'int',
 		'confirmed_by' => 'int',
-		'confirmed_at' => 'datetime'
+		'confirmed_at' => 'datetime',
+		'value_product_warehouse' => 'float'
 	];
 
 	protected $fillable = [
@@ -160,7 +162,8 @@ class PedidosShopify extends Model
 		'confirmed_at',
 		'sku',
 		'id_product',
-		'gestioned_novelty'
+		'gestioned_novelty',
+		'value_product_warehouse'
 	];
 
 	public function admin_user()
