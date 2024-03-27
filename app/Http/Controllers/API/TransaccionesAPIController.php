@@ -552,7 +552,8 @@ class TransaccionesAPIController extends Controller
                 // Obtener el último registro de transacción
                 $lastTransaction = $transaccionSellerPrevious->last();
                 error_log($lastTransaction);
-                if ($lastTransaction->origen !== 'reembolso') {
+                // && $lastTransaction->origen !== 'envio'
+                if ($lastTransaction->origen !== 'reembolso'  && $lastTransaction->origen !== 'envio' ) {
                     return response()->json(["res" => "Transacciones ya Registradas"]);
                 }
             }

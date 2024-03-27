@@ -586,6 +586,7 @@ Route::prefix('products')->group(function () {
     Route::get('/', [ProductAPIController::class, 'index']);
     Route::post('/all', [ProductAPIController::class, 'getProducts']);
     Route::post('/by/{id}', [ProductAPIController::class, 'getProductsByProvider']);
+    // ! cambio stock -> variant_details
     Route::post('/updatestock', [ProductAPIController::class, 'updateProductVariantStock']);
     Route::post('/{id}', [ProductAPIController::class, 'show']);
     Route::post('/', [ProductAPIController::class, 'store']);

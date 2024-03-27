@@ -640,68 +640,79 @@ class ProductAPIController extends Controller
     {
         $reserveController = new ReserveAPIController();
         $data = $request->json()->all();
+        $variants = json_decode($data['variant_detail'],true);
 
-        $quantity = $data['quantity'];
-        $skuProduct = $data['sku_product']; // Esto tendrá un valor como "test2"
-        $type = $data['type'];
+        // $quantity = $data['quantity'];
+        // $skuProduct = $data['sku_product']; // Esto tendrá un valor como "test2"
+        // $type = $data['type'];
         $idComercial = $data['id_comercial'];
+        $responses = [];
 
-        $result = $this->splitSku($skuProduct);
+        foreach ($variants as $variant) {
+            $quantity = $variant['quantity'];
+            $skuProduct = $variant['sku']; // Ahora el SKU viene dentro de cada variante
+            $type = $data['type'];
 
-        $onlySku = $result['sku'];
-        $productIdFromSKU = $result['id'];
+            $result = $this->splitSku($skuProduct);
 
-        $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
+            $onlySku = $result['sku'];
+            $productIdFromSKU = $result['id'];
 
-        // Decode the JSON response to get the data
-        $searchResult = json_decode($response->getContent());
+            $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
 
-        if ($searchResult && $searchResult->response) {
-            $reserve = $searchResult->reserve;
+            // Decode the JSON response to get the data
+            $searchResult = json_decode($response->getContent());
 
-            if ($type == 0 && $quantity > $reserve->stock) {
-                // No se puede restar más de lo que hay en stock
-                return response()->json(['message' => 'No Dispone de Stock en la Reserva'], 400);
-            }
+            if ($searchResult && $searchResult->response) {
+                $reserve = $searchResult->reserve;
 
-            // Actualizar el stock
-            $reserve->stock += ($type == 1) ? $quantity : -$quantity;
+                if ($type == 0 && $quantity > $reserve->stock) {
+                    // No se puede restar más de lo que hay en stock
+                    $responses[] =['message' => 'No Dispone de Stock en la Reserva'];
+                    continue;
+                }
 
-            // Assuming you have a 'Reserve' model that you want to save after updating
-            $reserveModel = Reserve::find($reserve->id);
-            if ($reserveModel) {
-                $reserveModel->stock = $reserve->stock;
-                $reserveModel->save();
-            }
+                // Actualizar el stock
+                $reserve->stock += ($type == 1) ? $quantity : -$quantity;
 
-            // Devolver la respuesta
-            return response()->json(['message' => 'Stock actualizado con éxito', 'reserve' => $reserveModel]);
-        } else {
-            // Encuentra el producto por su SKU.
-            $product = Product::find($productIdFromSKU);
+                // Assuming you have a 'Reserve' model that you want to save after updating
+                $reserveModel = Reserve::find($reserve->id);
+                if ($reserveModel) {
+                    $reserveModel->stock = $reserve->stock;
+                    $reserveModel->save();
+                }
 
-            if ($product === null) {
-                return null;
-            }
-
-            if ($product) {
-                $result = $product->changeStockGen($productIdFromSKU, $onlySku, $quantity, $type);
-                $currentDateTime = date('Y-m-d H:i:s');
-
-                $createHistory = new StockHistory();
-                $createHistory->product_id =  $productIdFromSKU;
-                $createHistory->variant_sku = $onlySku;
-                $createHistory->type = $type;
-                $createHistory->date = $currentDateTime;
-                $createHistory->units = $quantity;
-                $createHistory->last_stock = $product->stock + $quantity;
-                $createHistory->current_stock = $product->stock;
-                $createHistory->description = "Reducción de stock General Pedido ENVIADO";
-
-                $createHistory->save();
+                // Devolver la respuesta
+                $responses[] = ['message' => 'Stock actualizado con éxito', 'reserve' => $reserveModel];
             } else {
-                return response()->json(['message' => 'Product not found'], 404);
+                // Encuentra el producto por su SKU.
+                $product = Product::find($productIdFromSKU);
+
+                if ($product === null) {
+                    return null;
+                }
+
+                if ($product) {
+                    $result = $product->changeStockGen($productIdFromSKU, $onlySku, $quantity, $type);
+                    $currentDateTime = date('Y-m-d H:i:s');
+
+                    $createHistory = new StockHistory();
+                    $createHistory->product_id =  $productIdFromSKU;
+                    $createHistory->variant_sku = $onlySku;
+                    $createHistory->type = $type;
+                    $createHistory->date = $currentDateTime;
+                    $createHistory->units = $quantity;
+                    $createHistory->last_stock = $product->stock + $quantity;
+                    $createHistory->current_stock = $product->stock;
+                    $createHistory->description = "Reducción de stock General Pedido ENVIADO";
+
+                    $createHistory->save();
+                } else {
+                    $responses[] =['message' => 'Product not found'];
+                    continue;
+                }
             }
         }
+        return response()->json($responses);
     }
 }
