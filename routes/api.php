@@ -597,7 +597,7 @@ Route::prefix('products')->group(function () {
 Route::prefix('stockhistory')->group(function () {
     Route::post('/', [StockHistoryAPIController::class, 'store']);
     Route::post('/v2', [StockHistoryAPIController::class, 'storeD']);
-    Route::get('byproduct/{id}', [StockHistoryAPIController::class, 'showByProduct']);
+    Route::post('byproduct/{id}', [StockHistoryAPIController::class, 'showByProduct']);
 });
 
 

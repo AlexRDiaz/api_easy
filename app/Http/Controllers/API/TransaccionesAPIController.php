@@ -410,21 +410,21 @@ class TransaccionesAPIController extends Controller
 
             if ($product === null) {
                 DB::commit();
-                return ["total" => null, "valor_producto" => null,"value_product_warehouse" =>null, "error" => "Product Not Found!"];
+                return ["total" => null, "valor_producto" => null, "value_product_warehouse" => null, "error" => "Product Not Found!"];
             }
-            
+
             error_log("ak-> $id_origin");
             error_log("ak-> $codeOrder");
 
-            
+
             $providerTransactionPrevious = ProviderTransaction::where('transaction_type', 'Pago Producto')
-            ->where('status', 'ENTREGADO')
-            ->where('origin_id', $id_origin)
-            ->where('origin_code', $codeOrder)
-            ->first();
+                ->where('status', 'ENTREGADO')
+                ->where('origin_id', $id_origin)
+                ->where('origin_code', $codeOrder)
+                ->first();
 
             error_log("ak-> $providerTransactionPrevious");
-            
+
             $price = 0;
 
             if (!$providerTransactionPrevious) {
@@ -464,10 +464,10 @@ class TransaccionesAPIController extends Controller
                 $providerTransaction->save();
             }
             DB::commit(); // Confirmar los cambios
-            return ["total" => $total, "valor_producto" => $diferencia, "value_product_warehouse" => $price*$quantity, "error" => null];
+            return ["total" => $total, "valor_producto" => $diferencia, "value_product_warehouse" => $price * $quantity, "error" => null];
         } catch (\Exception $e) {
             DB::rollback();
-            return ["total" => null, "valor_producto" => null, "value_product_warehouse" => $price* $quantity, "error" => $e->getMessage()];
+            return ["total" => null, "valor_producto" => null, "value_product_warehouse" => $price * $quantity, "error" => $e->getMessage()];
         }
     }
 
@@ -530,6 +530,33 @@ class TransaccionesAPIController extends Controller
             $pedido = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades', 'operadore', 'transactionTransportadora',])->findOrFail($data['id_origen']);
 
             // if ($pedido->costo_envio == null) {
+            // error_log("Transaccion nueva");
+
+            $transaccionSellerPrevious = Transaccion::
+                // where('tipo', 'credit')
+                where('id_origen', $data['id_origen'])
+                ->get();
+
+            // if ($transaccionSellerPrevious) {
+            //     // Si ya existe una transacción, puedes manejarlo aquí, tal vez lanzar una excepción o simplemente ignorar y continuar
+            //     // Por ejemplo:
+            //     // return response()->json([
+            //     //     // 'error' => 'Ya existe una transacción de crédito para este pedido.'
+            //     //     'error' => 'Ya existe una transacción de crédito para este pedido.'
+            //     // ], 400);
+            //     return response()->json([
+            //         "res" => "Transacciones ya Registradas"
+            //     ]);
+            // }
+            if ($transaccionSellerPrevious->isNotEmpty()) {
+                // Obtener el último registro de transacción
+                $lastTransaction = $transaccionSellerPrevious->last();
+                error_log($lastTransaction);
+                if ($lastTransaction->origen !== 'reembolso') {
+                    return response()->json(["res" => "Transacciones ya Registradas"]);
+                }
+            }
+
             error_log("Transaccion nueva");
 
             $pedido->status = "ENTREGADO";
@@ -560,10 +587,10 @@ class TransaccionesAPIController extends Controller
                 // 22.90,
             );
 
-            if (isset($SellerCreditFinalValue['value_product_warehouse']) && $SellerCreditFinalValue['value_product_warehouse'] !== null) {
+            if (isset ($SellerCreditFinalValue['value_product_warehouse']) && $SellerCreditFinalValue['value_product_warehouse'] !== null) {
                 $pedido->value_product_warehouse = $SellerCreditFinalValue['value_product_warehouse'];
             }
-            
+
             $pedido->save();
 
 

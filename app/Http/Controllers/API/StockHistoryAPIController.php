@@ -104,7 +104,7 @@ class StockHistoryAPIController extends Controller
         } else {
             $respuestalast = $current_stock + $units;
         }
-        
+
         $createHistory = new StockHistory();
         $createHistory->product_id = $product_id;
         $createHistory->variant_sku = $skuProduct;
@@ -153,17 +153,33 @@ class StockHistoryAPIController extends Controller
     }
 
 
-    public function showByProduct(string $id)
+    // public function showByProduct(string $id)
+    // {
+    //     //
+
+    //     $history = StockHistory::where('product_id', $id)
+    //         ->orderBy('created_at', 'desc')
+    //         ->get();
+    //     if (!$history) {
+    //         return response()->json(['message' => 'No se ha encontrado un producto con el ID especificado'], 404);
+    //     }
+    //     return response()->json($history);
+    // }
+    public function showByProduct(string $id, Request $request)
     {
-        //
+        $pageSize = $request->input('page_size', 10); // Número de elementos por página, por defecto 10
+        $pageNumber = $request->input('page_number', 1); // Número de página, por defecto 1
 
         $history = StockHistory::where('product_id', $id)
             ->orderBy('created_at', 'desc')
-            ->get();
-        if (!$history) {
+            ->paginate($pageSize, ['*'], 'page', $pageNumber);
+
+        if ($history->isEmpty()) {
             return response()->json(['message' => 'No se ha encontrado un producto con el ID especificado'], 404);
         }
+
         return response()->json($history);
     }
+
 }
 
