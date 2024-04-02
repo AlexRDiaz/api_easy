@@ -1010,11 +1010,13 @@ class TransaccionesAPIController extends Controller
             //     $order->id_comercial,
             // );
 
-            $searchResult = $productController->updateProductVariantStockInternal(
-                $order->variant_details,
-                1,
-                $order->id_comercial,
-            );
+            if ($order->variant_details != null) {
+                $searchResult = $productController->updateProductVariantStockInternal(
+                    $order->variant_details,
+                    1,
+                    $order->id_comercial,
+                );
+            }
 
             // !
 
@@ -1868,7 +1870,6 @@ class TransaccionesAPIController extends Controller
                 "transacciones" => $transaction,
                 "pedidos" => $pedidos
             ]);
-
         } catch (\Exception $e) {
             DB::rollback();
             return response()->json([
