@@ -1936,7 +1936,8 @@ class TransaccionesAPIController extends Controller
                             "retiro proveedor",
                             "APROBADO",
                             "Retiro de billetera APROBADO",
-                            $data['generated_by']
+                            $data['generated_by'],
+                            ""
                         );
                     } else {
                         // ! falta validar la condicion del if
@@ -1955,7 +1956,8 @@ class TransaccionesAPIController extends Controller
                                 "retiro proveedor",
                                 "APROBADO",
                                 "Retiro de billetera APROBADO",
-                                $data['generated_by']
+                                $data['generated_by'],
+                                ""
                             );
                         } else {
                             error_log("El ultimo registro con id_origen:$id se encuentra en debit just update comment");
@@ -2010,7 +2012,8 @@ class TransaccionesAPIController extends Controller
                 "retiro proveedor",
                 "APROBADO",
                 "Retiro de billetera APROBADO",
-                $data["id_vendedor"]
+                $data["id_vendedor"],
+                ""
             );
 
             DB::commit();
