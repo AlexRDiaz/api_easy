@@ -354,6 +354,8 @@ Route::middleware(['cors'])->group(function () {
 
 
     Route::get('users/{id}', [UpUserAPIController::class, 'users']);
+
+    Route::post('users/update-active/{id}', [UpUserAPIController::class, 'updateUserActiveStatus']);
     //  *
     Route::post('users/userbyemail', [UpUserAPIController::class, 'userByEmail']);
 

@@ -600,41 +600,89 @@ class ProductAPIController extends Controller
         return ['sku' => $onlySku, 'id' => $productIdFromSKU];
     }
 
-    public function updateProductVariantStockInternal($quantity, $skuProduct, $type, $idComercial)
+    // public function updateProductVariantStockInternal($quantity, $skuProduct, $type, $idComercial)
+    // {
+    //     $result = $this->splitSku($skuProduct);
+
+    //     $onlySku = $result['sku'];
+    //     $productIdFromSKU = $result['id'];
+
+
+    //     $product = Product::find($productIdFromSKU);
+
+    //     if ($product === null) {
+    //         return null; // Retorna null si no se encuentra el producto
+    //     }
+
+    //     if ($product) {
+
+    //         $result = $product->changeStockGen($productIdFromSKU, $onlySku, $quantity, $type);
+
+    //         $currentDateTime = date('Y-m-d H:i:s');
+
+    //         $createHistory = new StockHistory();
+    //         $createHistory->product_id =  $productIdFromSKU;
+    //         $createHistory->variant_sku = $onlySku;
+    //         $createHistory->type = $type;
+    //         $createHistory->date = $currentDateTime;
+    //         $createHistory->units = $quantity;
+    //         $createHistory->last_stock = $product->stock - $quantity;
+    //         $createHistory->current_stock = $product->stock;
+    //         $createHistory->description = "Incremento de stock General Pedido EN BODEGA";
+
+    //         $createHistory->save();
+    //     } else {
+    //         return response()->json(['message' => 'Product not found'], 404);
+    //     }
+    // }
+    public function updateProductVariantStockInternal($variant_details, $type, $idComercial)
     {
-        $result = $this->splitSku($skuProduct);
+        $variants = json_decode($variant_details,true);
+        $responses = [];
 
-        $onlySku = $result['sku'];
-        $productIdFromSKU = $result['id'];
+        foreach ($variants as $variant) {
+            $quantity = $variant['quantity'];
+            $skuProduct = $variant['sku']; // Ahora el SKU viene dentro de cada variante
+            // $type = $data['type'];
 
 
-        $product = Product::find($productIdFromSKU);
+            $result = $this->splitSku($skuProduct);
 
-        if ($product === null) {
-            return null; // Retorna null si no se encuentra el producto
+            $onlySku = $result['sku'];
+            $productIdFromSKU = $result['id'];
+
+
+            $product = Product::find($productIdFromSKU);
+
+            if ($product === null) {
+                return null; // Retorna null si no se encuentra el producto
+            }
+
+            if ($product) {
+
+                $result = $product->changeStockGen($productIdFromSKU, $onlySku, $quantity, $type);
+
+                $currentDateTime = date('Y-m-d H:i:s');
+
+                $createHistory = new StockHistory();
+                $createHistory->product_id =  $productIdFromSKU;
+                $createHistory->variant_sku = $onlySku;
+                $createHistory->type = $type;
+                $createHistory->date = $currentDateTime;
+                $createHistory->units = $quantity;
+                $createHistory->last_stock = $product->stock - $quantity;
+                $createHistory->current_stock = $product->stock;
+                $createHistory->description = "Incremento de stock General Pedido EN BODEGA";
+
+                $createHistory->save();
+            } else {
+                // $responses[] =['message' => 'Product not found'];
+                // continue;
+            }
         }
-
-        if ($product) {
-
-            $result = $product->changeStockGen($productIdFromSKU, $onlySku, $quantity, $type);
-
-            $currentDateTime = date('Y-m-d H:i:s');
-
-            $createHistory = new StockHistory();
-            $createHistory->product_id =  $productIdFromSKU;
-            $createHistory->variant_sku = $onlySku;
-            $createHistory->type = $type;
-            $createHistory->date = $currentDateTime;
-            $createHistory->units = $quantity;
-            $createHistory->last_stock = $product->stock - $quantity;
-            $createHistory->current_stock = $product->stock;
-            $createHistory->description = "Incremento de stock General Pedido EN BODEGA";
-
-            $createHistory->save();
-        } else {
-            return response()->json(['message' => 'Product not found'], 404);
-        }
+        // return response()->json($responses);
     }
+
     // ! ↓ FUNCIONAL ↓ 
     public function updateProductVariantStock(Request $request)
     {
@@ -716,3 +764,4 @@ class ProductAPIController extends Controller
         return response()->json($responses);
     }
 }
+    
