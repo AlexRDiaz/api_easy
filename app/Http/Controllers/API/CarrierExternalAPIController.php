@@ -234,6 +234,7 @@ class CarrierExternalAPIController extends Controller
 
             return response()->json(['data' => $carriers]);
         } catch (\Exception $e) {
+            error_log("ERROR: $e");
             return response()->json([
                 'error' => 'Ocurrió un error al consultar: ' . $e->getMessage()
             ], 500);
@@ -418,6 +419,7 @@ class CarrierExternalAPIController extends Controller
 
             return response()->json(['data' => $carriers]);
         } catch (\Exception $e) {
+            error_log("ERROR: $e");
             return response()->json([
                 'error' => 'Ocurrió un error al consultar carriers externals: ' . $e->getMessage()
             ], 500);

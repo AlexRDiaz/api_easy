@@ -547,6 +547,8 @@ Route::middleware(['cors'])->group(function () {
     Route::prefix('carriercoverage')->group(function () {
         Route::post('/all', [CarrierCoverageAPIController::class, 'getAll']);
         Route::put('/{id}', [CarrierCoverageAPIController::class, 'update']);
+        Route::post('/search', [CarrierCoverageAPIController::class, 'getDataCoverage']);
+
     });
 
     //new test
@@ -554,6 +556,10 @@ Route::middleware(['cors'])->group(function () {
     Route::post('coveragescarrier/all', [App\Http\Controllers\API\CarrierCoverageAPIController::class, 'getAllSimple']);
     Route::get('coverages/all', [App\Http\Controllers\API\CoverageExternalAPIController::class, 'index']);
 
+    //  * 
+    Route::post('orderproduct', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'shopifyPedidosProducto']);
+
+    Route::post('/gintracom/postorder', [IntegrationAPIController::class, 'putIntegrationsUrlStoreG']);
 
 
     //

@@ -9,7 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Response;
-
+use Illuminate\Support\Facades\Http;
 /**
  * Class IntegrationAPIController
  */
@@ -29,7 +29,7 @@ class IntegrationAPIController extends Controller
     public function getIntegrationsByUser($id)
     {
         //
-        $integrations = Integration::where("user_id",$id)->get();
+        $integrations = Integration::where("user_id", $id)->get();
         return response()->json($integrations);
     }
 
@@ -40,15 +40,14 @@ class IntegrationAPIController extends Controller
 
         //
         $token = explode(" ", $authorizationHeader)[1];
-        $integration = Integration::where("token",$token)->first();
+        $integration = Integration::where("token", $token)->first();
 
-        if($integration==null){
-            return response()->json(["response"=>"token not found","token"=>$token,"integration"=>$integration], Response::HTTP_BAD_REQUEST);
-            
+        if ($integration == null) {
+            return response()->json(["response" => "token not found", "token" => $token, "integration" => $integration], Response::HTTP_BAD_REQUEST);
         }
-        $integration->store_url=$input["store_url"];
+        $integration->store_url = $input["store_url"];
         $integration->save();
-        return response()->json(["response"=>"url saved succesfully","integration"=>$integration], Response::HTTP_OK);
+        return response()->json(["response" => "url saved succesfully", "integration" => $integration], Response::HTTP_OK);
     }
 
     public function getIntegrationsByStorename(Request $request)
@@ -56,20 +55,19 @@ class IntegrationAPIController extends Controller
         $input = $request->all();
 
         //
-        $integration = Integration::where("store_url",$input["store_url"])->first();
+        $integration = Integration::where("store_url", $input["store_url"])->first();
 
-        if($integration==null){
-            return response()->json(["response"=>"token not found"], Response::HTTP_NOT_FOUND);
-            
+        if ($integration == null) {
+            return response()->json(["response" => "token not found"], Response::HTTP_NOT_FOUND);
         }
-        return response()->json(["response"=>"token get succesfully","integration"=>$integration], Response::HTTP_OK);
+        return response()->json(["response" => "token get succesfully", "integration" => $integration], Response::HTTP_OK);
     }
 
     /**
      * Store a newly created Integration in storage.
      * POST /integrations
      */
-    
+
     /**
      * Display the specified Integration.
      * GET|HEAD /integrations/{id}
@@ -86,9 +84,8 @@ class IntegrationAPIController extends Controller
         }
 
         return response()->json([
-            "res" =>$integration
+            "res" => $integration
         ]);
-    
     }
 
 
@@ -131,4 +128,35 @@ class IntegrationAPIController extends Controller
 
     //     return $this->sendSuccess('Integration deleted successfully');
     // }
+
+
+    public function putIntegrationsUrlStoreG(Request $request)
+    {
+        error_log("putIntegrationsUrlStoreG");
+
+        // Obtener los datos del formulario
+        $data = $request->all();
+
+        // URL de la API externa
+        $apiUrl = 'https://ec.gintracom.site/web/easy/pedido';
+
+        // Nombre de usuario y contraseña para la autenticación básica
+        $username = 'easy';
+        $password = 'f7b2d589796f5f209e72d5697026500d';
+
+        // Realizar la solicitud POST a la API externa con autenticación básica
+        $response = Http::withBasicAuth($username, $password)
+            ->post($apiUrl, $data);
+
+        // Verificar el estado de la respuesta
+        if ($response->successful()) {
+            // La solicitud fue exitosa
+            error_log("La solicitud fue exitosa");
+            return $response->json(); // Devolver la respuesta JSON de la API externa
+        } else {
+            // La solicitud falló
+            error_log("La solicitud a la API externa falló $response");
+            return response()->json(['error' => 'La solicitud a la API externa falló'], $response->status());
+        }
+    }
 }

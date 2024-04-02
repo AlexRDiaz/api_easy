@@ -103,7 +103,10 @@ class PedidosShopify extends Model
 		'status_last_modified_by' => 'int',
 		'confirmed_by' => 'int',
 		'confirmed_at' => 'datetime',
-		'value_product_warehouse' => 'float'
+		'value_product_warehouse' => 'float',
+		'recaudo' => 'int',
+		'carrier_external_id' => 'int',
+		'ciudad_external_id' => 'int',
 	];
 
 	protected $fillable = [
@@ -163,7 +166,11 @@ class PedidosShopify extends Model
 		'sku',
 		'id_product',
 		'gestioned_novelty',
-		'value_product_warehouse'
+		'value_product_warehouse',
+		'recaudo',
+		'carrier_external_id',
+		'ciudad_external_id',
+		'id_externo'
 	];
 
 	public function admin_user()
@@ -265,7 +272,6 @@ class PedidosShopify extends Model
 	{
 		// return $this->belongsTo(UpUser::class, 'sent_by', 'id');
 		return $this->belongsTo(UpUser::class, 'sent_by', 'id')->with('rolesFronts');
-
 	}
 
 	public function receivedBy()
@@ -281,15 +287,24 @@ class PedidosShopify extends Model
 	{
 		return $this->belongsTo(UpUser::class, 'status_last_modified_by', 'id');
 	}
-	
+
 	public function product(): \Illuminate\Database\Eloquent\Relations\BelongsTo
-    {
-        return $this->belongsTo(\App\Models\Product::class, 'id_product');
-    }
+	{
+		return $this->belongsTo(\App\Models\Product::class, 'id_product');
+	}
 
 	public function transactionTransportadora()
 	{
 		return $this->belongsTo(TransaccionPedidoTransportadora::class, 'id', 'id_pedido');
 	}
 
+	public function carrierExternal()
+	{
+		return $this->belongsTo(CarriersExternal::class, 'carrier_external_id', 'id')->select('id', 'name');;
+	}
+
+	public function ciudadExternal()
+	{
+		return $this->belongsTo(CoverageExternal::class, 'ciudad_external_id', 'id')->select('id', 'ciudad');;
+	}
 }

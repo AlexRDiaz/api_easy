@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Models\CarrierCoverage;
 use App\Models\OrdenesRetiro;
 use App\Models\PedidoFecha;
 use App\Models\pedidos_shopifies;
@@ -206,7 +207,7 @@ class PedidosShopifyAPIController extends Controller
         // ! *************************************
         // ! ordenamiento ↓
         $orderBy = null;
-        if (isset ($data['sort'])) {
+        if (isset($data['sort'])) {
             $sort = $data['sort'];
             $sortParts = explode(':', $sort);
             if (count($sortParts) === 2) {
@@ -312,7 +313,7 @@ class PedidosShopifyAPIController extends Controller
         // ! *************************************
         // ! ordenamiento ↓
         $orderBy = null;
-        if (isset ($data['sort'])) {
+        if (isset($data['sort'])) {
             $sort = $data['sort'];
             $sortParts = explode(':', $sort);
             if (count($sortParts) === 2) {
@@ -398,7 +399,7 @@ class PedidosShopifyAPIController extends Controller
         $not = $data['not'];
 
         $orderBy = null;
-        if (isset ($data['sort'])) {
+        if (isset($data['sort'])) {
             $sort = $data['sort'];
             $sortParts = explode(':', $sort);
             if (count($sortParts) === 2) {
@@ -1418,7 +1419,7 @@ class PedidosShopifyAPIController extends Controller
                     }
                 }
             }
-                ))->get();
+            ))->get();
 
 
 
@@ -1586,31 +1587,31 @@ class PedidosShopifyAPIController extends Controller
     }
 
     private function applyConditionsAnd($query, $conditions, $not = false)
-{
-    $operator = $not ? '!=' : '=';
+    {
+        $operator = $not ? '!=' : '=';
 
-    foreach ($conditions as $condition) {
-        foreach ($condition as $key => $value) {
-            if (strpos($key, '.') !== false) {
-                // Si la clave tiene un punto, es una relación anidada
-                // Dividimos la clave en partes para navegar por las relaciones
-                $keys = explode('.', $key);
-                $field = array_pop($keys);
-                $relation = implode('.', $keys);
+        foreach ($conditions as $condition) {
+            foreach ($condition as $key => $value) {
+                if (strpos($key, '.') !== false) {
+                    // Si la clave tiene un punto, es una relación anidada
+                    // Dividimos la clave en partes para navegar por las relaciones
+                    $keys = explode('.', $key);
+                    $field = array_pop($keys);
+                    $relation = implode('.', $keys);
 
-                // Aplicamos las condiciones en la relación más interna
-                $query->whereHas($relation, function ($query) use ($field, $operator, $value) {
-                    $query->where($field, $operator, $value);
-                });
-            } else {
-                // Si no hay un punto en la clave, es un campo directo de la tabla principal
-                $query->where($key, $operator, $value);
+                    // Aplicamos las condiciones en la relación más interna
+                    $query->whereHas($relation, function ($query) use ($field, $operator, $value) {
+                        $query->where($field, $operator, $value);
+                    });
+                } else {
+                    // Si no hay un punto en la clave, es un campo directo de la tabla principal
+                    $query->where($key, $operator, $value);
+                }
             }
         }
     }
-}
 
-    
+
 
 
 
@@ -1682,22 +1683,21 @@ class PedidosShopifyAPIController extends Controller
         }
 
         $query = PedidosShopify::query()
-        ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider'])
-        ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
-        ;
-    
+            ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider'])
+            ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate]);
+
 
         $this->applyConditionsAnd($query, $Map);
-        $this->applyConditions($query, $not, true); 
+        $this->applyConditions($query, $not, true);
         $query1 = clone $query;
         // $query2 = clone $query;
         // $query3 = clone $query;
-        $saldoProvider = Provider::where('user_id',$idUser)->first();
+        $saldoProvider = Provider::where('user_id', $idUser)->first();
         $summary = [
             // "ped"=>$query,
             'totalValoresRecibidos' => $query1->whereIn('status', ['ENTREGADO'])->sum(DB::raw('REPLACE(value_product_warehouse, ",", "")')),
 
-           
+
             // 'totalValoresRecibidos' => $query1->whereIn('status', ['ENTREGADO'])->
             // whereHas('product.warehouse.provider', function ($query) use ($idUser) {
             //     $query->where('user_id', $idUser);
@@ -1705,7 +1705,7 @@ class PedidosShopifyAPIController extends Controller
 
             "totalRetirosEfectivo" => OrdenesRetiro::whereHas('users_permissions_user.providers', function ($query) use ($idUser) {
                 $query->where('user_id', $idUser);
-             })
+            })
                 ->where(function ($query) {
                     $query->where('estado', 'APROBADO')
                         ->orWhere('estado', 'REALIZADO');
@@ -2235,7 +2235,7 @@ class PedidosShopifyAPIController extends Controller
         $status = $data['status'];
         $internal = $data['internal'];
 
-        $pedidos = PedidosShopify::with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta','product.warehouse.provider'])
+        $pedidos = PedidosShopify::with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider'])
             //select('marca_t_i', 'fecha_entrega', DB::raw('concat(tienda_temporal, "-", numero_orden) as codigo'), 'nombre_shipping', 'ciudad_shipping', 'direccion_shipping', 'telefono_shipping', 'cantidad_total', 'producto_p', 'producto_extra', 'precio_total', 'comentario', 'estado_interno', 'status', 'estado_logistico', 'estado_devolucion', 'costo_envio', 'costo_devolucion')
             ->whereRaw("STR_TO_DATE(marca_t_i, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])->where((function ($pedidos) use ($and) {
                 foreach ($and as $condition) {
@@ -2250,12 +2250,12 @@ class PedidosShopifyAPIController extends Controller
                     }
                 }
             }));
-        if (!empty ($status)) {
+        if (!empty($status)) {
             $pedidos->whereIn('status', $status);
         }
-        if (!empty ($internal)) {
+        if (!empty($internal)) {
             $pedidos->whereIn('estado_interno', $internal);
-        } 
+        }
         $pedidos->orderBy('marca_t_i', 'asc');
         $response = $pedidos->get();
 
@@ -3005,7 +3005,7 @@ class PedidosShopifyAPIController extends Controller
             $collection = json_decode($warehouse['collection'], true);
 
             // Filtrar almacenes con 'collectionTransport' igual al nombre de la transportadora
-            return isset ($collection['collectionTransport']) && $collection['collectionTransport'] == $transportadoraNombre;
+            return isset($collection['collectionTransport']) && $collection['collectionTransport'] == $transportadoraNombre;
         })->map(function ($warehouse) {
             // Decodificar la cadena JSON en 'collection'
             $collection = json_decode($warehouse['collection'], true);
@@ -3256,7 +3256,7 @@ class PedidosShopifyAPIController extends Controller
 
         // Ajusta el formato de la fecha para los días menores a 10
         $pedidos->transform(function ($pedido) {
-            unset ($pedido->product); // Elimina el producto
+            unset($pedido->product); // Elimina el producto
             $fecha = Carbon::createFromFormat('d/m/Y', $pedido->fecha); // Asegúrate que el formato aquí coincida con cómo se almacena la fecha en la base de datos
             $pedido->fecha = $fecha->format('j/n/Y'); // 'j' para el día y 'n' para el mes sin ceros iniciales
             return $pedido;
@@ -3294,7 +3294,7 @@ class PedidosShopifyAPIController extends Controller
 
         // Ajusta el formato de la fecha para los días menores a 10
         $pedidos->transform(function ($pedido) {
-            unset ($pedido->product); // Elimina el producto
+            unset($pedido->product); // Elimina el producto
             $fecha = Carbon::createFromFormat('d/m/Y', $pedido->fecha); // Asegúrate que el formato aquí coincida con cómo se almacena la fecha en la base de datos
             $pedido->fecha = $fecha->format('j/n/Y'); // 'j' para el día y 'n' para el mes sin ceros iniciales
             return $pedido;
@@ -3385,7 +3385,7 @@ class PedidosShopifyAPIController extends Controller
             $collection = json_decode($warehouse['collection'], true);
 
             // Convierte 'collectionDays' a nombres de días
-            if (isset ($collection['collectionDays'])) {
+            if (isset($collection['collectionDays'])) {
                 $collection['collectionDays'] = array_map(function ($day) use ($daysOfWeek) {
                     return $daysOfWeek[$day];
                 }, $collection['collectionDays']);
@@ -3413,7 +3413,7 @@ class PedidosShopifyAPIController extends Controller
 
             $order = PedidosShopify::find($id);
 
-            $edited_novelty = !empty ($order["gestioned_novelty"]) ? json_decode($order["gestioned_novelty"], true) : [];
+            $edited_novelty = !empty($order["gestioned_novelty"]) ? json_decode($order["gestioned_novelty"], true) : [];
 
             // Actualizar o crear la propiedad
             $edited_novelty[$propertyName] = $propertyValue;
@@ -3500,4 +3500,208 @@ class PedidosShopifyAPIController extends Controller
             return response()->json(["response" => "Failed to update novelty (-_-)/ "], Response::HTTP_NOT_FOUND);
         }
     }
+
+    //  *
+    public function shopifyPedidosProducto(Request $request)
+    {
+        error_log("shopifyPedidosProducto");
+
+        DB::beginTransaction();
+        try {
+
+            //GENERATE DATE
+            $currentDate = now();
+            $fechaActual = $currentDate->format('d/m/Y');
+
+            $dateOrder = "";
+            //VARIABLES FOR ENTITY
+            // $order_number = $request->input('NumeroOrden');
+            $data = $request->json()->all();
+            $generatedBy = $data['generatedBy'];
+            $IdComercial = $data['IdComercial'];
+            $Name_Comercial = $data['Name_Comercial'];
+            $name = $data['NombreShipping'];
+            $address = $data['DireccionShipping'];
+            $phone = $data['TelefonoShipping'];
+            $total_price = $data['PrecioTotal'];
+            $city = $data['CiudadShipping'];
+            $product = $data['ProductoP'];
+            $productE = $data['ProductoExtra'];
+            $cantidadTotal = $data['Cantidad_Total'];
+            $PrecioTotal =  $data['PrecioTotal'];
+            $formattedPrice = str_replace(",", ".", str_replace(["$", " "], "", $PrecioTotal));
+            if ($data['Observacion'] != null) {
+                $Observacion =  $data['Observacion'];
+            } else {
+                $Observacion = "";
+            }
+            // $sku = $request->input('sku');
+            $recaudo = $data['recaudo'];
+            $productId =  $data['product_id'];
+            $variant_details =  $data['variant_details'];
+            //transp
+            $newrouteId = $data['ruta'];
+            $newtransportadoraId = $data['transportadora'];
+            //
+            $carrierExternalId = $data["carrier_id"];
+            $ciudadDes = $data["ciudad_des"];
+
+
+            $numOrderstart = 1001; // Número inicial sin ceros a la izquierda
+            $manualOrders = PedidosShopify::where('id_comercial', $IdComercial)
+                ->where('numero_orden', 'like', 'E%')
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            if ($manualOrders->isNotEmpty()) {
+                $encontrado = false;
+                foreach ($manualOrders as $order) {
+                    if ($order->numero_orden === "E001001") {
+                        $encontrado = true;
+                        break;
+                    }
+                }
+
+                $lastOrder = $manualOrders->first();
+                if ($encontrado) {
+                    $lastOrderNumero = $lastOrder->numero_orden;
+                    preg_match('/\d+/', $lastOrderNumero, $matches);
+                    $numeroExtraido = $matches[0];
+                    $nextOrderNumero = $numeroExtraido + 1;
+                    $NumeroOrden = "E" . sprintf("%06d", $nextOrderNumero); // Aplicar ceros a la izquierda si es necesario
+                } else {
+                    $NumeroOrden = "E" . sprintf("%06d", $numOrderstart);
+                }
+            } else {
+                $NumeroOrden = "E" . sprintf("%06d", $numOrderstart);
+            }
+            //ADD PRODUCT TO LIST FOR NEW OBJECT
+
+            $search = PedidosShopify::where([
+                'numero_orden' => $NumeroOrden,
+                // 'tienda_temporal' => $productos[0]['vendor'],
+                'id_comercial' => $IdComercial,
+            ])->get();
+
+            //
+            $createOrder = new PedidosShopify();
+
+            // IF ORDER NOT EXIST CREATE ORDER
+            if ($search->isEmpty()) {
+
+                // Formatear la fecha y hora actual
+                $Marca_T_I = date("d/m/Y H:i");
+                $Fecha_Confirmacion = date("d/m/Y H:i");
+                $currentDateTime = date('Y-m-d H:i:s');
+
+                $createOrder->numero_orden = $NumeroOrden;
+                $createOrder->direccion_shipping = $address;
+                $createOrder->nombre_shipping = $name;
+                $createOrder->telefono_shipping = $phone;
+                $createOrder->precio_total = $formattedPrice;
+                $createOrder->observacion = $Observacion;
+                $createOrder->ciudad_shipping = $city;
+                $createOrder->id_comercial = $IdComercial;
+                $createOrder->producto_p =  $product;
+                $createOrder->producto_extra = $productE;
+                $createOrder->cantidad_total = $cantidadTotal;
+                $createOrder->name_comercial = $Name_Comercial;
+                $createOrder->tienda_temporal = $Name_Comercial;
+                $createOrder->marca_t_i = $Marca_T_I;
+                $createOrder->estado_interno = "CONFIRMADO";
+                $createOrder->status = "PEDIDO PROGRAMADO";
+                $createOrder->estado_logistico = 'PENDIENTE';
+                $createOrder->estado_pagado = 'PENDIENTE';
+                $createOrder->estado_pago_logistica = 'PENDIENTE';
+                $createOrder->estado_devolucion = 'PENDIENTE';
+                $createOrder->do = 'PENDIENTE';
+                $createOrder->dt = 'PENDIENTE';
+                $createOrder->dl = 'PENDIENTE';
+                $createOrder->fecha_confirmacion = $Fecha_Confirmacion;
+                $createOrder->confirmed_by = $generatedBy;
+                $createOrder->confirmed_at = $currentDateTime;
+                $createOrder->id_product = $productId;
+                $createOrder->variant_details = $variant_details;
+                $createOrder->recaudo = $recaudo;
+            
+                if ($newrouteId == 0) {
+                    error_log("*****Tramsp externa********\n");
+                    $createOrder->carrier_external_id = $carrierExternalId;
+                    $createOrder->ciudad_external_id = $ciudadDes;
+                }
+                
+                $createOrder->save();
+
+
+                error_log("******************proceso 3 terminado************************\n");
+
+                $dateOrder;
+                // SEARCH DATE ORDER FOR RELLATION
+                $searchDate = PedidoFecha::where('fecha', now()->format('d/m/Y'))->get();
+                $pedidoShopifyOrder = 0;
+                // IF DATE ORDER NOT EXIST CREATE ORDER AND ADD ID ELSE IF ONLY ADD DATE ORDER ID VALUE
+                if ($searchDate->isEmpty()) {
+                    // Crea un nuevo registro de fecha
+                    $newDate = new PedidoFecha();
+                    $newDate->fecha = now()->format('d/m/Y');
+                    $newDate->save();
+
+                    // Obtén el ID del nuevo registro
+                    $dateOrder = $newDate->id;
+                } else {
+                    // Si la fecha existe, obtén el ID del primer resultado
+                    $dateOrder = $searchDate[0]->id;
+
+                    $ultimoPedidoFechaLink = PedidosShopifiesPedidoFechaLink::where('pedido_fecha_id', $dateOrder)
+                        ->orderBy('pedidos_shopify_order', 'desc')
+                        ->first();
+
+                    if ($ultimoPedidoFechaLink) {
+                        $pedidoShopifyOrder = $ultimoPedidoFechaLink->pedidos_shopify_order + 1;
+                    } else {
+                        $pedidoShopifyOrder = 1;
+                    }
+                }
+
+
+                // Obtener la fecha y hora actual
+                $createPedidoFecha = new PedidosShopifiesPedidoFechaLink();
+                $createPedidoFecha->pedidos_shopify_id = $createOrder->id;
+                $createPedidoFecha->pedido_fecha_id = $dateOrder;
+                $createPedidoFecha->pedidos_shopify_order = $pedidoShopifyOrder;
+                $createPedidoFecha->save();
+
+                $createUserPedido = new UpUsersPedidosShopifiesLink();
+                $createUserPedido->user_id = $IdComercial;
+                $createUserPedido->pedidos_shopify_id = $createOrder->id;
+                $createUserPedido->save();
+
+                error_log("******************proceso 4 terminado************************\n");
+                if ($newrouteId != 0) {
+                    error_log("*****Tramsp inter********\n");
+                    $createPedidoRuta = new PedidosShopifiesRutaLink();
+                    $createPedidoRuta->pedidos_shopify_id = $createOrder->id;
+                    $createPedidoRuta->ruta_id = $newrouteId;
+                    $createPedidoRuta->save();
+
+                    $createPedidoTransportadora = new PedidosShopifiesTransportadoraLink();
+                    $createPedidoTransportadora->pedidos_shopify_id = $createOrder->id;
+                    $createPedidoTransportadora->transportadora_id = $newtransportadoraId;
+                    $createPedidoTransportadora->save();
+                }
+            }
+
+            DB::commit();
+            return response()->json([
+                "data" => $createOrder,
+            ], 200);
+        } catch (\Exception $e) {
+            error_log("ERROR: $e");
+            DB::rollback();
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
 }

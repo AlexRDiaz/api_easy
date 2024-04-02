@@ -149,8 +149,9 @@ class UpUserAPIController extends Controller
         $user->fecha_alta = $request->input('FechaAlta'); // Fecha actual
         $user->confirmed = $request->input('confirmed');
         $user->estado = $request->input('estado');
-        $permisosCadena = json_encode($request->input('PERMISOS'));
-        $user->permisos = $permisosCadena;
+        // $permisosCadena = json_encode($request->input('PERMISOS'));
+        // $user->permisos = $permisosCadena;
+        $user->permisos = json_encode($request->input('permisos'));
         $user->blocked = false;
         $user->save();
         $user->providers()->attach($request->input('providers'), []);
