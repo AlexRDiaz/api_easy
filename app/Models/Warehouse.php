@@ -16,6 +16,7 @@ class Warehouse extends Model
         'reference',
         'description',
         'url_image',
+        'id_provincia',
         'city',
         'collection',
         'active',
@@ -30,6 +31,7 @@ class Warehouse extends Model
         'reference' => 'string',
         'description' => 'string',
         'url_image' => 'string',
+        'id_provincia' => 'int',
         'city' => 'string',
         'collection' => 'json', // Campo 'collection' como tipo JSON
         'active' => 'int', // Cambiado de 'int' a 'boolean'
@@ -42,6 +44,7 @@ class Warehouse extends Model
         'reference' => 'nullable|string|max:70',
         'description' => 'nullable|string|max:65535',
         'url_image' => 'nullable|string|max:150',
+        'id_provincia' => 'nullable|int',
         'city' => 'nullable|string|max:80',
         'collection' => 'nullable|json',
         'active' => 'nullable|int', // Cambiado de 'int' a 'boolean'
@@ -59,5 +62,10 @@ class Warehouse extends Model
     public function products(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\App\Models\Product::class, 'warehouse_id');
+    }
+
+    public function dpa_provincia()
+    {
+        return $this->belongsTo(DpaProvincia::class, 'id_provincia');
     }
 }

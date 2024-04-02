@@ -28,7 +28,8 @@ class WarehouseAPIController extends Controller
                 'customer_service_phone' => 'nullable|string|max:70',
                 'reference' => 'nullable|string|max:70',
                 'description' => 'nullable|string|max:65535',
-                'url_image' => 'nullable|string|max:150',
+                'url_image' => 'nullable|string|max:150',                
+                'id_provincia' => 'nullable|int',
                 'city' => 'nullable|string|max:80',
                 'collection' => 'nullable|json',
                 'provider_id' => 'nullable|integer',
@@ -77,7 +78,7 @@ class WarehouseAPIController extends Controller
             'collection' => 'nullable|json',
             'provider_id' => 'nullable|integer',
             'active' => 'nullable|integer',
-            'approved'=> 'nullable|integer',
+            'approved' => 'nullable|integer',
             'provider_id' => 'nullable|integer',
         ]);
 
@@ -176,7 +177,4 @@ class WarehouseAPIController extends Controller
 
         return response()->json(['warehouses' => $warehouses]);
     }
-
-
-
 }

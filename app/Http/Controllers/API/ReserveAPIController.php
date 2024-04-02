@@ -41,7 +41,7 @@ class ReserveAPIController extends Controller
      * Store a newly created Reserve in storage.
      * POST /reserves
      */
-    public function store(CreateReserveAPIRequest $request)
+    public function store(Request $request)
     {
 
         DB::beginTransaction();
@@ -56,7 +56,7 @@ class ReserveAPIController extends Controller
             $id_comercial = $data['id_comercial'];
             $warehouse_price = $data['warehouse_price'];
 
-            $user = UpUser::find($id_comercial); // Encuentra al usuario por su ID
+            $user = UpUser::find($id_comercial); 
 
             $createReserve = new Reserve();
             $createReserve->product_id = $product_id;
@@ -64,8 +64,6 @@ class ReserveAPIController extends Controller
             $createReserve->stock = $stock;
             $createReserve->id_comercial = $id_comercial;
             $createReserve->warehouse_price = $warehouse_price;
-
-
             $createReserve->save();
 
             $description = "Reserva por " . $user->email;
@@ -75,24 +73,67 @@ class ReserveAPIController extends Controller
 
             $product = Product::find($product_id);
             $last_stock = $product->stock;
+            $isVariable = $product->isvariable;
+            // error_log("$isVariable");
+
+            $features1 = json_decode($product->features, true);
+            $variants = $features1['variants'];
+            // error_log(var_export($variants, true));
+
             $result = $product->changeStockGen($product_id, $sku, $stock, $type);
             $product2 = Product::find($product_id);
             $current_stock = $product2->stock;
 
-            $createHistory = new StockHistory();
-            $createHistory->product_id = $product_id;
-            $createHistory->variant_sku = $sku;
-            $createHistory->type = $type;
-            $createHistory->date = $currentDateTime;
-            $createHistory->units = $stock;
-            $createHistory->last_stock = $last_stock;
-            $createHistory->current_stock = $current_stock;
-            $createHistory->description = $description;
+            if ($isVariable == 0) {
+                $createHistory = new StockHistory();
+                $createHistory->product_id = $product_id;
+                $createHistory->variant_sku = $sku;
+                $createHistory->type = $type;
+                $createHistory->date = $currentDateTime;
+                $createHistory->units = $stock;
+                $createHistory->last_stock = $last_stock;
+                $createHistory->current_stock = $current_stock;
+                $createHistory->description = $description;
+                $createHistory->save();
+                error_log("created reserve-History for type simple");
+            } else {
+                //
+                $features2 = json_decode($product2->features, true);
+                $variants2 = $features2['variants'];
+                $variantLastStock = 0;
+                $variantCurrentStock = 0;
 
-            $createHistory->save();
+                foreach ($variants as $variant) {
+                    if ($variant['sku'] ===  $sku) {
+                        $variantLastStock = $variant['inventory_quantity'];
+                        break;
+                    }
+                }
 
+                foreach ($variants2 as $variant2) {
+                    if ($variant2['sku'] ===  $sku) {
+                        $variantCurrentStock = $variant2['inventory_quantity'];
+                        break;
+                    }
+                }
+
+                // error_log("variantLastStock: $variantLastStock");
+                // error_log("variantCurrentStock: $variantCurrentStock");
+
+                $createHistory = new StockHistory();
+                $createHistory->product_id = $product_id;
+                $createHistory->variant_sku = $sku;
+                $createHistory->type = $type;
+                $createHistory->date = $currentDateTime;
+                $createHistory->units = $stock;
+                $createHistory->last_stock = $variantLastStock;
+                $createHistory->current_stock = $variantCurrentStock;
+                $createHistory->description = $description;
+                $createHistory->save();
+                error_log("created reserve-History for variant");
+            }
             // return $createReserve;
-            DB::commit(); // Confirma la transacción si todas las operaciones tienen éxito
+            DB::commit(); 
             return response()->json([
                 "res" => "Se realizo la reserva y el createHistory exitosamente"
             ]);
@@ -140,7 +181,7 @@ class ReserveAPIController extends Controller
         return response()->json(['reserve' => $reserve, "response" => true], Response::HTTP_OK);
     }
 
-    public function update($id, UpdateReserveAPIRequest $request)
+    public function update($id, Request $request)
     {
         // $input = $request->all();
 

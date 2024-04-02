@@ -389,8 +389,8 @@ class ProductAPIController extends Controller
         $to = $data['to'];
         if ($to == "approve") {
             $products->whereHas('warehouse', function ($warehouse) {
-                    $warehouse->where('approved', 1);
-                });
+                $warehouse->where('approved', 1);
+            });
         }
 
         // ! sort
@@ -479,6 +479,7 @@ class ProductAPIController extends Controller
             // $features = json_encode($data['features']);
             $features = $data['features'];
             $warehouse_id = $data['warehouse_id'];
+            $seller_owned = $data['seller_owned'];
 
             $warehouse = Warehouse::find($warehouse_id); // Encuentra al usuario por su ID
 
@@ -490,11 +491,54 @@ class ProductAPIController extends Controller
             $newProduct->isvariable = $isvariable;
             $newProduct->features = $features;
             $newProduct->warehouse_id = $warehouse_id;
+            $newProduct->seller_owned = $seller_owned;
             // $newProduct->approved = 2;//Pendiente
-
-
             $newProduct->save();
 
+            $currentDateTime = date('Y-m-d H:i:s');
+
+            $dataFeatures = json_decode($features, true);
+            $skuGen = $dataFeatures['sku'];
+
+            if ($isvariable == 0) {
+                // error_log("no isvariable for StockHistory");
+                $createHistory = new StockHistory();
+                $createHistory->product_id =  $newProduct->product_id;
+                $createHistory->variant_sku = $skuGen;
+                $createHistory->type = 1; //ingreso
+                $createHistory->date = $currentDateTime;
+                $createHistory->units =  $stock;
+                $createHistory->last_stock = 0;
+                $createHistory->current_stock = $stock;
+                $createHistory->description = "Registro de Nuevo Producto";
+                $createHistory->save();
+
+                error_log("created History for type simple");
+            } else {
+                //
+                // error_log("isvariable for StockHistory");
+                $variants = $dataFeatures['variants'];
+
+                foreach ($variants as $variant) {
+                    // $id = $variant['id'];
+                    $sku = $variant['sku'];
+                    // $size = $variant['size'];
+                    $inventory_quantity = $variant['inventory_quantity'];
+                    $price = $variant['price'];
+
+                    $createHistory = new StockHistory();
+                    $createHistory->product_id =  $newProduct->product_id;
+                    $createHistory->variant_sku = $sku;
+                    $createHistory->type = 1; //ingreso
+                    $createHistory->date = $currentDateTime;
+                    $createHistory->units =  $inventory_quantity;
+                    $createHistory->last_stock = 0;
+                    $createHistory->current_stock = $inventory_quantity;
+                    $createHistory->description = "Registro de Nuevo Producto";
+                    $createHistory->save();
+                }
+                error_log("created History for each variant");
+            }
 
             if ($newProduct) {
                 $to = 'easyecommercetest@gmail.com';

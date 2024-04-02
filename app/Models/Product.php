@@ -40,7 +40,8 @@ class Product extends Model
 		'isvariable' => 'int',
 		'approved' => 'int',
 		'active' => 'int',
-		'warehouse_id' => 'int'
+		'warehouse_id' => 'int',
+		'seller_owned' => 'int'
 	];
 
 	protected $fillable = [
@@ -52,7 +53,8 @@ class Product extends Model
 		'features',
 		'approved',
 		'active',
-		'warehouse_id'
+		'warehouse_id', 
+		'seller_owned'
 	];
 
 	public function warehouse()
@@ -75,7 +77,7 @@ class Product extends Model
 		$lastCPosition = strrpos($skuProduct, 'C');
 
 		$onlySku = substr($skuProduct, 0, $lastCPosition);
-		$productIdFromSKU = substr($skuProduct, $lastCPosition + 1);    
+		$productIdFromSKU = substr($skuProduct, $lastCPosition + 1);
 
 
 		// Convierte el ID del producto a entero para la comparación.
@@ -205,5 +207,4 @@ class Product extends Model
 		$variant = collect($features['variants'] ?? [])->firstWhere('sku', $skuProduct);
 		return $variant['price'] ?? $this->price; // Retorna el precio de la variante o el del producto general si no se encuentra
 	}
-
 }
