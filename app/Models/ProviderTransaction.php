@@ -22,7 +22,8 @@ class ProviderTransaction extends Model
         'comment',
         'generated_by',
         'status',
-        'description'
+        'description',
+        'sku_product_reference'
 
         
     ];

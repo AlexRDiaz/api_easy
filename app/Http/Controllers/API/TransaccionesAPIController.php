@@ -208,7 +208,8 @@ class TransaccionesAPIController extends Controller
         $comment,
         $status,
         $description,
-        $generatedby
+        $generatedby,
+        $skuProductReference
     ) {
         $startDateFormatted = new DateTime();
         $user = UpUser::where("id", $vendedorId)->with('providers')->first();
@@ -240,6 +241,7 @@ class TransaccionesAPIController extends Controller
         $newTrans->status = $status;
         // $newTrans->description = "Retiro de billetera APROBADO";
         $newTrans->description = $description;
+        $newTrans->sku_product_reference = $skuProductReference;
 
         $this->providerTransactionRepository->create($newTrans);
         $this->providerRepository->update($nuevoSaldo, $user['providers'][0]['id']);
@@ -393,81 +395,97 @@ class TransaccionesAPIController extends Controller
         return response()->json("Monto debitado");
     }
 
-    public function updateProductAndProviderBalance($skuProduct, $totalPrice, $quantity, $generated_by, $id_origin, $orderStatus, $codeOrder)
+    // public function updateProductAndProviderBalance($skuProduct, $totalPrice, $quantity, $generated_by, $id_origin, $orderStatus, $codeOrder)
+    public function updateProductAndProviderBalance($variants, $totalPrice, $generated_by, $id_origin, $orderStatus, $codeOrder)
     {
         DB::beginTransaction();
         try {
-            if ($skuProduct == null) {
-                $skuProduct = "UKNOWNPC0";
-            }
-            $productId = substr($skuProduct, strrpos($skuProduct, 'C') + 1);
-            $firstPart = substr($skuProduct, 0, strrpos($skuProduct, 'C'));
-
-            // Log::info('sku', [$firstPart]);
-
-            // Buscar el producto por ID
-            $product = Product::with('warehouse')->find($productId);
-
-            if ($product === null) {
-                DB::commit();
-                return ["total" => null, "valor_producto" => null, "value_product_warehouse" => null, "error" => "Product Not Found!"];
-            }
-
-            error_log("ak-> $id_origin");
-            error_log("ak-> $codeOrder");
+            $responses = [];
+            $totalValueProductWarehouse = 0;
 
 
-            $providerTransactionPrevious = ProviderTransaction::where('transaction_type', 'Pago Producto')
-                ->where('status', 'ENTREGADO')
-                ->where('origin_id', $id_origin)
-                ->where('origin_code', $codeOrder)
-                ->first();
+            foreach ($variants as $variant) {
+                $quantity = $variant['quantity'];
+                $skuProduct = $variant['sku']; // Ahora el SKU viene dentro de cada variante
 
-            error_log("ak-> $providerTransactionPrevious");
+                // foreach ($variant_details as $variant){}
+                if ($skuProduct == null) {
+                    $skuProduct = "UKNOWNPC0";
+                }
+                $productId = substr($skuProduct, strrpos($skuProduct, 'C') + 1);
+                $firstPart = substr($skuProduct, 0, strrpos($skuProduct, 'C'));
 
-            $price = 0;
+                // Log::info('sku', [$firstPart]);
 
-            if (!$providerTransactionPrevious) {
-                $providerId = $product->warehouse->provider_id;
-                $productName = $product->product_name;
+                // Buscar el producto por ID
+                $product = Product::with('warehouse')->find($productId);
 
-                $price = $product->price;
+                if ($product === null) {
+                    DB::commit();
+                    return ["total" => null, "valor_producto" => null, "value_product_warehouse" => null, "error" => "Product Not Found!"];
+                }
 
-                // Log::info('price', [$price]);
-
-
-                $amountToDeduct = $price * $quantity;
-
-                $total = $totalPrice;
-                $diferencia = $amountToDeduct;
-
-                $provider = Provider::findOrFail($providerId);
-                $provider->saldo += $amountToDeduct;
-                $provider->save();
+                error_log("ak-> $id_origin");
+                error_log("ak-> $codeOrder");
 
 
-                $providerTransaction = new ProviderTransaction([
-                    'transaction_type' => 'Pago Producto',
-                    'amount' => $amountToDeduct,
-                    'previous_value' => $provider->saldo - $amountToDeduct,
-                    'current_value' => $provider->saldo,
-                    'timestamp' => now(),
-                    'origin_id' => $id_origin,
-                    'origin_code' => $codeOrder,
-                    // 'origin_code' => $skuProduct,
-                    'provider_id' => $providerId,
-                    'comment' => $productName,
-                    'generated_by' => $generated_by,
-                    'status' => $orderStatus,
-                    'description' => "Valor por guia ENTREGADA"
-                ]);
-                $providerTransaction->save();
+                $providerTransactionPrevious = ProviderTransaction::where('transaction_type', 'Pago Producto')
+                    ->where('status', 'ENTREGADO')
+                    ->where('origin_id', $id_origin)
+                    ->where('origin_code', $codeOrder)
+                    ->where('sku_product_reference', $skuProduct)
+                    ->first();
+
+                error_log("ak-> $providerTransactionPrevious");
+
+                $price = 0;
+
+                if (!$providerTransactionPrevious) {
+                    $providerId = $product->warehouse->provider_id;
+                    $productName = $product->product_name;
+
+                    $price = $product->price;
+
+                    // Log::info('price', [$price]);
+
+
+                    $amountToDeduct = $price * $quantity;
+
+                    $total = $totalPrice;
+                    $diferencia = $amountToDeduct;
+
+                    $totalValueProductWarehouse += $price * $quantity;
+
+                    $provider = Provider::findOrFail($providerId);
+                    $provider->saldo += $amountToDeduct;
+                    $provider->save();
+
+
+                    $providerTransaction = new ProviderTransaction([
+                        'transaction_type' => 'Pago Producto',
+                        'amount' => $amountToDeduct,
+                        'previous_value' => $provider->saldo - $amountToDeduct,
+                        'current_value' => $provider->saldo,
+                        'timestamp' => now(),
+                        'origin_id' => $id_origin,
+                        'origin_code' => $codeOrder,
+                        // 'origin_code' => $skuProduct,
+                        'provider_id' => $providerId,
+                        'comment' => $productName,
+                        'generated_by' => $generated_by,
+                        'status' => $orderStatus,
+                        'description' => "Valor por guia ENTREGADA",
+                        'sku_product_reference' => $skuProduct
+                    ]);
+                    $providerTransaction->save();
+                    $responses[] = $diferencia;
+                }
             }
             DB::commit(); // Confirmar los cambios
-            return ["total" => $total, "valor_producto" => $diferencia, "value_product_warehouse" => $price * $quantity, "error" => null];
+            return ["total" => $total, "valor_producto" => $responses, "value_product_warehouse" => $totalValueProductWarehouse, "error" => null];
         } catch (\Exception $e) {
             DB::rollback();
-            return ["total" => null, "valor_producto" => null, "value_product_warehouse" => $price * $quantity, "error" => $e->getMessage()];
+            return ["total" => null, "valor_producto" => null, "value_product_warehouse" => null, "error" => $e->getMessage()];
         }
     }
 
@@ -537,17 +555,6 @@ class TransaccionesAPIController extends Controller
                 where('id_origen', $data['id_origen'])
                 ->get();
 
-            // if ($transaccionSellerPrevious) {
-            //     // Si ya existe una transacción, puedes manejarlo aquí, tal vez lanzar una excepción o simplemente ignorar y continuar
-            //     // Por ejemplo:
-            //     // return response()->json([
-            //     //     // 'error' => 'Ya existe una transacción de crédito para este pedido.'
-            //     //     'error' => 'Ya existe una transacción de crédito para este pedido.'
-            //     // ], 400);
-            //     return response()->json([
-            //         "res" => "Transacciones ya Registradas"
-            //     ]);
-            // }
             if ($transaccionSellerPrevious->isNotEmpty()) {
                 // Obtener el último registro de transacción
                 $lastTransaction = $transaccionSellerPrevious->last();
@@ -574,11 +581,26 @@ class TransaccionesAPIController extends Controller
             $pedido->costo_transportadora = $costoTransportadora;
             // $pedido->save();
 
+            // $SellerCreditFinalValue = $this->updateProductAndProviderBalance(
+            //     // "TEST2C1003",
+            //     $pedido->sku,
+            //     $pedido->precio_total,
+            //     $pedido->cantidad_total,
+            //     $data['generated_by'],
+            //     $data['id_origen'],
+            //     $pedido->status,
+            //     $data['codigo'],
+
+            //     // 22.90,
+            // );
+            $variants = json_decode($pedido->variant_details, true);
+            // error_log("->> $variants");
+
             $SellerCreditFinalValue = $this->updateProductAndProviderBalance(
                 // "TEST2C1003",
-                $pedido->sku,
+                $variants,
                 $pedido->precio_total,
-                $pedido->cantidad_total,
+                // $pedido->cantidad_total,
                 $data['generated_by'],
                 $data['id_origen'],
                 $pedido->status,
@@ -587,7 +609,8 @@ class TransaccionesAPIController extends Controller
                 // 22.90,
             );
 
-            if (isset ($SellerCreditFinalValue['value_product_warehouse']) && $SellerCreditFinalValue['value_product_warehouse'] !== null) {
+
+            if (isset($SellerCreditFinalValue['value_product_warehouse']) && $SellerCreditFinalValue['value_product_warehouse'] !== null) {
                 $pedido->value_product_warehouse = $SellerCreditFinalValue['value_product_warehouse'];
             }
 
@@ -603,16 +626,30 @@ class TransaccionesAPIController extends Controller
 
             $this->Credit($request);
 
-
+            $productValues = [];
             // !*********
-            if ($SellerCreditFinalValue['valor_producto'] != null) {
+            if (!empty($SellerCreditFinalValue['valor_producto'])) {
+                $productValues = $SellerCreditFinalValue['valor_producto'];
+                // No necesitas codificar a JSON si ya es un array
+                // $decodevalues = json_encode($productValues);
+                error_log(print_r($productValues, true));
+                foreach ($productValues as $valueProduct) {
+                    // Asumiendo que $valueProduct es un número, podrías necesitar validar o formatearlo según sea necesario
+                    $request->merge(['comentario' => 'Costo de valor de Producto en Bodega ' . $pedido->status]);
+                    $request->merge(['origen' => 'valor producto bodega']);
+                    $request->merge(['monto' => $valueProduct]);
 
-                $request->merge(['comentario' => 'Costo de de valor de Producto en Bodega ' . $pedido->status]);
-                $request->merge(['origen' => 'valor producto bodega']);
-                $request->merge(['monto' => $SellerCreditFinalValue['valor_producto']]);
-
-                $this->Debit($request);
+                    $this->Debit($request);
+                }
             }
+
+
+
+            // $request->merge(['comentario' => 'Costo de de valor de Producto en Bodega ' . $pedido->status]);
+            // $request->merge(['origen' => 'valor producto bodega']);
+            // $request->merge(['monto' => $SellerCreditFinalValue['valor_producto']]);
+
+            // $this->Debit($request);
             // !*********
 
             $request->merge(['comentario' => 'Costo de envio por pedido ' . $pedido->status]);
@@ -966,9 +1003,15 @@ class TransaccionesAPIController extends Controller
             // ! suma stock  cuando pedido ya se encuentra "EN BODEGA" JP
             $productController = new ProductAPIController();
 
+            // $searchResult = $productController->updateProductVariantStockInternal(
+            //     $order->cantidad_total,
+            //     $order->sku,
+            //     1,
+            //     $order->id_comercial,
+            // );
+
             $searchResult = $productController->updateProductVariantStockInternal(
-                $order->cantidad_total,
-                $order->sku,
+                $order->variant_details,
                 1,
                 $order->id_comercial,
             );
@@ -1313,7 +1356,7 @@ class TransaccionesAPIController extends Controller
         // ! *************************************
         // ! ordenamiento ↓
         $orderBy = null;
-        if (isset ($data['sort'])) {
+        if (isset($data['sort'])) {
             $sort = $data['sort'];
             $sortParts = explode(':', $sort);
             if (count($sortParts) === 2) {
@@ -1600,12 +1643,13 @@ class TransaccionesAPIController extends Controller
         $firstIdTransaction = $ids[0];
         $transactionFounded = Transaccion::where("id", $firstIdTransaction)->first();
         $idTransFounded = $transactionFounded->id_origen;
-        $providerTransaction = ProviderTransaction::where("origin_id", $idTransFounded)->first();
-        // $totalIds = count($ids);
 
-        // $shouldProcessProviderTransaction = $totalIds == 3 || $totalIds == 6;
-        // $shouldProcessProviderTransaction = $totalIds == 3;
-        $shouldProcessProviderTransaction = $providerTransaction != null && $providerTransaction->state == 1;
+        // $providerTransaction = ProviderTransaction::where("origin_id", $idTransFounded)->first();
+        $providerTransactions = ProviderTransaction::where("origin_id", $idTransFounded)->get();
+        // $totalIds = count($ids);
+        error_log("-> pt -> $providerTransactions");
+        // ! ↓ esto se usa
+        // $shouldProcessProviderTransaction = $providerTransaction != null && $providerTransaction->state == 1;
 
 
         try {
@@ -1685,15 +1729,22 @@ class TransaccionesAPIController extends Controller
                     }
                 }
             }
-            if ($shouldProcessProviderTransaction) {
-                if (isset ($transaction)) { // Verifica si $transaction está definida
-                    $idOriginOfTransaction = $transaction->id_origen;
 
-                    $providerTransaction = ProviderTransaction::where("origin_id", $idOriginOfTransaction)->first();
+            // $providerTransactions
+            if (!empty($providerTransactions)) {
+                foreach ($providerTransactions as $providerT) {
+                    // $shouldProcessProviderTransaction = $providerT != null && $providerT['state'] == 1;
+
+                    // if ($shouldProcessProviderTransaction) {
+                    // if (isset($transaction)) { // Verifica si $transaction está definida
+                    //     $idOriginOfTransaction = $transaction->id_origen;
+
+                    $providerTransaction = ProviderTransaction::where("origin_id", $providerT->origin_id)
+                        ->where('sku_product_reference', $providerT->sku_product_reference)->first();
 
                     if ($providerTransaction && $providerTransaction->state == 1) {
                         // error_log("$transaction->id_vendedor");
-                        $productId = substr($providerTransaction->origin_code, strrpos($providerTransaction->origin_code, 'C') + 1);
+                        $productId = substr($providerTransaction->sku_product_reference, strrpos($providerTransaction->sku_product_reference, 'C') + 1);
 
                         // Buscar el producto por ID
                         $product = Product::with('warehouse')->find($productId);
@@ -1722,13 +1773,62 @@ class TransaccionesAPIController extends Controller
                             "Restauracion de Guia",
                             "RESTAURACION",
                             "Restauracion de Valores de Guia",
-                            $generated_by
+                            $generated_by,
+                            $providerTransaction->sku_product_reference
                         );
                         $providerTransaction->state = 0;
                         $providerTransaction->save();
+                        // }
+                        // }
+                        // }
                     }
+                    // ! ----------------
+                    // if ($shouldProcessProviderTransaction) {
+                    //     if (isset($transaction)) { // Verifica si $transaction está definida
+                    //         $idOriginOfTransaction = $transaction->id_origen;
+
+                    //         $providerTransaction = ProviderTransaction::where("origin_id", $idOriginOfTransaction)->first();
+
+                    //         if ($providerTransaction && $providerTransaction->state == 1) {
+                    //             // error_log("$transaction->id_vendedor");
+                    //             $productId = substr($providerTransaction->origin_code, strrpos($providerTransaction->origin_code, 'C') + 1);
+
+                    //             // Buscar el producto por ID
+                    //             $product = Product::with('warehouse')->find($productId);
+
+                    //             // if ($product === null) {
+                    //             //     DB::commit();
+                    //             //     return ["total" => null, "valor_producto" => null, "error" => "Product Not Found!"];
+                    //             // }
+
+                    //             $providerId = $product->warehouse->provider_id;
+
+                    //             $user = Provider::with("user")->where("id", $providerId)->first();
+                    //             $userId = $user->user->id;
+
+                    //             error_log("1.$providerTransaction->origin_id");
+                    //             error_log("2.$providerTransaction->origin_code");
+                    //             error_log("3.$userId");
+                    //             error_log("4.$providerTransaction->amount");
+
+                    //             $this->DebitLocalProvider(
+                    //                 $providerTransaction->origin_id,
+                    //                 $providerTransaction->origin_code,
+                    //                 $userId,
+                    //                 $providerTransaction->amount,
+                    //                 "Restauracion",
+                    //                 "Restauracion de Guia",
+                    //                 "RESTAURACION",
+                    //                 "Restauracion de Valores de Guia",
+                    //                 $generated_by
+                    //             );
+                    //             $providerTransaction->state = 0;
+                    //             $providerTransaction->save();
+                    // }
                 }
             }
+
+            // ! ----------------
 
 
             //  *
@@ -1761,13 +1861,14 @@ class TransaccionesAPIController extends Controller
                 error_log("no data tpt");
             }
             //  **
-            $pedidos = !empty ($ids) ? $ids[0] : null;
+            $pedidos = !empty($ids) ? $ids[0] : null;
 
             DB::commit();
             return response()->json([
                 "transacciones" => $transaction,
                 "pedidos" => $pedidos
             ]);
+
         } catch (\Exception $e) {
             DB::rollback();
             return response()->json([
