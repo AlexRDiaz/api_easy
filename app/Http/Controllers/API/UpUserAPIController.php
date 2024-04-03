@@ -468,6 +468,11 @@ class UpUserAPIController extends Controller
 
             return response()->json(['error' => 'Usuario Bloqueado'], Response::HTTP_UNAUTHORIZED);
         }
+        if ($user->active == 0) {
+            error_log("3");
+
+            return response()->json(['error' => 'Usuario Eliminado'], Response::HTTP_UNAUTHORIZED);
+        }
 
         try {
             // Intentar generar un token JWT
