@@ -240,4 +240,11 @@ class UpUser extends Model implements Authenticatable, JWTSubject
 		return $this->belongsToMany(RolesFront::class, 'up_users_roles_front_links', 'user_id')
 			->withPivot('id', 'user_order');
 	}
+
+	public function warehouses()
+	{
+		return $this->belongsToMany(Warehouse::class, 'up_users_warehouse_link', 'id_user', 'id_warehouse')
+					->withPivot('id')
+					->withTimestamps();
+	}
 }

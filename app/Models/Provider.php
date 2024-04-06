@@ -15,9 +15,10 @@ class Provider extends Model
         'description',
         'saldo',
         'provider_order',
-        'up_user_order',        
+        'up_user_order',
         'approved',
         'active',
+        'special'
     ];
 
     protected $casts = [
@@ -27,6 +28,7 @@ class Provider extends Model
         'saldo' => 'string',
         'approved' => 'int',
         'active' => 'int',
+        'special' => 'int',
     ];
 
     public static array $rules = [

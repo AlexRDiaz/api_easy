@@ -53,13 +53,24 @@ class Product extends Model
 		'features',
 		'approved',
 		'active',
-		'warehouse_id', 
+		'warehouse_id',
 		'seller_owned'
 	];
 
 	public function warehouse()
 	{
 		return $this->belongsTo(Warehouse::class, 'warehouse_id', 'warehouse_id');
+	}
+
+	public function warehouses()
+	{
+		// return $this->belongsToMany(Warehouse::class, 'product_warehouse_link', 'id_product', 'id_warehouse')
+		// 	->with('up_users');
+		// ->withPivot('id')
+		// ->withTimestamps();
+		return $this->belongsToMany(Warehouse::class, 'product_warehouse_link', 'id_product', 'id_warehouse')
+		->select('warehouse_id', 'branch_name','id_provincia','city','customer_service_phone','provider_id')
+		->with('up_users');
 	}
 
 	public function productseller(): \Illuminate\Database\Eloquent\Relations\HasMany

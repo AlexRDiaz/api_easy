@@ -10,6 +10,9 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\API\ReserveAPIController;
+use App\Models\ProductWarehouseLink;
+use App\Models\UpUser;
+use App\Models\UpUsersWarehouseLink;
 use App\Models\Warehouse;
 use Illuminate\Support\Facades\Mail;
 
@@ -540,13 +543,20 @@ class ProductAPIController extends Controller
                 error_log("created History for each variant");
             }
 
+            //create product_warehouse link
+            $providerWarehouse = new ProductWarehouseLink();
+            $providerWarehouse->id_product = $newProduct->product_id;
+            $providerWarehouse->id_warehouse = $warehouse_id;
+            $providerWarehouse->save();
+
+
             if ($newProduct) {
-                $to = 'easyecommercetest@gmail.com';
-                $subject = 'Aprobación de un nuevo producto';
-                $message = 'La bodega "' . $warehouse->branch_name . '" ha agregado un nuevo producto "' . $newProduct->product_name . '" con el id "' . $newProduct->product_id . '" para la respectiva aprobación.';
-                Mail::raw($message, function ($mail) use ($to, $subject) {
-                    $mail->to($to)->subject($subject);
-                });
+                // $to = 'easyecommercetest@gmail.com';
+                // $subject = 'Aprobación de un nuevo producto';
+                // $message = 'La bodega "' . $warehouse->branch_name . '" ha agregado un nuevo producto "' . $newProduct->product_name . '" con el id "' . $newProduct->product_id . '" para la respectiva aprobación.';
+                // Mail::raw($message, function ($mail) use ($to, $subject) {
+                //     $mail->to($to)->subject($subject);
+                // });
 
                 return response()->json($newProduct, 200);
             } else {
@@ -681,7 +691,7 @@ class ProductAPIController extends Controller
     // }
     public function updateProductVariantStockInternal($variant_details, $type, $idComercial)
     {
-        $variants = json_decode($variant_details,true);
+        $variants = json_decode($variant_details, true);
         $responses = [];
 
         foreach ($variants as $variant) {
@@ -730,9 +740,10 @@ class ProductAPIController extends Controller
     // ! ↓ FUNCIONAL ↓ 
     public function updateProductVariantStock(Request $request)
     {
+        error_log("updateProductVariantStock");
         $reserveController = new ReserveAPIController();
         $data = $request->json()->all();
-        $variants = json_decode($data['variant_detail'],true);
+        $variants = json_decode($data['variant_detail'], true);
 
         // $quantity = $data['quantity'];
         // $skuProduct = $data['sku_product']; // Esto tendrá un valor como "test2"
@@ -760,7 +771,7 @@ class ProductAPIController extends Controller
 
                 if ($type == 0 && $quantity > $reserve->stock) {
                     // No se puede restar más de lo que hay en stock
-                    $responses[] =['message' => 'No Dispone de Stock en la Reserva'];
+                    $responses[] = ['message' => 'No Dispone de Stock en la Reserva'];
                     continue;
                 }
 
@@ -800,12 +811,369 @@ class ProductAPIController extends Controller
 
                     $createHistory->save();
                 } else {
-                    $responses[] =['message' => 'Product not found'];
+                    $responses[] = ['message' => 'Product not found'];
                     continue;
                 }
             }
         }
         return response()->json($responses);
     }
-}
+
+    public function getBySubProvider(Request $request)
+    {
+        //
+        error_log("getBySubProvider");
+        $data = $request->json()->all();
+
+        $pageSize = $data['page_size'];
+        $pageNumber = $data['page_number'];
+        $searchTerm = $data['search'];
+        $populate = $data['populate'];
+        if ($searchTerm != "") {
+            $filteFields = $data['or'];
+        } else {
+            $filteFields = [];
+        }
+
+        $andMap = $data['and'];
+
+        
+        $products = Product::with($populate)
+        ->where(function ($products) use ($searchTerm, $filteFields) {
+            foreach ($filteFields as $field) { 
+                if (strpos($field, '.') !== false) {
+                    $segments = explode('.', $field);
+                    $lastSegment = array_pop($segments);
+                    $relation = implode('.', $segments);
     
+                    $products->orWhereHas($relation, function ($query) use ($lastSegment, $searchTerm) {
+                        $query->where($lastSegment, 'LIKE', '%' . $searchTerm . '%');
+                    });
+                } else {
+                    $products->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                }
+            }
+        })
+        ->where(function ($products) use ($andMap) {
+            foreach ($andMap as $condition) {
+                foreach ($condition as $key => $valor) {
+                    $parts = explode("/", $key);
+                    $type = $parts[0];
+                    $filter = $parts[1];
+                    if (strpos($filter, '.') !== false) {
+                        $relacion = substr($filter, 0, strpos($filter, '.'));
+                        $propiedad = substr($filter, strpos($filter, '.') + 1);
+                        $this->recursiveWhereHas($products, $relacion, $propiedad, $valor);
+                    } else {
+                        if ($type == "equals") {
+                            $products->where($filter, '=', $valor);
+                        } else {
+                            $products->where($filter, 'LIKE', '%' . $valor . '%');
+                        }
+                    }
+                }
+            }
+        })
+        ->whereHas('warehouses.provider', function ($query) {
+            $query->where('active', 1)->where('approved', 1)->take(1);//primera bodega, primer proveedor
+        })
+        ->where('active', 1);
+        // ! sort
+        $orderByText = null;
+        $orderByDate = null;
+        $sort = $data['sort'];
+        $sortParts = explode(':', $sort);
+
+        $pt1 = $sortParts[0];
+
+        $type = (stripos($pt1, 'fecha') !== false || stripos($pt1, 'marca') !== false) ? 'date' : 'text';
+
+        $dataSort = [
+            [
+                'field' => $sortParts[0],
+                'type' => $type,
+                'direction' => $sortParts[1],
+            ],
+        ];
+
+        foreach ($dataSort as $value) {
+            $field = $value['field'];
+            $direction = $value['direction'];
+            $type = $value['type'];
+
+            if ($type === "text") {
+                $orderByText = [$field => $direction];
+            } else {
+                $orderByDate = [$field => $direction];
+            }
+        }
+
+        if ($orderByText !== null) {
+            $products->orderBy(key($orderByText), reset($orderByText));
+        } else {
+            $products->orderBy(DB::raw("STR_TO_DATE(" . key($orderByDate) . ", '%e/%c/%Y')"), reset($orderByDate));
+        }
+        $products = $products->paginate($pageSize, ['*'], 'page', $pageNumber);
+
+        
+        /*
+        $products = UpUser::with('warehouses')->where(function ($coverages) use ($andMap) {
+            foreach ($andMap as $condition) {
+                foreach ($condition as $key => $valor) {
+                    $parts = explode("/", $key);
+                    $type = $parts[0];
+                    $filter = $parts[1];
+                    if (strpos($filter, '.') !== false) {
+                        $relacion = substr($filter, 0, strpos($filter, '.'));
+                        $propiedad = substr($filter, strpos($filter, '.') + 1);
+                        $this->recursiveWhereHas($coverages, $relacion, $propiedad, $valor);
+                    } else {
+                        if ($type == "equals") {
+                            $coverages->where($filter, '=', $valor);
+                        } else {
+                            $coverages->where($filter, 'LIKE', '%' . $valor . '%');
+                        }
+                    }
+                }
+            }
+        })
+        ->get();
+        */
+        return response()->json($products);
+    }
+
+    /* 
+    version anterior
+    	protected $table = 'products';
+	protected $primaryKey = 'product_id';
+
+	protected $casts = [
+		'stock' => 'int',
+		'price' => 'float',
+		'isvariable' => 'int',
+		'approved' => 'int',
+		'active' => 'int',
+		'warehouse_id' => 'int',
+		'seller_owned' => 'int'
+	];
+
+	protected $fillable = [
+		'product_name',
+		'stock',
+		'price',
+		'url_img',
+		'isvariable',
+		'features',
+		'approved',
+		'active',
+		'warehouse_id', 
+		'seller_owned'
+	];
+
+	public function warehouse()
+	{
+		return $this->belongsTo(Warehouse::class, 'warehouse_id', 'warehouse_id');
+	}
+
+	public function productseller(): \Illuminate\Database\Eloquent\Relations\HasMany
+	{
+		return $this->hasMany(\App\Models\ProductsSellerLink::class, 'product_id');
+	}
+
+	public function reserve(): \Illuminate\Database\Eloquent\Relations\HasMany
+	{
+		return $this->hasMany(\App\Models\Reserve::class, 'product_id');
+	}
+
+	public function changeStock($skuProduct, $quantity)
+	{
+		$lastCPosition = strrpos($skuProduct, 'C');
+
+		$onlySku = substr($skuProduct, 0, $lastCPosition);
+		$productIdFromSKU = substr($skuProduct, $lastCPosition + 1);
+
+
+		// Convierte el ID del producto a entero para la comparación.
+		$productIdFromSKU = intval($productIdFromSKU);
+
+
+		// Verifica si el ID del producto extraído del SKU coincide con el ID del producto actual.
+		if ($this->product_id == $productIdFromSKU) {
+			if ($this->stock < $quantity) {
+				return 'insufficient_stock';
+			}
+
+			// Actualiza el stock general del producto
+			$this->stock -= $quantity;
+
+			// Aquí suponemos que 'features' contiene un array de variantes con su 'sku' y 'inventory_quantity'.
+			$features = json_decode($this->features, true);
+			if (isset($features['variants']) && is_array($features['variants'])) {
+				foreach ($features['variants'] as $key => $variant) {
+					// Verifica si el SKU de la variante coincide.
+					if ($variant['sku'] == $onlySku) {
+						if ($variant['inventory_quantity'] < $quantity) {
+							// Revertir el cambio en stock general si no hay suficiente stock en la variante
+							$this->stock += $quantity;
+							$this->save();
+							return 'insufficient_stock_variant';
+						}
+						// Resta la cantidad del stock de la variante.
+						$features['variants'][$key]['inventory_quantity'] -= $quantity;
+						break; // Salir del loop si ya encontramos y actualizamos la variante
+					}
+				}
+			}
+
+			// Guardar los cambios en el producto y sus variantes.
+			$this->features = json_encode($features);
+			$this->save();
+			return true;
+		}
+
+		// Si llegamos aquí, significa que no se encontró el producto con ese ID.
+		return false;
+	}
+
+	public function changeStockGen($id, $skuProduct, $quantity, $type)
+	{
+		//from editProduct with idproduct
+		// Convierte el ID del producto a entero para la comparación.
+		$productIdFromSKU = intval($id);
+
+		// Verifica si el ID del producto extraído del SKU coincide con el ID del producto actual.
+		if ($this->product_id == $productIdFromSKU) {
+			if ($type == 0) {
+				if ($this->stock < $quantity) {
+					error_log("*insufficient_stock");
+					return 'insufficient_stock';
+				}
+			}
+
+			// Actualiza el stock general del producto
+			if ($type == 1) {
+				$this->stock += $quantity;
+			} else {
+				$this->stock -= $quantity;
+			}
+
+			$product = Product::find($id);
+			$isvariable = $product->isvariable;
+			$features = json_decode($this->features, true);
+			if ($isvariable == 1) {
+				if (isset($features['variants']) && is_array($features['variants'])) {
+					// Aquí suponemos que 'features' contiene un array de variantes con su 'sku' y 'inventory_quantity'.
+					foreach ($features['variants'] as $key => $variant) {
+						// Verifica si el SKU de la variante coincide.
+						if ($variant['sku'] == $skuProduct) {
+							if ($type == 0) {
+								if ($variant['inventory_quantity'] < $quantity) {
+									// Revertir el cambio en stock general si no hay suficiente stock en la variante
+									// $this->stock += $quantity;
+
+									if ($type == 1) {
+										$this->stock -= $quantity;
+									} else {
+										$this->stock += $quantity;
+									}
+									$this->save();
+									error_log("*insufficient_stock_variant");
+
+									return 'insufficient_stock_variant';
+								}
+							}
+							// Resta la cantidad del stock de la variante.
+							// $features['variants'][$key]['inventory_quantity'] -= $quantity;
+							if ($type == 1) {
+								$features['variants'][$key]['inventory_quantity'] += $quantity;
+							} else {
+								$features['variants'][$key]['inventory_quantity'] -= $quantity;
+							}
+							$features['variants'][$key]['inventory_quantity'] = strval($features['variants'][$key]['inventory_quantity']);
+
+							break; // Salir del loop si ya encontramos y actualizamos la variante
+						}
+					}
+				}
+			}
+
+			// Guardar los cambios en el producto y sus variantes.
+			$this->features = json_encode($features);
+			$this->save();
+			return true;
+		}
+
+		// Si llegamos aquí, significa que no se encontró el producto con ese ID.
+		return false;
+	}
+
+
+	public function isVariant($skuProduct)
+	{
+		$features = json_decode($this->features, true);
+		return collect($features['variants'] ?? [])->contains('sku', $skuProduct);
+	}
+
+	public function getVariantPrice($skuProduct)
+	{
+		$features = json_decode($this->features, true);
+		$variant = collect($features['variants'] ?? [])->firstWhere('sku', $skuProduct);
+		return $variant['price'] ?? $this->price; // Retorna el precio de la variante o el del producto general si no se encuentra
+	}
+    */
+
+    /*  version nueva
+    	protected $table = 'products';
+	protected $primaryKey = 'product_id';
+
+	protected $casts = [
+		'stock' => 'int',
+		'price' => 'float',
+		'isvariable' => 'bool',
+		'approved' => 'bool',
+		'active' => 'bool',
+		'warehouse_id' => 'int',
+		'seller_owned' => 'int'
+	];
+
+	protected $fillable = [
+		'product_name',
+		'stock',
+		'price',
+		'url_img',
+		'isvariable',
+		'features',
+		'approved',
+		'active',
+		'warehouse_id',
+		'seller_owned'
+	];
+
+	public function warehouse()
+	{
+		return $this->belongsTo(Warehouse::class);
+	}
+
+	public function warehouses()
+	{
+		return $this->belongsToMany(Warehouse::class, 'product_warehouse_link', 'id_product', 'id_warehouse')
+					->withPivot('id')
+					->withTimestamps();
+	}
+
+	public function products_seller_links()
+	{
+		return $this->hasMany(ProductsSellerLink::class);
+	}
+
+	public function reserves()
+	{
+		return $this->hasMany(Reserve::class);
+	}
+
+	public function stock_histories()
+	{
+		return $this->hasMany(StockHistory::class);
+	}
+    */
+}
