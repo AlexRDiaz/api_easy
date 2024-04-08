@@ -493,7 +493,7 @@ class ProductAPIController extends Controller
             $newProduct->url_img = $url_img;
             $newProduct->isvariable = $isvariable;
             $newProduct->features = $features;
-            $newProduct->warehouse_id = $warehouse_id;
+            // $newProduct->warehouse_id = $warehouse_id;
             $newProduct->seller_owned = $seller_owned;
             // $newProduct->approved = 2;//Pendiente
             $newProduct->save();
