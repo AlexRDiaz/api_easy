@@ -68,6 +68,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int|null $confirmed_by
  * @property Carbon|null $confirmed_at
  * @property float|null $value_product_warehouse
+ * @property float|null $value_referer
  * 
  * @property AdminUser|null $admin_user
  * @property Collection|Novedade[] $novedades
@@ -104,6 +105,7 @@ class PedidosShopify extends Model
 		'confirmed_by' => 'int',
 		'confirmed_at' => 'datetime',
 		'value_product_warehouse' => 'float',
+		'value_referer' => 'float',
 		'recaudo' => 'int',
 		'carrier_external_id' => 'int',
 		'ciudad_external_id' => 'int',
@@ -167,6 +169,7 @@ class PedidosShopify extends Model
 		'id_product',
 		'gestioned_novelty',
 		'value_product_warehouse',
+		'value_referer',
 		'recaudo',
 		'carrier_external_id',
 		'ciudad_external_id',

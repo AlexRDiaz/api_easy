@@ -1384,6 +1384,14 @@ class PedidosShopifyAPIController extends Controller
         }
 
 
+        $countProductWarehouseNotNull  = PedidosShopify::with(['operadore.up_users'])
+            ->with('subRuta')
+            ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
+            ->where('estado_interno','CONFIRMADO')
+            ->where('estado_logistico','ENVIADO')
+            ->whereNotNull('value_product_warehouse')
+            ->count();
+
         $result = PedidosShopify::with(['operadore.up_users'])
             ->with('transportadora')
             ->with('users.vendedores')
@@ -1434,8 +1442,11 @@ class PedidosShopifyAPIController extends Controller
             'EN RUTA' => 0,
             'EN OFICINA' => 0,
             'PEDIDO PROGRAMADO' => 0,
-            'TOTAL' => 0
+            'TOTAL' => 0,
+            'P. PROVEEDOR' => 0
         ];
+        $stateTotals['P. PROVEEDOR'] += $countProductWarehouseNotNull;
+
         $counter = 0;
         foreach ($result as $row) {
             $counter++;
@@ -1639,6 +1650,9 @@ class PedidosShopifyAPIController extends Controller
         $query1 = clone $query;
         $query2 = clone $query;
         $query3 = clone $query;
+        $query4 = clone $query;
+        $query5 = clone $query;
+        
         $summary = [
             'totalValoresRecibidos' => $query1->whereIn('status', ['ENTREGADO'])->sum(DB::raw('REPLACE(precio_total, ",", "")')),
 
@@ -1658,6 +1672,19 @@ class PedidosShopifyAPIController extends Controller
                 ->join('up_users_vendedores_links', 'up_users.id', '=', 'up_users_vendedores_links.user_id')
                 ->join('vendedores', 'up_users_vendedores_links.vendedor_id', '=', 'vendedores.id')
                 ->sum(DB::raw('REPLACE(vendedores.costo_devolucion, ",", "")')),
+            
+            'totalProductWarehouse' => $query4
+            ->where('estado_interno','CONFIRMADO')
+            ->where('estado_logistico','ENVIADO')
+            ->where('status','ENTREGADO')
+            ->sum('value_product_warehouse'),
+            
+            'totalReferer' => $query5
+            ->where('estado_interno','CONFIRMADO')
+            ->where('estado_logistico','ENVIADO')
+            ->where('status','ENTREGADO')
+            ->sum('value_referer'),
+            
 
         ];
 

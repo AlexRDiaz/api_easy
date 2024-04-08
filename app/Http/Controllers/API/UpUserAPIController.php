@@ -463,7 +463,7 @@ class UpUserAPIController extends Controller
             return response()->json(['error' => 'Credenciales inválidas'], Response::HTTP_UNAUTHORIZED);
         }
 
-        if ($user->blocked == 1) {
+        if ($user->blocked == 1 && $user->active == 1) {
             error_log("3");
 
             return response()->json(['error' => 'Usuario Bloqueado'], Response::HTTP_UNAUTHORIZED);
@@ -1579,4 +1579,46 @@ class UpUserAPIController extends Controller
         }
     }
 
+    public function updateUserActiveStatusTransport(Request $request, $id)
+    {
+        try {
+            // Obtener los datos enviados desde el frontend
+            $data = $request->json()->all();
+
+            // Buscar al usuario por su ID
+            $user = UpUser::find($id);
+
+            // Verificar si se encontró al usuario
+            if ($user) {
+                // Actualizar el campo active con el valor enviado desde el frontend
+                $user->active = $data['active'];
+                $user->save();
+                
+                $carrier = Transportadora::find($data['id_carrier']);
+                $carrier->active = $data['active'];
+                $carrier->save();
+                
+                // Retornar una respuesta exitosa
+                return response()->json(["message" => "Actualización de estado de activo exitosa"], 200);
+            }
+
+            // Si no se encuentra al usuario, retornar un mensaje de error
+            return response()->json(["message" => 'No se encontró el usuario'], 404);
+        } catch (\Throwable $th) {
+            // En caso de error, retornar un mensaje de error
+            return response()->json(["message" => 'No se pudo ejecutar la actualización de estado de activo.'], 404);
+        }
+    }
+
+    public function allReferers(Request $request)
+    {
+        try {
+            $data = $request->json()->all();
+            $vendedores = Vendedore::where('referer',$data['id'])->with('up_users')->get();
+            return response()->json($vendedores, 200);
+        } catch (\Throwable $th) {
+            //throw $th;
+            return response()->json([], 404);
+        }
+    }
 }

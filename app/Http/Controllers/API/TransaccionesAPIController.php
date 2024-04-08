@@ -559,7 +559,7 @@ class TransaccionesAPIController extends Controller
                 // Obtener el último registro de transacción
                 $lastTransaction = $transaccionSellerPrevious->last();
                 error_log($lastTransaction);
-                if ($lastTransaction->origen !== 'reembolso'  && $lastTransaction->origen !== 'envio') {
+                if ($lastTransaction->origen !== 'reembolso' && $lastTransaction->origen !== 'envio') {
                     return response()->json(["res" => "Transacciones ya Registradas"]);
                 }
             }
@@ -589,7 +589,7 @@ class TransaccionesAPIController extends Controller
             //     $data['generated_by'],
             //     $data['id_origen'],
             //     $pedido->status,
-            //     $data['codigo'],
+            //     $data['codigo'], 
 
             //     // 22.90,
             // );
@@ -612,6 +612,14 @@ class TransaccionesAPIController extends Controller
 
             if (isset($SellerCreditFinalValue['value_product_warehouse']) && $SellerCreditFinalValue['value_product_warehouse'] !== null) {
                 $pedido->value_product_warehouse = $SellerCreditFinalValue['value_product_warehouse'];
+            }
+
+            $vendedor = Vendedore::where('id_master', $pedido->id_comercial)->first();
+            if ($vendedor->referer != null) {
+                $vendedorPrincipal = Vendedore::where('id_master', $vendedor->referer)->first();
+                if ($vendedorPrincipal->referer_cost != 0) {
+                    $pedido->value_referer = $vendedorPrincipal->referer_cost;
+                }
             }
 
             $pedido->save();
@@ -1687,6 +1695,7 @@ class TransaccionesAPIController extends Controller
                         $order->costo_envio = null;
                         $order->costo_transportadora = null;
                         $order->value_product_warehouse = null;
+                        $order->value_referer = null;
                         // $order->estado_interno = "PENDIENTE";
                         // $order->estado_logistico = "PENDIENTE";
                         // $order->estado_pagado = "PENDIENTE";

@@ -47,6 +47,13 @@ class MiSaldoAPIController extends Controller
         //         $sumaCostoInicial += floatval($seller->costo_envio);
         //     }
         // }
+        // !-------------------------------------------------------------------------
+        // $AmountProductWarehouse =  PedidosShopify::where('id_comercial', $upuser)
+        // ->where('estado_interno', 'CONFIRMADO')
+        // ->where('estado_logistico', 'ENVIADO')
+        // ->where('status', 'ENTREGADO')
+        // ->sum('value_product_warehouse');
+        // !-------------------------------------------------------------------------
         $sumaCostoInicial = Vendedore::where('id_master', $upuser)
             ->sum('costo_envio');
 

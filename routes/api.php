@@ -321,6 +321,7 @@ Route::middleware(['cors'])->group(function () {
 
     //Route::resource('/users', App\Http\Controllers\API\UpUserAPIController::class);
     Route::post('/users', [UpUserAPIController::class, 'store']);
+    Route::post('/all-referers-of', [UpUserAPIController::class, 'allReferers']);
     Route::post('/users/general', [UpUserAPIController::class, 'storeGeneral']);
     Route::post('/users/providers', [App\Http\Controllers\API\UpUserAPIController::class, 'storeProvider']);
     Route::put('/users/providers/{id}', [App\Http\Controllers\API\UpUserAPIController::class, 'updateProvider']);
@@ -356,6 +357,7 @@ Route::middleware(['cors'])->group(function () {
     Route::get('users/{id}', [UpUserAPIController::class, 'users']);
 
     Route::post('users/update-active/{id}', [UpUserAPIController::class, 'updateUserActiveStatus']);
+    Route::post('users/update-trans-active/{id}', [UpUserAPIController::class, 'updateUserActiveStatusTransport']);
     //  *
     Route::post('users/userbyemail', [UpUserAPIController::class, 'userByEmail']);
 
@@ -367,8 +369,7 @@ Route::middleware(['cors'])->group(function () {
     Route::post('/report', [GenerateReportAPIController::class, 'generateExcel']);
 
 
-
-
+   
 
 
 
