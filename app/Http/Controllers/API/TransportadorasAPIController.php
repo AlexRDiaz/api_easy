@@ -359,7 +359,8 @@ class TransportadorasAPIController extends Controller
         }
 
         if (empty($usersData)) {
-            $resultData = 'No se encontraron usuarios en up_users.';
+            // $resultData = 'No se encontraron usuarios en up_users.';
+            $resultData = [];
         } else {
             $resultData = $usersData;
         }
