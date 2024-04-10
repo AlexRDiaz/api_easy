@@ -1673,17 +1673,17 @@ class PedidosShopifyAPIController extends Controller
                 ->join('vendedores', 'up_users_vendedores_links.vendedor_id', '=', 'vendedores.id')
                 ->sum(DB::raw('REPLACE(vendedores.costo_devolucion, ",", "")')),
             
-            'totalProductWarehouse' => $query4
+            'totalProductWarehouse' => floatval($query4
             ->where('estado_interno','CONFIRMADO')
             ->where('estado_logistico','ENVIADO')
             ->where('status','ENTREGADO')
-            ->sum('value_product_warehouse'),
+            ->sum('value_product_warehouse')),
             
-            'totalReferer' => $query5
+            'totalReferer' => floatval($query5
             ->where('estado_interno','CONFIRMADO')
             ->where('estado_logistico','ENVIADO')
             ->where('status','ENTREGADO')
-            ->sum('value_referer'),
+            ->sum('value_referer')),
             
 
         ];
