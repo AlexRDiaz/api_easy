@@ -10,6 +10,8 @@ use App\Models\dpaProvincia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+use function Laravel\Prompts\error;
+
 class CarrierExternalAPIController extends Controller
 {
     /**
@@ -17,38 +19,44 @@ class CarrierExternalAPIController extends Controller
      */
     public function index(Request $request)
     {
+        try {
+            error_log("CarrierExternalAPIController-index");
+            // error_log("$request");
+            $data = $request->json()->all();
+            $searchTerm = $data['search'];
 
-        error_log("CarrierExternalAPIController-index");
-        // error_log("$request");
-        $data = $request->json()->all();
-        $searchTerm = $data['search'];
+            if ($searchTerm != "") {
+                $filteFields = $data['or'];
+            } else {
+                $filteFields = [];
+            }
 
-        if ($searchTerm != "") {
-            $filteFields = $data['or'];
-        } else {
-            $filteFields = [];
-        }
+            $carriers = CarriersExternal::where('active', 1)
+                ->where(function ($coverages) use ($searchTerm, $filteFields) {
+                    foreach ($filteFields as $field) {
+                        if (strpos($field, '.') !== false) {
+                            $segments = explode('.', $field);
+                            $lastSegment = array_pop($segments);
+                            $relation = implode('.', $segments);
 
-        $carriers = CarriersExternal::where('active', 1)
-            ->where(function ($coverages) use ($searchTerm, $filteFields) {
-                foreach ($filteFields as $field) {
-                    if (strpos($field, '.') !== false) {
-                        $segments = explode('.', $field);
-                        $lastSegment = array_pop($segments);
-                        $relation = implode('.', $segments);
-
-                        $coverages->orWhereHas($relation, function ($query) use ($lastSegment, $searchTerm) {
-                            $query->where($lastSegment, 'LIKE', '%' . $searchTerm . '%');
-                        });
-                    } else {
-                        $coverages->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                            $coverages->orWhereHas($relation, function ($query) use ($lastSegment, $searchTerm) {
+                                $query->where($lastSegment, 'LIKE', '%' . $searchTerm . '%');
+                            });
+                        } else {
+                            $coverages->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                        }
                     }
-                }
-            })
-            ->get();
-        // $carriers = CarriersExternal::with('carrier_coverages')
-        // ->where('active', 1)->get();
-        return response()->json($carriers, 200);
+                })
+                ->get();
+            // $carriers = CarriersExternal::with('carrier_coverages')
+            // ->where('active', 1)->get();
+            return response()->json($carriers, 200);
+        } catch (\Exception $e) {
+            error_log("Error: $e");
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
 
@@ -204,7 +212,7 @@ class CarrierExternalAPIController extends Controller
     {
         //
         try {
-            error_log("CarrierExternalAPIController-index");
+            error_log("CarrierExternalAPIController-show");
             error_log("$id");
             // return response()->json(['CarrierExternalAPIController-show']);
 
