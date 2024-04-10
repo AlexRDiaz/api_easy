@@ -47,13 +47,26 @@ class MiSaldoAPIController extends Controller
         //         $sumaCostoInicial += floatval($seller->costo_envio);
         //     }
         // }
-        // !-------------------------------------------------------------------------
-        // $AmountProductWarehouse =  PedidosShopify::where('id_comercial', $upuser)
-        // ->where('estado_interno', 'CONFIRMADO')
-        // ->where('estado_logistico', 'ENVIADO')
-        // ->where('status', 'ENTREGADO')
-        // ->sum('value_product_warehouse');
-        // !-------------------------------------------------------------------------
+
+        $AmountProductWarehouse = PedidosShopify::where('id_comercial', $upuser)
+            ->where('estado_interno', 'CONFIRMADO')
+            ->where('estado_logistico', 'ENVIADO')
+            ->where('status', 'ENTREGADO')
+            ->sum('value_product_warehouse');
+
+        $refererValue = PedidosShopify::where('estado_interno', 'CONFIRMADO')
+            ->where('estado_logistico', 'ENVIADO')
+            ->where('status', 'ENTREGADO')
+            ->whereHas('users.vendedores', function ($query) use ($upuser) {
+                $query->where('referer', $upuser);
+            })
+            ->sum('value_referer');
+
+
+        // error_log($AmountProductWarehouse);
+        // error_log($refererValue);
+
+
         $sumaCostoInicial = Vendedore::where('id_master', $upuser)
             ->sum('costo_envio');
 
@@ -142,7 +155,7 @@ class MiSaldoAPIController extends Controller
             })
             ->sum('ordenes_retiros.monto');
 
-        $responseFinal = ($sumaEntregados - ($sumaCosto + $sumaDevolucion + $sumaRetiros));
+        $responseFinal = (($sumaEntregados + $refererValue) - ($sumaCosto + $sumaDevolucion + $sumaRetiros + $AmountProductWarehouse));
 
         return [
             'code' => 200,
