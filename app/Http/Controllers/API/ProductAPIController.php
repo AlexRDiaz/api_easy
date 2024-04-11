@@ -29,96 +29,6 @@ class ProductAPIController extends Controller
     }
 
 
-    // public function getProducts(Request $request)
-    // {
-    //     //all for catalog
-    //     $data = $request->json()->all();
-
-    //     $pageSize = $data['page_size'];
-    //     $pageNumber = $data['page_number'];
-    //     $searchTerm = $data['search'];
-
-    //     $populate = $data['populate'];
-    //     if ($searchTerm != "") {
-    //         $filteFields = $data['or'];
-    //     } else {
-    //         $filteFields = [];
-    //     }
-
-    //     $andMap = $data['and'];
-
-    //     $products = Product::with($populate)
-    //         ->where(function ($products) use ($searchTerm, $filteFields) {
-    //             foreach ($filteFields as $field) {
-    //                 if (strpos($field, '.') !== false) {
-    //                     $relacion = substr($field, 0, strpos($field, '.'));
-    //                     $propiedad = substr($field, strpos($field, '.') + 1);
-    //                     $this->recursiveWhereHas($products, $relacion, $propiedad, $searchTerm);
-    //                 } else {
-    //                     $products->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
-    //                 }
-    //             }
-    //         })
-    //         ->where((function ($products) use ($andMap) {
-    //             foreach ($andMap as $condition) {
-    //                 foreach ($condition as $key => $valor) {
-    //                     if (strpos($key, '.') !== false) {
-    //                         $relacion = substr($key, 0, strpos($key, '.'));
-    //                         $propiedad = substr($key, strpos($key, '.') + 1);
-    //                         $this->recursiveWhereHas($products, $relacion, $propiedad, $valor);
-    //                     } else {
-    //                         $products->where($key, '=', $valor);
-    //                     }
-    //                 }
-    //             }
-    //         }))
-    //         ->whereHas('warehouse', function ($warehouse) {
-    //             $warehouse->where('active', 1)
-    //             ->where('approved', 1);
-    //         })
-    //         ->where('active', 1)//los No delete
-    //         ->where('approved', 1);
-    //     // ! sort
-    //     $orderByText = null;
-    //     $orderByDate = null;
-    //     $sort = $data['sort'];
-    //     $sortParts = explode(':', $sort);
-
-    //     $pt1 = $sortParts[0];
-
-    //     $type = (stripos($pt1, 'fecha') !== false || stripos($pt1, 'marca') !== false) ? 'date' : 'text';
-
-    //     $dataSort = [
-    //         [
-    //             'field' => $sortParts[0],
-    //             'type' => $type,
-    //             'direction' => $sortParts[1],
-    //         ],
-    //     ];
-
-    //     foreach ($dataSort as $value) {
-    //         $field = $value['field'];
-    //         $direction = $value['direction'];
-    //         $type = $value['type'];
-
-    //         if ($type === "text") {
-    //             $orderByText = [$field => $direction];
-    //         } else {
-    //             $orderByDate = [$field => $direction];
-    //         }
-    //     }
-
-    //     if ($orderByText !== null) {
-    //         $products->orderBy(key($orderByText), reset($orderByText));
-    //     } else {
-    //         $products->orderBy(DB::raw("STR_TO_DATE(" . key($orderByDate) . ", '%e/%c/%Y')"), reset($orderByDate));
-    //     }
-    //     // ! **************************************************
-    //     $products = $products->paginate($pageSize, ['*'], 'page', $pageNumber);
-    //     return response()->json($products);
-    // }
-
-
     public function getProducts(Request $request)
     {
         //all for catalog
@@ -313,6 +223,198 @@ class ProductAPIController extends Controller
         return response()->json($products);
     }
 
+    public function getProductsNew(Request $request)
+    {
+        try {
+            error_log("getProductsNew");
+
+            //all for catalog
+            $data = $request->json()->all();
+
+            $pageSize = $data['page_size'];
+            $pageNumber = $data['page_number'];
+            $searchTerm = $data['search'];
+
+            $populate = $data['populate'];
+            $outFilters = $data['out_filters'] ?? [];
+
+            // Asumiendo que las categorías vienen en un filtro llamado 'categories' dentro de 'out_filters'
+            $categoryFilters = [];
+            foreach ($outFilters as $filter) {
+                if (isset($filter['input_categories'])) {
+                    $categoryFilters = $filter['input_categories'];
+                    break;
+                }
+            }
+            if ($searchTerm != "") {
+                $filteFields = $data['or'];
+            } else {
+                $filteFields = [];
+            }
+
+            $andMap = $data['and'];
+
+            $products = Product::with($populate)
+                ->where(function ($products) use ($searchTerm, $filteFields) {
+                    foreach ($filteFields as $field) {
+                        if (strpos($field, '.') !== false) {
+                            $segments = explode('.', $field);
+                            $lastSegment = array_pop($segments);
+                            $relation = implode('.', $segments);
+
+                            $products->orWhereHas($relation, function ($query) use ($lastSegment, $searchTerm) {
+                                $query->where($lastSegment, 'LIKE', '%' . $searchTerm . '%');
+                            });
+                        } else {
+                            $products->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                        }
+                    }
+                })
+                ->where(function ($products) use ($andMap) {
+                    foreach ($andMap as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            $parts = explode("/", $key);
+                            $type = $parts[0];
+                            $filter = $parts[1];
+                            if (strpos($filter, '.') !== false) {
+                                $relacion = substr($filter, 0, strpos($filter, '.'));
+                                $propiedad = substr($filter, strpos($filter, '.') + 1);
+                                $this->recursiveWhereHas($products, $relacion, $propiedad, $valor);
+                            } else {
+                                if ($type == "equals") {
+                                    $products->where($filter, '=', $valor);
+                                } else {
+                                    $products->where($filter, 'LIKE', '%' . $valor . '%');
+                                }
+                            }
+                        }
+                    }
+                })
+                ->whereHas('warehouses.provider', function ($query) {
+                    $query->where('active', 1)->where('approved', 1)->take(1); //primera bodega, primer proveedor
+                })
+                ->where('active', 1)
+                ->where('approved', 1)
+                ->when(isset($data['out_filters']), function ($query) use ($data) {
+                    foreach ($data['out_filters'] as $filter) {
+                        foreach ($filter as $key => $value) {
+                            if ($key === 'price_range') {
+                                $priceRange = explode('-', $value);
+                                $minPrice = isset($priceRange[0]) && $priceRange[0] !== '' ? floatval($priceRange[0]) : null;
+                                $maxPrice = isset($priceRange[1]) && $priceRange[1] !== '' ? floatval($priceRange[1]) : null;
+
+                                if (!is_null($minPrice) && !is_null($maxPrice)) {
+                                    $query->whereBetween('price', [$minPrice, $maxPrice]);
+                                } elseif (!is_null($minPrice)) {
+                                    $query->where('price', '>=', $minPrice);
+                                } elseif (!is_null($maxPrice)) {
+                                    $query->where('price', '<=', $maxPrice);
+                                }
+                            }
+                        }
+                    }
+                })
+                ->when(count($categoryFilters) > 0, function ($query) use ($categoryFilters) {
+                    $query->where(function ($query) use ($categoryFilters) {
+                        foreach ($categoryFilters as $category) {
+                            // $query->orWhereRaw("JSON_CONTAINS(JSON_EXTRACT(features, '$.categories'), '\"$category\"')");
+                            $query->orWhereRaw("JSON_CONTAINS(JSON_EXTRACT(features, '$.categories[*].name'), '\"$category\"')");
+                        }
+                    });
+                });
+
+
+            $filterPS = $data['filterps'];
+
+            if (!empty($filterPS)) {
+                $idMasterValue = 0;
+
+                foreach ($filterPS as $condition) {
+                    if (isset($condition['id_master'])) {
+                        $idMasterValue = $condition['id_master'];
+                        error_log("Valor de 'id_master': " . $idMasterValue);
+                    }
+
+                    if (isset($condition['key']) && is_array($condition['key'])) {
+                        $keyValues = $condition['key'];
+
+                        // Verificar si ambas claves están presentes en 'key'
+                        if (in_array('favorite', $keyValues) && in_array('onsale', $keyValues)) {
+                            $products->whereHas('productseller', function ($query) use ($idMasterValue) {
+                                $query->where('id_master', $idMasterValue)
+                                    ->where('favorite', 1)
+                                    ->where('onsale', 1);
+                            });
+                            error_log("Ambas claves 'favorite' y 'onsale' están presentes en 'key'.");
+                        } else {
+                            // Verificar individualmente cada clave en 'key'
+                            foreach ($keyValues as $keyValue) {
+                                if ($keyValue == 'favorite') {
+                                    $products->whereHas('productseller', function ($query) use ($idMasterValue) {
+                                        $query->where('id_master', $idMasterValue)
+                                            ->where('favorite', 1);
+                                    });
+                                    error_log("La clave 'favorite' está presente en 'key'.");
+                                } elseif ($keyValue == 'onsale') {
+                                    $products->whereHas('productseller', function ($query) use ($idMasterValue) {
+                                        $query->where('id_master', $idMasterValue)
+                                            ->where('onsale', 1);
+                                    });
+                                    error_log("La clave 'onsale' está presente en 'key'.");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+
+
+            // ! sort
+            $orderByText = null;
+            $orderByDate = null;
+            $sort = $data['sort'];
+            $sortParts = explode(':', $sort);
+
+            $pt1 = $sortParts[0];
+
+            $type = (stripos($pt1, 'fecha') !== false || stripos($pt1, 'marca') !== false) ? 'date' : 'text';
+
+            $dataSort = [
+                [
+                    'field' => $sortParts[0],
+                    'type' => $type,
+                    'direction' => $sortParts[1],
+                ],
+            ];
+
+            foreach ($dataSort as $value) {
+                $field = $value['field'];
+                $direction = $value['direction'];
+                $type = $value['type'];
+
+                if ($type === "text") {
+                    $orderByText = [$field => $direction];
+                } else {
+                    $orderByDate = [$field => $direction];
+                }
+            }
+
+            if ($orderByText !== null) {
+                $products->orderBy(key($orderByText), reset($orderByText));
+            } else {
+                $products->orderBy(DB::raw("STR_TO_DATE(" . key($orderByDate) . ", '%e/%c/%Y')"), reset($orderByDate));
+            }
+            // ! ******
+            $products = $products->paginate($pageSize, ['*'], 'page', $pageNumber);
+
+            return response()->json($products);
+        } catch (\Exception $e) {
+            error_log("ERROR: $e");
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
     private function recursiveWhereHasSameRegister($query, $relation, $property, $searchTerm)
     {
         if ($searchTerm == "null") {
@@ -493,7 +595,7 @@ class ProductAPIController extends Controller
             $newProduct->url_img = $url_img;
             $newProduct->isvariable = $isvariable;
             $newProduct->features = $features;
-            // $newProduct->warehouse_id = $warehouse_id;
+            $newProduct->warehouse_id = $warehouse_id;
             $newProduct->seller_owned = $seller_owned;
             // $newProduct->approved = 2;//Pendiente
             $newProduct->save();
@@ -837,47 +939,47 @@ class ProductAPIController extends Controller
 
         $andMap = $data['and'];
 
-        
+
         $products = Product::with($populate)
-        ->where(function ($products) use ($searchTerm, $filteFields) {
-            foreach ($filteFields as $field) { 
-                if (strpos($field, '.') !== false) {
-                    $segments = explode('.', $field);
-                    $lastSegment = array_pop($segments);
-                    $relation = implode('.', $segments);
-    
-                    $products->orWhereHas($relation, function ($query) use ($lastSegment, $searchTerm) {
-                        $query->where($lastSegment, 'LIKE', '%' . $searchTerm . '%');
-                    });
-                } else {
-                    $products->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
-                }
-            }
-        })
-        ->where(function ($products) use ($andMap) {
-            foreach ($andMap as $condition) {
-                foreach ($condition as $key => $valor) {
-                    $parts = explode("/", $key);
-                    $type = $parts[0];
-                    $filter = $parts[1];
-                    if (strpos($filter, '.') !== false) {
-                        $relacion = substr($filter, 0, strpos($filter, '.'));
-                        $propiedad = substr($filter, strpos($filter, '.') + 1);
-                        $this->recursiveWhereHas($products, $relacion, $propiedad, $valor);
+            ->where(function ($products) use ($searchTerm, $filteFields) {
+                foreach ($filteFields as $field) {
+                    if (strpos($field, '.') !== false) {
+                        $segments = explode('.', $field);
+                        $lastSegment = array_pop($segments);
+                        $relation = implode('.', $segments);
+
+                        $products->orWhereHas($relation, function ($query) use ($lastSegment, $searchTerm) {
+                            $query->where($lastSegment, 'LIKE', '%' . $searchTerm . '%');
+                        });
                     } else {
-                        if ($type == "equals") {
-                            $products->where($filter, '=', $valor);
+                        $products->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                    }
+                }
+            })
+            ->where(function ($products) use ($andMap) {
+                foreach ($andMap as $condition) {
+                    foreach ($condition as $key => $valor) {
+                        $parts = explode("/", $key);
+                        $type = $parts[0];
+                        $filter = $parts[1];
+                        if (strpos($filter, '.') !== false) {
+                            $relacion = substr($filter, 0, strpos($filter, '.'));
+                            $propiedad = substr($filter, strpos($filter, '.') + 1);
+                            $this->recursiveWhereHas($products, $relacion, $propiedad, $valor);
                         } else {
-                            $products->where($filter, 'LIKE', '%' . $valor . '%');
+                            if ($type == "equals") {
+                                $products->where($filter, '=', $valor);
+                            } else {
+                                $products->where($filter, 'LIKE', '%' . $valor . '%');
+                            }
                         }
                     }
                 }
-            }
-        })
-        ->whereHas('warehouses.provider', function ($query) {
-            $query->where('active', 1)->where('approved', 1)->take(1);//primera bodega, primer proveedor
-        })
-        ->where('active', 1);
+            })
+            ->whereHas('warehouses.provider', function ($query) {
+                $query->where('active', 1)->where('approved', 1)->take(1); //primera bodega, primer proveedor
+            })
+            ->where('active', 1);
         // ! sort
         $orderByText = null;
         $orderByDate = null;
@@ -915,7 +1017,7 @@ class ProductAPIController extends Controller
         }
         $products = $products->paginate($pageSize, ['*'], 'page', $pageNumber);
 
-        
+
         /*
         $products = UpUser::with('warehouses')->where(function ($coverages) use ($andMap) {
             foreach ($andMap as $condition) {

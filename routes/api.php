@@ -567,6 +567,8 @@ Route::middleware(['cors'])->group(function () {
     Route::post('allbysubprov', [ProductAPIController::class, 'getBySubProvider']);
     Route::post('productwarehouse', [App\Http\Controllers\API\ProductWarehouseLinkAPIController::class, 'store']);
     Route::get('warehouses/specials', [WarehouseAPIController::class, 'getSpecials']);
+    Route::put('productwarehouse/update', [App\Http\Controllers\API\ProductWarehouseLinkAPIController::class, 'update']);
+    Route::post('catalog/all', [ProductAPIController::class, 'getProductsNew']);
 
 
     //

@@ -40,17 +40,24 @@ class ProductWarehouseLinkAPIController extends Controller
             error_log("$exists");
             if ($exists == null) {
                 # code...
-                $providerWarehouse = new ProductWarehouseLink();
-                $providerWarehouse->id_product = $id_product;
-                $providerWarehouse->id_warehouse = $id_warehouse;
-                $providerWarehouse->save();
+                $productwarehouselink = new ProductWarehouseLink();
+                $productwarehouselink->id_product = $id_product;
+                $productwarehouselink->id_warehouse = $id_warehouse;
+                $productwarehouselink->save();
 
-                return response()->json(['message' => 'Vendedor creado con éxito'], 200);
-
+                return response()->json(['message' => 'ProductWarehouseLink creado con éxito'], 200);
             } else {
-                error_log("Error,esta relacion ya existe");
-                return response()->json(['message' => 'Esta relacion ya existe'], 204);
+                error_log("Error,esta relacion ya existe"); //so update
 
+                $data = $request->all();
+
+                // Encuentra el registro en base al ID
+                $prodWarehouselink = ProductWarehouseLink::findOrFail($exists->id);
+                $prodWarehouselink->id_product = $id_product;
+                $prodWarehouselink->id_warehouse = $id_warehouse;
+                $prodWarehouselink->save();
+
+                return response()->json(['message' => 'ProductWarehouseLink actualizado'], 204);
             }
         } catch (\Exception $e) {
             error_log("ERROR: $e");
@@ -79,9 +86,32 @@ class ProductWarehouseLinkAPIController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(Request $request)
     {
         //
+        try {
+            error_log("update");
+            $data = $request->json()->all();
+            $id_product = $data['idProduct'];
+            $id_warehouse_old = $data['idWarehouse_old'];
+            $id_warehouse_new = $data['idWarehouse_new'];
+
+            $exists = ProductWarehouseLink::where('id_product', $id_product)->where('id_warehouse', $id_warehouse_old)->first();
+
+            if ($exists != null) {
+                $exists->id_product = $id_product;
+                $exists->id_warehouse = $id_warehouse_new;
+                $exists->save();
+                return response()->json(['message' => 'ProductWarehouseLink actualizado'], 204);
+            } else {
+                error_log("Error,esta relacion NO existe"); //so update
+            }
+        } catch (\Exception $e) {
+            error_log("ERROR: $e");
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
