@@ -185,6 +185,7 @@ class IntegrationAPIController extends Controller
         }
 
         if ($access) {
+            error_log("requestUpdateState");
             $request_body = file_get_contents('php://input');
             $data = json_decode($request_body, true);
             // error_log(print_r($data, true));
