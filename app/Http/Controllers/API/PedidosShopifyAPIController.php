@@ -1384,11 +1384,11 @@ class PedidosShopifyAPIController extends Controller
         }
 
 
-        $countProductWarehouseNotNull  = PedidosShopify::with(['operadore.up_users'])
+        $countProductWarehouseNotNull = PedidosShopify::with(['operadore.up_users'])
             ->with('subRuta')
             ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
-            ->where('estado_interno','CONFIRMADO')
-            ->where('estado_logistico','ENVIADO')
+            ->where('estado_interno', 'CONFIRMADO')
+            ->where('estado_logistico', 'ENVIADO')
             ->whereNotNull('value_product_warehouse')
             ->count();
 
@@ -1427,7 +1427,7 @@ class PedidosShopifyAPIController extends Controller
                     }
                 }
             }
-            ))->get();
+                ))->get();
 
 
 
@@ -1634,7 +1634,7 @@ class PedidosShopifyAPIController extends Controller
         $Map = $data['and'];
         $not = $data['not'];
         $dateFilter = $data["date_filter"];
-
+        $idforReferersFilter = $data['id_referer'];
 
         $selectedFilter = "fecha_entrega";
         if ($dateFilter != "FECHA ENTREGA") {
@@ -1651,8 +1651,8 @@ class PedidosShopifyAPIController extends Controller
         $query2 = clone $query;
         $query3 = clone $query;
         $query4 = clone $query;
-        $query5 = clone $query;
-        
+        // $query5 = clone $query;
+
         $summary = [
             'totalValoresRecibidos' => $query1->whereIn('status', ['ENTREGADO'])->sum(DB::raw('REPLACE(precio_total, ",", "")')),
 
@@ -1672,19 +1672,32 @@ class PedidosShopifyAPIController extends Controller
                 ->join('up_users_vendedores_links', 'up_users.id', '=', 'up_users_vendedores_links.user_id')
                 ->join('vendedores', 'up_users_vendedores_links.vendedor_id', '=', 'vendedores.id')
                 ->sum(DB::raw('REPLACE(vendedores.costo_devolucion, ",", "")')),
-            
+
             'totalProductWarehouse' => floatval($query4
-            ->where('estado_interno','CONFIRMADO')
-            ->where('estado_logistico','ENVIADO')
-            ->where('status','ENTREGADO')
-            ->sum('value_product_warehouse')),
-            
-            'totalReferer' => floatval($query5
-            ->where('estado_interno','CONFIRMADO')
-            ->where('estado_logistico','ENVIADO')
-            ->where('status','ENTREGADO')
-            ->sum('value_referer')),
-            
+                ->where('estado_interno', 'CONFIRMADO')
+                ->where('estado_logistico', 'ENVIADO')
+                ->where('status', 'ENTREGADO')
+                ->sum('value_product_warehouse')),
+
+            // 'totalReferer' => floatval($query5
+            // ->where('estado_interno','CONFIRMADO')
+            // ->where('estado_logistico','ENVIADO')
+            // ->where('status','ENTREGADO')
+            // ->sum('value_referer')),
+
+            'totalReferer' => PedidosShopify::with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta'])
+                ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
+                ->where('estado_interno', 'CONFIRMADO')
+                ->where('estado_logistico', 'ENVIADO')
+                ->where('status', 'ENTREGADO')
+                ->whereHas('users.vendedores', function ($query) use ($idforReferersFilter) {
+                    $query->where('referer', $idforReferersFilter);
+
+                })
+                ->sum('value_referer')
+
+
+
 
         ];
 
@@ -2728,11 +2741,11 @@ class PedidosShopifyAPIController extends Controller
                 }))->get();
 
             $isIdComercialPresent = collect($Map)->contains(function ($condition) {
-                return isset($condition['equals/id_comercial']);
+                return isset ($condition['equals/id_comercial']);
             });
 
             $isIdTransportPresent = collect($Map)->contains(function ($condition) {
-                return isset($condition['equals/transportadora.transportadora_id']);
+                return isset ($condition['equals/transportadora.transportadora_id']);
             });
 
             $estadoPedidos = $pedidos
@@ -2788,7 +2801,7 @@ class PedidosShopifyAPIController extends Controller
                 'Costo_Entrega' => $sumatoriaCostoEntrega,
                 'Costo_Devolución' => $sumatoriaCostoDevolucion,
                 'Filtro_Existente' => $presentVendedor,
-                'Estado_Pedidos' =>   $estadoPedidos,
+                'Estado_Pedidos' => $estadoPedidos,
                 // 'Cantidad_Total_Pedidos' => $pedidos->count()
             ]);
         } catch (\Exception $e) {
@@ -3032,7 +3045,7 @@ class PedidosShopifyAPIController extends Controller
             $collection = json_decode($warehouse['collection'], true);
 
             // Filtrar almacenes con 'collectionTransport' igual al nombre de la transportadora
-            return isset($collection['collectionTransport']) && $collection['collectionTransport'] == $transportadoraNombre;
+            return isset ($collection['collectionTransport']) && $collection['collectionTransport'] == $transportadoraNombre;
         })->map(function ($warehouse) {
             // Decodificar la cadena JSON en 'collection'
             $collection = json_decode($warehouse['collection'], true);
@@ -3283,7 +3296,7 @@ class PedidosShopifyAPIController extends Controller
 
         // Ajusta el formato de la fecha para los días menores a 10
         $pedidos->transform(function ($pedido) {
-            unset($pedido->product); // Elimina el producto
+            unset ($pedido->product); // Elimina el producto
             $fecha = Carbon::createFromFormat('d/m/Y', $pedido->fecha); // Asegúrate que el formato aquí coincida con cómo se almacena la fecha en la base de datos
             $pedido->fecha = $fecha->format('j/n/Y'); // 'j' para el día y 'n' para el mes sin ceros iniciales
             return $pedido;
@@ -3321,7 +3334,7 @@ class PedidosShopifyAPIController extends Controller
 
         // Ajusta el formato de la fecha para los días menores a 10
         $pedidos->transform(function ($pedido) {
-            unset($pedido->product); // Elimina el producto
+            unset ($pedido->product); // Elimina el producto
             $fecha = Carbon::createFromFormat('d/m/Y', $pedido->fecha); // Asegúrate que el formato aquí coincida con cómo se almacena la fecha en la base de datos
             $pedido->fecha = $fecha->format('j/n/Y'); // 'j' para el día y 'n' para el mes sin ceros iniciales
             return $pedido;
@@ -3412,7 +3425,7 @@ class PedidosShopifyAPIController extends Controller
             $collection = json_decode($warehouse['collection'], true);
 
             // Convierte 'collectionDays' a nombres de días
-            if (isset($collection['collectionDays'])) {
+            if (isset ($collection['collectionDays'])) {
                 $collection['collectionDays'] = array_map(function ($day) use ($daysOfWeek) {
                     return $daysOfWeek[$day];
                 }, $collection['collectionDays']);
@@ -3555,17 +3568,17 @@ class PedidosShopifyAPIController extends Controller
             $product = $data['ProductoP'];
             $productE = $data['ProductoExtra'];
             $cantidadTotal = $data['Cantidad_Total'];
-            $PrecioTotal =  $data['PrecioTotal'];
+            $PrecioTotal = $data['PrecioTotal'];
             $formattedPrice = str_replace(",", ".", str_replace(["$", " "], "", $PrecioTotal));
             if ($data['Observacion'] != null) {
-                $Observacion =  $data['Observacion'];
+                $Observacion = $data['Observacion'];
             } else {
                 $Observacion = "";
             }
             // $sku = $request->input('sku');
             $recaudo = $data['recaudo'];
-            $productId =  $data['product_id'];
-            $variant_details =  $data['variant_details'];
+            $productId = $data['product_id'];
+            $variant_details = $data['variant_details'];
             //transp
             $newrouteId = $data['ruta'];
             $newtransportadoraId = $data['transportadora'];
@@ -3629,7 +3642,7 @@ class PedidosShopifyAPIController extends Controller
                 $createOrder->observacion = $Observacion;
                 $createOrder->ciudad_shipping = $city;
                 $createOrder->id_comercial = $IdComercial;
-                $createOrder->producto_p =  $product;
+                $createOrder->producto_p = $product;
                 $createOrder->producto_extra = $productE;
                 $createOrder->cantidad_total = $cantidadTotal;
                 $createOrder->name_comercial = $Name_Comercial;
@@ -3650,13 +3663,13 @@ class PedidosShopifyAPIController extends Controller
                 $createOrder->id_product = $productId;
                 $createOrder->variant_details = $variant_details;
                 $createOrder->recaudo = $recaudo;
-            
+
                 if ($newrouteId == 0) {
                     error_log("*****Tramsp externa********\n");
                     $createOrder->carrier_external_id = $carrierExternalId;
                     $createOrder->ciudad_external_id = $ciudadDes;
                 }
-                
+
                 $createOrder->save();
 
 
