@@ -563,7 +563,7 @@ Route::middleware(['cors'])->group(function () {
     Route::post('orderproduct', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'shopifyPedidosProducto']);
 
     Route::post('/gintracom/postorder', [IntegrationAPIController::class, 'putIntegrationsUrlStoreG']);
-    Route::post('gintracom/updatestate', [IntegrationAPIController::class, 'requestUpdateState']);//*
+    Route::post('gintracom/updatestate', [IntegrationAPIController::class, 'requestUpdateState']);
 
 
     //
