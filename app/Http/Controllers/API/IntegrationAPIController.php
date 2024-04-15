@@ -185,7 +185,7 @@ class IntegrationAPIController extends Controller
         }
 
         if ($access) {
-            error_log("requestUpdateState");
+            error_log("requestUpdateState ");
             $request_body = file_get_contents('php://input');
             $data = json_decode($request_body, true);
             // error_log(print_r($data, true));
@@ -224,7 +224,12 @@ class IntegrationAPIController extends Controller
                 // foreach ($data as $key => $value) {
                 //     error_log("$key: $value");
                 // }
-                error_log("Estado Get: $estado");
+                error_log("guia input: $guia ");
+                error_log("estado input: $estado ");
+                error_log("path input: $path ");
+                error_log("id_novedad input: $id_novedad ");
+                error_log("no_novedad input: $no_novedad ");
+
 
                 $order = PedidosShopify::where('id_externo', $guia)->first();
                 // error_log("pedido: $order");
