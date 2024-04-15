@@ -224,6 +224,7 @@ class IntegrationAPIController extends Controller
                 // foreach ($data as $key => $value) {
                 //     error_log("$key: $value");
                 // }
+                error_log("Estado Get: $estado");
 
                 $order = PedidosShopify::where('id_externo', $guia)->first();
                 // error_log("pedido: $order");
@@ -240,8 +241,7 @@ class IntegrationAPIController extends Controller
                     foreach ($status_array as $status) {
                         $id_ref = $status['id_ref'];
 
-                        // error_log("id_ref: $id_ref");
-                        // error_log("Estado: $estado");
+                        error_log("id_ref: $id_ref");
                         if ($id_ref == $estado) {
                             $key = $status['estado'];
                             $name_local = $status['name_local'];
