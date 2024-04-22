@@ -687,6 +687,129 @@ class ProductAPIController extends Controller
         return response()->json($product);
     }
 
+    public function getBySubProvider(Request $request)
+    {
+        //
+        error_log("getBySubProvider");
+        $data = $request->json()->all();
+
+        $pageSize = $data['page_size'];
+        $pageNumber = $data['page_number'];
+        $searchTerm = $data['search'];
+        $populate = $data['populate'];
+        if ($searchTerm != "") {
+            $filteFields = $data['or'];
+        } else {
+            $filteFields = [];
+        }
+
+        $andMap = $data['and'];
+
+
+        $products = Product::with($populate)
+            ->where(function ($products) use ($searchTerm, $filteFields) {
+                foreach ($filteFields as $field) {
+                    if (strpos($field, '.') !== false) {
+                        $segments = explode('.', $field);
+                        $lastSegment = array_pop($segments);
+                        $relation = implode('.', $segments);
+
+                        $products->orWhereHas($relation, function ($query) use ($lastSegment, $searchTerm) {
+                            $query->where($lastSegment, 'LIKE', '%' . $searchTerm . '%');
+                        });
+                    } else {
+                        $products->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                    }
+                }
+            })
+            ->where(function ($products) use ($andMap) {
+                foreach ($andMap as $condition) {
+                    foreach ($condition as $key => $valor) {
+                        $parts = explode("/", $key);
+                        $type = $parts[0];
+                        $filter = $parts[1];
+                        if (strpos($filter, '.') !== false) {
+                            $relacion = substr($filter, 0, strpos($filter, '.'));
+                            $propiedad = substr($filter, strpos($filter, '.') + 1);
+                            $this->recursiveWhereHas($products, $relacion, $propiedad, $valor);
+                        } else {
+                            if ($type == "equals") {
+                                $products->where($filter, '=', $valor);
+                            } else {
+                                $products->where($filter, 'LIKE', '%' . $valor . '%');
+                            }
+                        }
+                    }
+                }
+            })
+            ->whereHas('warehouses.provider', function ($query) {
+                $query->where('active', 1)->where('approved', 1)->take(1); //primera bodega, primer proveedor
+            })
+            ->where('active', 1);
+        // ! sort
+        $orderByText = null;
+        $orderByDate = null;
+        $sort = $data['sort'];
+        $sortParts = explode(':', $sort);
+
+        $pt1 = $sortParts[0];
+
+        $type = (stripos($pt1, 'fecha') !== false || stripos($pt1, 'marca') !== false) ? 'date' : 'text';
+
+        $dataSort = [
+            [
+                'field' => $sortParts[0],
+                'type' => $type,
+                'direction' => $sortParts[1],
+            ],
+        ];
+
+        foreach ($dataSort as $value) {
+            $field = $value['field'];
+            $direction = $value['direction'];
+            $type = $value['type'];
+
+            if ($type === "text") {
+                $orderByText = [$field => $direction];
+            } else {
+                $orderByDate = [$field => $direction];
+            }
+        }
+
+        if ($orderByText !== null) {
+            $products->orderBy(key($orderByText), reset($orderByText));
+        } else {
+            $products->orderBy(DB::raw("STR_TO_DATE(" . key($orderByDate) . ", '%e/%c/%Y')"), reset($orderByDate));
+        }
+        $products = $products->paginate($pageSize, ['*'], 'page', $pageNumber);
+
+
+        /*
+        $products = UpUser::with('warehouses')->where(function ($coverages) use ($andMap) {
+            foreach ($andMap as $condition) {
+                foreach ($condition as $key => $valor) {
+                    $parts = explode("/", $key);
+                    $type = $parts[0];
+                    $filter = $parts[1];
+                    if (strpos($filter, '.') !== false) {
+                        $relacion = substr($filter, 0, strpos($filter, '.'));
+                        $propiedad = substr($filter, strpos($filter, '.') + 1);
+                        $this->recursiveWhereHas($coverages, $relacion, $propiedad, $valor);
+                    } else {
+                        if ($type == "equals") {
+                            $coverages->where($filter, '=', $valor);
+                        } else {
+                            $coverages->where($filter, 'LIKE', '%' . $valor . '%');
+                        }
+                    }
+                }
+            }
+        })
+        ->get();
+        */
+        return response()->json($products);
+    }
+
     /**
      * Show the form for editing the specified resource.
      */
@@ -821,7 +944,7 @@ class ProductAPIController extends Controller
                 $currentDateTime = date('Y-m-d H:i:s');
 
                 $createHistory = new StockHistory();
-                $createHistory->product_id =  $productIdFromSKU;
+                $createHistory->product_id = $productIdFromSKU;
                 $createHistory->variant_sku = $onlySku;
                 $createHistory->type = $type;
                 $createHistory->date = $currentDateTime;
@@ -852,195 +975,74 @@ class ProductAPIController extends Controller
         // $type = $data['type'];
         $idComercial = $data['id_comercial'];
         $responses = [];
+        if ($variants != null) {
+            foreach ($variants as $variant) {
+                $quantity = $variant['quantity'];
+                $skuProduct = $variant['sku']; // Ahora el SKU viene dentro de cada variante
+                $type = $data['type'];
 
-        foreach ($variants as $variant) {
-            $quantity = $variant['quantity'];
-            $skuProduct = $variant['sku']; // Ahora el SKU viene dentro de cada variante
-            $type = $data['type'];
+                $result = $this->splitSku($skuProduct);
 
-            $result = $this->splitSku($skuProduct);
+                $onlySku = $result['sku'];
+                $productIdFromSKU = $result['id'];
 
-            $onlySku = $result['sku'];
-            $productIdFromSKU = $result['id'];
+                $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
 
-            $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
+                // Decode the JSON response to get the data
+                $searchResult = json_decode($response->getContent());
 
-            // Decode the JSON response to get the data
-            $searchResult = json_decode($response->getContent());
+                if ($searchResult && $searchResult->response) {
+                    $reserve = $searchResult->reserve;
 
-            if ($searchResult && $searchResult->response) {
-                $reserve = $searchResult->reserve;
+                    if ($type == 0 && $quantity > $reserve->stock) {
+                        // No se puede restar más de lo que hay en stock
+                        $responses[] = ['message' => 'No Dispone de Stock en la Reserva'];
+                        continue;
+                    }
 
-                if ($type == 0 && $quantity > $reserve->stock) {
-                    // No se puede restar más de lo que hay en stock
-                    $responses[] = ['message' => 'No Dispone de Stock en la Reserva'];
-                    continue;
-                }
+                    // Actualizar el stock
+                    $reserve->stock += ($type == 1) ? $quantity : -$quantity;
 
-                // Actualizar el stock
-                $reserve->stock += ($type == 1) ? $quantity : -$quantity;
+                    // Assuming you have a 'Reserve' model that you want to save after updating
+                    $reserveModel = Reserve::find($reserve->id);
+                    if ($reserveModel) {
+                        $reserveModel->stock = $reserve->stock;
+                        $reserveModel->save();
+                    }
 
-                // Assuming you have a 'Reserve' model that you want to save after updating
-                $reserveModel = Reserve::find($reserve->id);
-                if ($reserveModel) {
-                    $reserveModel->stock = $reserve->stock;
-                    $reserveModel->save();
-                }
-
-                // Devolver la respuesta
-                $responses[] = ['message' => 'Stock actualizado con éxito', 'reserve' => $reserveModel];
-            } else {
-                // Encuentra el producto por su SKU.
-                $product = Product::find($productIdFromSKU);
-
-                if ($product === null) {
-                    return null;
-                }
-
-                if ($product) {
-                    $result = $product->changeStockGen($productIdFromSKU, $onlySku, $quantity, $type);
-                    $currentDateTime = date('Y-m-d H:i:s');
-
-                    $createHistory = new StockHistory();
-                    $createHistory->product_id =  $productIdFromSKU;
-                    $createHistory->variant_sku = $onlySku;
-                    $createHistory->type = $type;
-                    $createHistory->date = $currentDateTime;
-                    $createHistory->units = $quantity;
-                    $createHistory->last_stock = $product->stock + $quantity;
-                    $createHistory->current_stock = $product->stock;
-                    $createHistory->description = "Reducción de stock General Pedido ENVIADO";
-
-                    $createHistory->save();
+                    // Devolver la respuesta
+                    $responses[] = ['message' => 'Stock actualizado con éxito', 'reserve' => $reserveModel];
                 } else {
-                    $responses[] = ['message' => 'Product not found'];
-                    continue;
+                    // Encuentra el producto por su SKU.
+                    $product = Product::find($productIdFromSKU);
+
+                    if ($product === null) {
+                        return null;
+                    }
+
+                    if ($product) {
+                        $result = $product->changeStockGen($productIdFromSKU, $onlySku, $quantity, $type);
+                        $currentDateTime = date('Y-m-d H:i:s');
+
+                        $createHistory = new StockHistory();
+                        $createHistory->product_id = $productIdFromSKU;
+                        $createHistory->variant_sku = $onlySku;
+                        $createHistory->type = $type;
+                        $createHistory->date = $currentDateTime;
+                        $createHistory->units = $quantity;
+                        $createHistory->last_stock = $product->stock + $quantity;
+                        $createHistory->current_stock = $product->stock;
+                        $createHistory->description = "Reducción de stock General Pedido ENVIADO";
+
+                        $createHistory->save();
+                    } else {
+                        $responses[] = ['message' => 'Product not found'];
+                        continue;
+                    }
                 }
             }
         }
+
         return response()->json($responses);
-    }
-
-    public function getBySubProvider(Request $request)
-    {
-        //
-        error_log("getBySubProvider");
-        $data = $request->json()->all();
-
-        $pageSize = $data['page_size'];
-        $pageNumber = $data['page_number'];
-        $searchTerm = $data['search'];
-        $populate = $data['populate'];
-        if ($searchTerm != "") {
-            $filteFields = $data['or'];
-        } else {
-            $filteFields = [];
-        }
-
-        $andMap = $data['and'];
-
-
-        $products = Product::with($populate)
-            ->where(function ($products) use ($searchTerm, $filteFields) {
-                foreach ($filteFields as $field) {
-                    if (strpos($field, '.') !== false) {
-                        $segments = explode('.', $field);
-                        $lastSegment = array_pop($segments);
-                        $relation = implode('.', $segments);
-
-                        $products->orWhereHas($relation, function ($query) use ($lastSegment, $searchTerm) {
-                            $query->where($lastSegment, 'LIKE', '%' . $searchTerm . '%');
-                        });
-                    } else {
-                        $products->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
-                    }
-                }
-            })
-            ->where(function ($products) use ($andMap) {
-                foreach ($andMap as $condition) {
-                    foreach ($condition as $key => $valor) {
-                        $parts = explode("/", $key);
-                        $type = $parts[0];
-                        $filter = $parts[1];
-                        if (strpos($filter, '.') !== false) {
-                            $relacion = substr($filter, 0, strpos($filter, '.'));
-                            $propiedad = substr($filter, strpos($filter, '.') + 1);
-                            $this->recursiveWhereHas($products, $relacion, $propiedad, $valor);
-                        } else {
-                            if ($type == "equals") {
-                                $products->where($filter, '=', $valor);
-                            } else {
-                                $products->where($filter, 'LIKE', '%' . $valor . '%');
-                            }
-                        }
-                    }
-                }
-            })
-            ->whereHas('warehouses.provider', function ($query) {
-                $query->where('active', 1)->where('approved', 1)->take(1); //primera bodega, primer proveedor
-            })
-            ->where('active', 1);
-        // ! sort
-        $orderByText = null;
-        $orderByDate = null;
-        $sort = $data['sort'];
-        $sortParts = explode(':', $sort);
-
-        $pt1 = $sortParts[0];
-
-        $type = (stripos($pt1, 'fecha') !== false || stripos($pt1, 'marca') !== false) ? 'date' : 'text';
-
-        $dataSort = [
-            [
-                'field' => $sortParts[0],
-                'type' => $type,
-                'direction' => $sortParts[1],
-            ],
-        ];
-
-        foreach ($dataSort as $value) {
-            $field = $value['field'];
-            $direction = $value['direction'];
-            $type = $value['type'];
-
-            if ($type === "text") {
-                $orderByText = [$field => $direction];
-            } else {
-                $orderByDate = [$field => $direction];
-            }
-        }
-
-        if ($orderByText !== null) {
-            $products->orderBy(key($orderByText), reset($orderByText));
-        } else {
-            $products->orderBy(DB::raw("STR_TO_DATE(" . key($orderByDate) . ", '%e/%c/%Y')"), reset($orderByDate));
-        }
-        $products = $products->paginate($pageSize, ['*'], 'page', $pageNumber);
-
-
-        /*
-        $products = UpUser::with('warehouses')->where(function ($coverages) use ($andMap) {
-            foreach ($andMap as $condition) {
-                foreach ($condition as $key => $valor) {
-                    $parts = explode("/", $key);
-                    $type = $parts[0];
-                    $filter = $parts[1];
-                    if (strpos($filter, '.') !== false) {
-                        $relacion = substr($filter, 0, strpos($filter, '.'));
-                        $propiedad = substr($filter, strpos($filter, '.') + 1);
-                        $this->recursiveWhereHas($coverages, $relacion, $propiedad, $valor);
-                    } else {
-                        if ($type == "equals") {
-                            $coverages->where($filter, '=', $valor);
-                        } else {
-                            $coverages->where($filter, 'LIKE', '%' . $valor . '%');
-                        }
-                    }
-                }
-            }
-        })
-        ->get();
-        */
-        return response()->json($products);
     }
 }
