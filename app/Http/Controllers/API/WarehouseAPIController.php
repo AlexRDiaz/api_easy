@@ -28,7 +28,7 @@ class WarehouseAPIController extends Controller
                 'customer_service_phone' => 'nullable|string|max:70',
                 'reference' => 'nullable|string|max:70',
                 'description' => 'nullable|string|max:65535',
-                'url_image' => 'nullable|string|max:150',                
+                'url_image' => 'nullable|string|max:150',
                 'id_provincia' => 'nullable|int',
                 'city' => 'nullable|string|max:80',
                 'collection' => 'nullable|json',
@@ -174,6 +174,21 @@ class WarehouseAPIController extends Controller
         });
         // Reindexar el array numéricamente
         $warehouses = $warehouses->values();
+
+        return response()->json(['warehouses' => $warehouses]);
+    }
+
+    public function getSpecials()
+    {
+        error_log("getSpecials");
+        $warehouses = Warehouse::with('provider')
+            ->whereHas('provider', function ($query) {
+                $query->where('active', 1)->where('approved', 1)->where('special', 1);
+            })
+            ->where('active', 1)
+            ->where('approved', 1)
+            // ->get();
+            ->get(['branch_name', 'warehouse_id','city','provider_id']);
 
         return response()->json(['warehouses' => $warehouses]);
     }

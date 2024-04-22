@@ -10,6 +10,9 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\API\ReserveAPIController;
+use App\Models\ProductWarehouseLink;
+use App\Models\UpUser;
+use App\Models\UpUsersWarehouseLink;
 use App\Models\Warehouse;
 use Illuminate\Support\Facades\Mail;
 
@@ -24,96 +27,6 @@ class ProductAPIController extends Controller
         $products = Product::with('warehouse')->get();
         return response()->json($products);
     }
-
-
-    // public function getProducts(Request $request)
-    // {
-    //     //all for catalog
-    //     $data = $request->json()->all();
-
-    //     $pageSize = $data['page_size'];
-    //     $pageNumber = $data['page_number'];
-    //     $searchTerm = $data['search'];
-
-    //     $populate = $data['populate'];
-    //     if ($searchTerm != "") {
-    //         $filteFields = $data['or'];
-    //     } else {
-    //         $filteFields = [];
-    //     }
-
-    //     $andMap = $data['and'];
-
-    //     $products = Product::with($populate)
-    //         ->where(function ($products) use ($searchTerm, $filteFields) {
-    //             foreach ($filteFields as $field) {
-    //                 if (strpos($field, '.') !== false) {
-    //                     $relacion = substr($field, 0, strpos($field, '.'));
-    //                     $propiedad = substr($field, strpos($field, '.') + 1);
-    //                     $this->recursiveWhereHas($products, $relacion, $propiedad, $searchTerm);
-    //                 } else {
-    //                     $products->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
-    //                 }
-    //             }
-    //         })
-    //         ->where((function ($products) use ($andMap) {
-    //             foreach ($andMap as $condition) {
-    //                 foreach ($condition as $key => $valor) {
-    //                     if (strpos($key, '.') !== false) {
-    //                         $relacion = substr($key, 0, strpos($key, '.'));
-    //                         $propiedad = substr($key, strpos($key, '.') + 1);
-    //                         $this->recursiveWhereHas($products, $relacion, $propiedad, $valor);
-    //                     } else {
-    //                         $products->where($key, '=', $valor);
-    //                     }
-    //                 }
-    //             }
-    //         }))
-    //         ->whereHas('warehouse', function ($warehouse) {
-    //             $warehouse->where('active', 1)
-    //             ->where('approved', 1);
-    //         })
-    //         ->where('active', 1)//los No delete
-    //         ->where('approved', 1);
-    //     // ! sort
-    //     $orderByText = null;
-    //     $orderByDate = null;
-    //     $sort = $data['sort'];
-    //     $sortParts = explode(':', $sort);
-
-    //     $pt1 = $sortParts[0];
-
-    //     $type = (stripos($pt1, 'fecha') !== false || stripos($pt1, 'marca') !== false) ? 'date' : 'text';
-
-    //     $dataSort = [
-    //         [
-    //             'field' => $sortParts[0],
-    //             'type' => $type,
-    //             'direction' => $sortParts[1],
-    //         ],
-    //     ];
-
-    //     foreach ($dataSort as $value) {
-    //         $field = $value['field'];
-    //         $direction = $value['direction'];
-    //         $type = $value['type'];
-
-    //         if ($type === "text") {
-    //             $orderByText = [$field => $direction];
-    //         } else {
-    //             $orderByDate = [$field => $direction];
-    //         }
-    //     }
-
-    //     if ($orderByText !== null) {
-    //         $products->orderBy(key($orderByText), reset($orderByText));
-    //     } else {
-    //         $products->orderBy(DB::raw("STR_TO_DATE(" . key($orderByDate) . ", '%e/%c/%Y')"), reset($orderByDate));
-    //     }
-    //     // ! **************************************************
-    //     $products = $products->paginate($pageSize, ['*'], 'page', $pageNumber);
-    //     return response()->json($products);
-    // }
 
 
     public function getProducts(Request $request)
@@ -185,8 +98,8 @@ class ProductAPIController extends Controller
                     foreach ($filter as $key => $value) {
                         if ($key === 'price_range') {
                             $priceRange = explode('-', $value);
-                            $minPrice = isset ($priceRange[0]) && $priceRange[0] !== '' ? floatval($priceRange[0]) : null;
-                            $maxPrice = isset ($priceRange[1]) && $priceRange[1] !== '' ? floatval($priceRange[1]) : null;
+                            $minPrice = isset($priceRange[0]) && $priceRange[0] !== '' ? floatval($priceRange[0]) : null;
+                            $maxPrice = isset($priceRange[1]) && $priceRange[1] !== '' ? floatval($priceRange[1]) : null;
 
                             if (!is_null($minPrice) && !is_null($maxPrice)) {
                                 $query->whereBetween('price', [$minPrice, $maxPrice]);
@@ -308,6 +221,198 @@ class ProductAPIController extends Controller
         $products = $products->paginate($pageSize, ['*'], 'page', $pageNumber);
 
         return response()->json($products);
+    }
+
+    public function getProductsNew(Request $request)
+    {
+        try {
+            error_log("getProductsNew");
+
+            //all for catalog
+            $data = $request->json()->all();
+
+            $pageSize = $data['page_size'];
+            $pageNumber = $data['page_number'];
+            $searchTerm = $data['search'];
+
+            $populate = $data['populate'];
+            $outFilters = $data['out_filters'] ?? [];
+
+            // Asumiendo que las categorías vienen en un filtro llamado 'categories' dentro de 'out_filters'
+            $categoryFilters = [];
+            foreach ($outFilters as $filter) {
+                if (isset($filter['input_categories'])) {
+                    $categoryFilters = $filter['input_categories'];
+                    break;
+                }
+            }
+            if ($searchTerm != "") {
+                $filteFields = $data['or'];
+            } else {
+                $filteFields = [];
+            }
+
+            $andMap = $data['and'];
+
+            $products = Product::with($populate)
+                ->where(function ($products) use ($searchTerm, $filteFields) {
+                    foreach ($filteFields as $field) {
+                        if (strpos($field, '.') !== false) {
+                            $segments = explode('.', $field);
+                            $lastSegment = array_pop($segments);
+                            $relation = implode('.', $segments);
+
+                            $products->orWhereHas($relation, function ($query) use ($lastSegment, $searchTerm) {
+                                $query->where($lastSegment, 'LIKE', '%' . $searchTerm . '%');
+                            });
+                        } else {
+                            $products->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                        }
+                    }
+                })
+                ->where(function ($products) use ($andMap) {
+                    foreach ($andMap as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            $parts = explode("/", $key);
+                            $type = $parts[0];
+                            $filter = $parts[1];
+                            if (strpos($filter, '.') !== false) {
+                                $relacion = substr($filter, 0, strpos($filter, '.'));
+                                $propiedad = substr($filter, strpos($filter, '.') + 1);
+                                $this->recursiveWhereHas($products, $relacion, $propiedad, $valor);
+                            } else {
+                                if ($type == "equals") {
+                                    $products->where($filter, '=', $valor);
+                                } else {
+                                    $products->where($filter, 'LIKE', '%' . $valor . '%');
+                                }
+                            }
+                        }
+                    }
+                })
+                ->whereHas('warehouses.provider', function ($query) {
+                    $query->where('active', 1)->where('approved', 1)->take(1); //primera bodega, primer proveedor
+                })
+                ->where('active', 1)
+                ->where('approved', 1)
+                ->when(isset($data['out_filters']), function ($query) use ($data) {
+                    foreach ($data['out_filters'] as $filter) {
+                        foreach ($filter as $key => $value) {
+                            if ($key === 'price_range') {
+                                $priceRange = explode('-', $value);
+                                $minPrice = isset($priceRange[0]) && $priceRange[0] !== '' ? floatval($priceRange[0]) : null;
+                                $maxPrice = isset($priceRange[1]) && $priceRange[1] !== '' ? floatval($priceRange[1]) : null;
+
+                                if (!is_null($minPrice) && !is_null($maxPrice)) {
+                                    $query->whereBetween('price', [$minPrice, $maxPrice]);
+                                } elseif (!is_null($minPrice)) {
+                                    $query->where('price', '>=', $minPrice);
+                                } elseif (!is_null($maxPrice)) {
+                                    $query->where('price', '<=', $maxPrice);
+                                }
+                            }
+                        }
+                    }
+                })
+                ->when(count($categoryFilters) > 0, function ($query) use ($categoryFilters) {
+                    $query->where(function ($query) use ($categoryFilters) {
+                        foreach ($categoryFilters as $category) {
+                            // $query->orWhereRaw("JSON_CONTAINS(JSON_EXTRACT(features, '$.categories'), '\"$category\"')");
+                            $query->orWhereRaw("JSON_CONTAINS(JSON_EXTRACT(features, '$.categories[*].name'), '\"$category\"')");
+                        }
+                    });
+                });
+
+
+            $filterPS = $data['filterps'];
+
+            if (!empty($filterPS)) {
+                $idMasterValue = 0;
+
+                foreach ($filterPS as $condition) {
+                    if (isset($condition['id_master'])) {
+                        $idMasterValue = $condition['id_master'];
+                        error_log("Valor de 'id_master': " . $idMasterValue);
+                    }
+
+                    if (isset($condition['key']) && is_array($condition['key'])) {
+                        $keyValues = $condition['key'];
+
+                        // Verificar si ambas claves están presentes en 'key'
+                        if (in_array('favorite', $keyValues) && in_array('onsale', $keyValues)) {
+                            $products->whereHas('productseller', function ($query) use ($idMasterValue) {
+                                $query->where('id_master', $idMasterValue)
+                                    ->where('favorite', 1)
+                                    ->where('onsale', 1);
+                            });
+                            error_log("Ambas claves 'favorite' y 'onsale' están presentes en 'key'.");
+                        } else {
+                            // Verificar individualmente cada clave en 'key'
+                            foreach ($keyValues as $keyValue) {
+                                if ($keyValue == 'favorite') {
+                                    $products->whereHas('productseller', function ($query) use ($idMasterValue) {
+                                        $query->where('id_master', $idMasterValue)
+                                            ->where('favorite', 1);
+                                    });
+                                    error_log("La clave 'favorite' está presente en 'key'.");
+                                } elseif ($keyValue == 'onsale') {
+                                    $products->whereHas('productseller', function ($query) use ($idMasterValue) {
+                                        $query->where('id_master', $idMasterValue)
+                                            ->where('onsale', 1);
+                                    });
+                                    error_log("La clave 'onsale' está presente en 'key'.");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+
+
+            // ! sort
+            $orderByText = null;
+            $orderByDate = null;
+            $sort = $data['sort'];
+            $sortParts = explode(':', $sort);
+
+            $pt1 = $sortParts[0];
+
+            $type = (stripos($pt1, 'fecha') !== false || stripos($pt1, 'marca') !== false) ? 'date' : 'text';
+
+            $dataSort = [
+                [
+                    'field' => $sortParts[0],
+                    'type' => $type,
+                    'direction' => $sortParts[1],
+                ],
+            ];
+
+            foreach ($dataSort as $value) {
+                $field = $value['field'];
+                $direction = $value['direction'];
+                $type = $value['type'];
+
+                if ($type === "text") {
+                    $orderByText = [$field => $direction];
+                } else {
+                    $orderByDate = [$field => $direction];
+                }
+            }
+
+            if ($orderByText !== null) {
+                $products->orderBy(key($orderByText), reset($orderByText));
+            } else {
+                $products->orderBy(DB::raw("STR_TO_DATE(" . key($orderByDate) . ", '%e/%c/%Y')"), reset($orderByDate));
+            }
+            // ! ******
+            $products = $products->paginate($pageSize, ['*'], 'page', $pageNumber);
+
+            return response()->json($products);
+        } catch (\Exception $e) {
+            error_log("ERROR: $e");
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     private function recursiveWhereHasSameRegister($query, $relation, $property, $searchTerm)
@@ -503,11 +608,11 @@ class ProductAPIController extends Controller
             if ($isvariable == 0) {
                 // error_log("no isvariable for StockHistory");
                 $createHistory = new StockHistory();
-                $createHistory->product_id = $newProduct->product_id;
+                $createHistory->product_id =  $newProduct->product_id;
                 $createHistory->variant_sku = $skuGen;
                 $createHistory->type = 1; //ingreso
                 $createHistory->date = $currentDateTime;
-                $createHistory->units = $stock;
+                $createHistory->units =  $stock;
                 $createHistory->last_stock = 0;
                 $createHistory->current_stock = $stock;
                 $createHistory->description = "Registro de Nuevo Producto";
@@ -527,11 +632,11 @@ class ProductAPIController extends Controller
                     $price = $variant['price'];
 
                     $createHistory = new StockHistory();
-                    $createHistory->product_id = $newProduct->product_id;
+                    $createHistory->product_id =  $newProduct->product_id;
                     $createHistory->variant_sku = $sku;
                     $createHistory->type = 1; //ingreso
                     $createHistory->date = $currentDateTime;
-                    $createHistory->units = $inventory_quantity;
+                    $createHistory->units =  $inventory_quantity;
                     $createHistory->last_stock = 0;
                     $createHistory->current_stock = $inventory_quantity;
                     $createHistory->description = "Registro de Nuevo Producto";
@@ -539,6 +644,13 @@ class ProductAPIController extends Controller
                 }
                 error_log("created History for each variant");
             }
+
+            //create product_warehouse link
+            $providerWarehouse = new ProductWarehouseLink();
+            $providerWarehouse->id_product = $newProduct->product_id;
+            $providerWarehouse->id_warehouse = $warehouse_id;
+            $providerWarehouse->save();
+
 
             if ($newProduct) {
                 $to = 'easyecommercetest@gmail.com';
@@ -709,7 +821,7 @@ class ProductAPIController extends Controller
                 $currentDateTime = date('Y-m-d H:i:s');
 
                 $createHistory = new StockHistory();
-                $createHistory->product_id = $productIdFromSKU;
+                $createHistory->product_id =  $productIdFromSKU;
                 $createHistory->variant_sku = $onlySku;
                 $createHistory->type = $type;
                 $createHistory->date = $currentDateTime;
@@ -730,6 +842,7 @@ class ProductAPIController extends Controller
     // ! ↓ FUNCIONAL ↓ 
     public function updateProductVariantStock(Request $request)
     {
+        error_log("updateProductVariantStock");
         $reserveController = new ReserveAPIController();
         $data = $request->json()->all();
         $variants = json_decode($data['variant_detail'], true);
@@ -739,74 +852,195 @@ class ProductAPIController extends Controller
         // $type = $data['type'];
         $idComercial = $data['id_comercial'];
         $responses = [];
-        if ($variants != null) {
-            foreach ($variants as $variant) {
-                $quantity = $variant['quantity'];
-                $skuProduct = $variant['sku']; // Ahora el SKU viene dentro de cada variante
-                $type = $data['type'];
 
-                $result = $this->splitSku($skuProduct);
+        foreach ($variants as $variant) {
+            $quantity = $variant['quantity'];
+            $skuProduct = $variant['sku']; // Ahora el SKU viene dentro de cada variante
+            $type = $data['type'];
 
-                $onlySku = $result['sku'];
-                $productIdFromSKU = $result['id'];
+            $result = $this->splitSku($skuProduct);
 
-                $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
+            $onlySku = $result['sku'];
+            $productIdFromSKU = $result['id'];
 
-                // Decode the JSON response to get the data
-                $searchResult = json_decode($response->getContent());
+            $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
 
-                if ($searchResult && $searchResult->response) {
-                    $reserve = $searchResult->reserve;
+            // Decode the JSON response to get the data
+            $searchResult = json_decode($response->getContent());
 
-                    if ($type == 0 && $quantity > $reserve->stock) {
-                        // No se puede restar más de lo que hay en stock
-                        $responses[] = ['message' => 'No Dispone de Stock en la Reserva'];
-                        continue;
-                    }
+            if ($searchResult && $searchResult->response) {
+                $reserve = $searchResult->reserve;
 
-                    // Actualizar el stock
-                    $reserve->stock += ($type == 1) ? $quantity : -$quantity;
+                if ($type == 0 && $quantity > $reserve->stock) {
+                    // No se puede restar más de lo que hay en stock
+                    $responses[] = ['message' => 'No Dispone de Stock en la Reserva'];
+                    continue;
+                }
 
-                    // Assuming you have a 'Reserve' model that you want to save after updating
-                    $reserveModel = Reserve::find($reserve->id);
-                    if ($reserveModel) {
-                        $reserveModel->stock = $reserve->stock;
-                        $reserveModel->save();
-                    }
+                // Actualizar el stock
+                $reserve->stock += ($type == 1) ? $quantity : -$quantity;
 
-                    // Devolver la respuesta
-                    $responses[] = ['message' => 'Stock actualizado con éxito', 'reserve' => $reserveModel];
+                // Assuming you have a 'Reserve' model that you want to save after updating
+                $reserveModel = Reserve::find($reserve->id);
+                if ($reserveModel) {
+                    $reserveModel->stock = $reserve->stock;
+                    $reserveModel->save();
+                }
+
+                // Devolver la respuesta
+                $responses[] = ['message' => 'Stock actualizado con éxito', 'reserve' => $reserveModel];
+            } else {
+                // Encuentra el producto por su SKU.
+                $product = Product::find($productIdFromSKU);
+
+                if ($product === null) {
+                    return null;
+                }
+
+                if ($product) {
+                    $result = $product->changeStockGen($productIdFromSKU, $onlySku, $quantity, $type);
+                    $currentDateTime = date('Y-m-d H:i:s');
+
+                    $createHistory = new StockHistory();
+                    $createHistory->product_id =  $productIdFromSKU;
+                    $createHistory->variant_sku = $onlySku;
+                    $createHistory->type = $type;
+                    $createHistory->date = $currentDateTime;
+                    $createHistory->units = $quantity;
+                    $createHistory->last_stock = $product->stock + $quantity;
+                    $createHistory->current_stock = $product->stock;
+                    $createHistory->description = "Reducción de stock General Pedido ENVIADO";
+
+                    $createHistory->save();
                 } else {
-                    // Encuentra el producto por su SKU.
-                    $product = Product::find($productIdFromSKU);
-
-                    if ($product === null) {
-                        return null;
-                    }
-
-                    if ($product) {
-                        $result = $product->changeStockGen($productIdFromSKU, $onlySku, $quantity, $type);
-                        $currentDateTime = date('Y-m-d H:i:s');
-
-                        $createHistory = new StockHistory();
-                        $createHistory->product_id = $productIdFromSKU;
-                        $createHistory->variant_sku = $onlySku;
-                        $createHistory->type = $type;
-                        $createHistory->date = $currentDateTime;
-                        $createHistory->units = $quantity;
-                        $createHistory->last_stock = $product->stock + $quantity;
-                        $createHistory->current_stock = $product->stock;
-                        $createHistory->description = "Reducción de stock General Pedido ENVIADO";
-
-                        $createHistory->save();
-                    } else {
-                        $responses[] = ['message' => 'Product not found'];
-                        continue;
-                    }
+                    $responses[] = ['message' => 'Product not found'];
+                    continue;
                 }
             }
         }
-
         return response()->json($responses);
+    }
+
+    public function getBySubProvider(Request $request)
+    {
+        //
+        error_log("getBySubProvider");
+        $data = $request->json()->all();
+
+        $pageSize = $data['page_size'];
+        $pageNumber = $data['page_number'];
+        $searchTerm = $data['search'];
+        $populate = $data['populate'];
+        if ($searchTerm != "") {
+            $filteFields = $data['or'];
+        } else {
+            $filteFields = [];
+        }
+
+        $andMap = $data['and'];
+
+
+        $products = Product::with($populate)
+            ->where(function ($products) use ($searchTerm, $filteFields) {
+                foreach ($filteFields as $field) {
+                    if (strpos($field, '.') !== false) {
+                        $segments = explode('.', $field);
+                        $lastSegment = array_pop($segments);
+                        $relation = implode('.', $segments);
+
+                        $products->orWhereHas($relation, function ($query) use ($lastSegment, $searchTerm) {
+                            $query->where($lastSegment, 'LIKE', '%' . $searchTerm . '%');
+                        });
+                    } else {
+                        $products->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                    }
+                }
+            })
+            ->where(function ($products) use ($andMap) {
+                foreach ($andMap as $condition) {
+                    foreach ($condition as $key => $valor) {
+                        $parts = explode("/", $key);
+                        $type = $parts[0];
+                        $filter = $parts[1];
+                        if (strpos($filter, '.') !== false) {
+                            $relacion = substr($filter, 0, strpos($filter, '.'));
+                            $propiedad = substr($filter, strpos($filter, '.') + 1);
+                            $this->recursiveWhereHas($products, $relacion, $propiedad, $valor);
+                        } else {
+                            if ($type == "equals") {
+                                $products->where($filter, '=', $valor);
+                            } else {
+                                $products->where($filter, 'LIKE', '%' . $valor . '%');
+                            }
+                        }
+                    }
+                }
+            })
+            ->whereHas('warehouses.provider', function ($query) {
+                $query->where('active', 1)->where('approved', 1)->take(1); //primera bodega, primer proveedor
+            })
+            ->where('active', 1);
+        // ! sort
+        $orderByText = null;
+        $orderByDate = null;
+        $sort = $data['sort'];
+        $sortParts = explode(':', $sort);
+
+        $pt1 = $sortParts[0];
+
+        $type = (stripos($pt1, 'fecha') !== false || stripos($pt1, 'marca') !== false) ? 'date' : 'text';
+
+        $dataSort = [
+            [
+                'field' => $sortParts[0],
+                'type' => $type,
+                'direction' => $sortParts[1],
+            ],
+        ];
+
+        foreach ($dataSort as $value) {
+            $field = $value['field'];
+            $direction = $value['direction'];
+            $type = $value['type'];
+
+            if ($type === "text") {
+                $orderByText = [$field => $direction];
+            } else {
+                $orderByDate = [$field => $direction];
+            }
+        }
+
+        if ($orderByText !== null) {
+            $products->orderBy(key($orderByText), reset($orderByText));
+        } else {
+            $products->orderBy(DB::raw("STR_TO_DATE(" . key($orderByDate) . ", '%e/%c/%Y')"), reset($orderByDate));
+        }
+        $products = $products->paginate($pageSize, ['*'], 'page', $pageNumber);
+
+
+        /*
+        $products = UpUser::with('warehouses')->where(function ($coverages) use ($andMap) {
+            foreach ($andMap as $condition) {
+                foreach ($condition as $key => $valor) {
+                    $parts = explode("/", $key);
+                    $type = $parts[0];
+                    $filter = $parts[1];
+                    if (strpos($filter, '.') !== false) {
+                        $relacion = substr($filter, 0, strpos($filter, '.'));
+                        $propiedad = substr($filter, strpos($filter, '.') + 1);
+                        $this->recursiveWhereHas($coverages, $relacion, $propiedad, $valor);
+                    } else {
+                        if ($type == "equals") {
+                            $coverages->where($filter, '=', $valor);
+                        } else {
+                            $coverages->where($filter, 'LIKE', '%' . $valor . '%');
+                        }
+                    }
+                }
+            }
+        })
+        ->get();
+        */
+        return response()->json($products);
     }
 }

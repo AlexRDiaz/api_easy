@@ -11,6 +11,7 @@ use App\Models\OperadoresTransportadoraLink;
 use App\Models\OrdenesRetiro;
 use App\Models\PedidosShopify;
 use App\Models\Provider;
+use App\Models\ProviderWarehouseLink;
 use App\Models\RolesFront;
 use App\Models\Ruta;
 use App\Models\Transportadora;
@@ -172,7 +173,7 @@ class UpUserAPIController extends Controller
         Mail::to($user->email)->send(new UserValidation($resultCode));
 
 
-        return response()->json(['message' => 'Subproveedor creado con éxito', 'user_id' => $user->id, 'user_id'], 201);
+        return response()->json(['message' => 'Subproveedor creado con éxito', 'user_id' => $user->id, 'user_id'], 200);
     }
 
     public function editAutome(Request $request, $id)
@@ -273,6 +274,7 @@ class UpUserAPIController extends Controller
         $provider->name = $request->input('provider_name');
         $provider->phone = $request->input('provider_phone');
         $provider->description = $request->input('description');
+        $provider->special = $request->input('special');
         $provider->created_at = new DateTime();
         $provider->user_id = $user->id;
 

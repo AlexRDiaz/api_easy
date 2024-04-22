@@ -296,6 +296,16 @@ class PedidosShopify extends Model
 		return $this->belongsTo(\App\Models\Product::class, 'id_product');
 	}
 
+	public function product_s()
+	{
+		return $this->belongsTo(\App\Models\Product::class, 'id_product')
+		->select('product_id', 'product_name','stock','price','isvariable','warehouse_id');
+		// ->with('warehouses');
+		// return $this->belongsToMany(Warehouse::class, 'product_warehouse_link', 'id_product', 'id_warehouse')
+		// ->select('warehouse_id', 'branch_name','id_provincia','city','address','customer_service_phone','provider_id')
+		// ->with('up_users');
+	}
+
 	public function transactionTransportadora()
 	{
 		return $this->belongsTo(TransaccionPedidoTransportadora::class, 'id', 'id_pedido');

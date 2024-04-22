@@ -551,7 +551,6 @@ Route::middleware(['cors'])->group(function () {
         Route::post('/all', [CarrierCoverageAPIController::class, 'getAll']);
         Route::put('/{id}', [CarrierCoverageAPIController::class, 'update']);
         Route::post('/search', [CarrierCoverageAPIController::class, 'getDataCoverage']);
-
     });
 
     //new test
@@ -564,6 +563,14 @@ Route::middleware(['cors'])->group(function () {
 
     Route::post('/gintracom/postorder', [IntegrationAPIController::class, 'putIntegrationsUrlStoreG']);
     Route::post('gintracom/updatestate', [IntegrationAPIController::class, 'requestUpdateState']);
+
+    //  * 
+    Route::post('upuserswarehouse', [App\Http\Controllers\API\UpUsersWarehouseLinkAPIController::class, 'store']);
+    Route::post('allbysubprov', [ProductAPIController::class, 'getBySubProvider']);
+    Route::post('productwarehouse', [App\Http\Controllers\API\ProductWarehouseLinkAPIController::class, 'store']);
+    Route::get('warehouses/specials', [WarehouseAPIController::class, 'getSpecials']);
+    Route::put('productwarehouse/update', [App\Http\Controllers\API\ProductWarehouseLinkAPIController::class, 'update']);
+    Route::post('catalog/all', [ProductAPIController::class, 'getProductsNew']);
 
 
     //

@@ -559,7 +559,8 @@ class PedidosShopifyAPIController extends Controller
         $not = $data['not'];
         // ! *************************************
 
-        $pedidos = PedidosShopify::with(['transportadora', 'users', 'users.vendedores', 'pedidoFecha', 'ruta', 'printedBy', 'sentBy', 'product.warehouse.provider'])
+        // $pedidos = PedidosShopify::with(['transportadora', 'users', 'users.vendedores', 'pedidoFecha', 'ruta', 'printedBy', 'sentBy', 'product.warehouse.provider'])
+        $pedidos = PedidosShopify::with(['transportadora', 'users', 'users.vendedores', 'pedidoFecha', 'ruta', 'printedBy', 'sentBy', 'product_s.warehouses.provider'])
             ->where(function ($pedidos) use ($searchTerm, $filteFields) {
                 foreach ($filteFields as $field) {
                     if (strpos($field, '.') !== false) {
@@ -583,6 +584,24 @@ class PedidosShopifyAPIController extends Controller
                         }
                     }
                 }
+                // foreach ($Map as $condition) {
+                //     foreach ($condition as $key => $valor) {
+                //         $parts = explode("/", $key);
+                //         $type = $parts[0];
+                //         $filter = $parts[1];
+                //         if (strpos($filter, '.') !== false) {
+                //             $relacion = substr($filter, 0, strpos($filter, '.'));
+                //             $propiedad = substr($filter, strpos($filter, '.') + 1);
+                //             $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                //         } else {
+                //             if ($type == "equals") {
+                //                 $pedidos->where($filter, '=', $valor);
+                //             } else {
+                //                 $pedidos->where($filter, 'LIKE', '%' . $valor . '%');
+                //             }
+                //         }
+                //     }
+                // }
             }))
             ->where((function ($pedidos) use ($not) {
                 foreach ($not as $condition) {
@@ -2566,7 +2585,9 @@ class PedidosShopifyAPIController extends Controller
         //"${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year} ${DateTime.now().hour}:${DateTime.now().minute} ";
         $currentDateTimeText = date("d/m/Y H:i");
 
-        $pedido = PedidosShopify::findOrFail($id);
+        $pedido = PedidosShopify::with(['users.vendedores'])
+            ->where('id', $id)->first();
+
         if ($key == "estado_logistico") {
             if ($value == "IMPRESO") {  //from log,sell
                 $pedido->estado_logistico = $value;
@@ -2666,9 +2687,13 @@ class PedidosShopifyAPIController extends Controller
 
         //v0
         if ($key == "estado_interno") {
+            $nombreComercial = $pedido->users[0]->vendedores[0]->nombre_comercial;
+
             $pedido->fecha_confirmacion = $currentDateTimeText;
             $pedido->confirmed_by = $idUser;
             $pedido->confirmed_at = $currentDateTime;
+            $pedido->name_comercial = $nombreComercial;
+
         }
 
         $pedido->save();
@@ -3650,13 +3675,13 @@ class PedidosShopifyAPIController extends Controller
                 $createOrder->id_product = $productId;
                 $createOrder->variant_details = $variant_details;
                 $createOrder->recaudo = $recaudo;
-            
+
                 if ($newrouteId == 0) {
-                    error_log("*****Tramsp externa********\n");
+                    error_log("*****Transp externa********\n");
                     $createOrder->carrier_external_id = $carrierExternalId;
                     $createOrder->ciudad_external_id = $ciudadDes;
                 }
-                
+
                 $createOrder->save();
 
 
@@ -3730,5 +3755,4 @@ class PedidosShopifyAPIController extends Controller
             ], 500);
         }
     }
-
 }
