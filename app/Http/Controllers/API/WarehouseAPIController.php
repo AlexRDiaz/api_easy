@@ -37,12 +37,12 @@ class WarehouseAPIController extends Controller
 
             $warehouse = Warehouse::create($validatedData);
             if ($warehouse) {
-                // $to = 'easyecommercetest@gmail.com';
-                // $subject = 'Aprobación de una bodega nueva';
-                // $message = 'Se ha creado la bodega "' . $request->branch_name . '" a la espera de la aprobación de funcionamiento.';
-                // Mail::raw($message, function ($mail) use ($to, $subject) {
-                //     $mail->to($to)->subject($subject);
-                // });
+                $to = 'easyecommercetest@gmail.com';
+                $subject = 'Aprobación de una bodega nueva';
+                $message = 'Se ha creado la bodega "' . $request->branch_name . '" a la espera de la aprobación de funcionamiento.';
+                Mail::raw($message, function ($mail) use ($to, $subject) {
+                    $mail->to($to)->subject($subject);
+                });
 
                 return response()->json($warehouse, 201); // 201: Recurso creado
 
