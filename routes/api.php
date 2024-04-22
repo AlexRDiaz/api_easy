@@ -573,7 +573,7 @@ Route::middleware(['cors'])->group(function () {
     Route::post('catalog/all', [ProductAPIController::class, 'getProductsNew']);
 
 
-    //
+    //.
 });
 
 
