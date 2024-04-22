@@ -566,7 +566,7 @@ Route::middleware(['cors'])->group(function () {
     Route::post('gintracom/updatestate', [IntegrationAPIController::class, 'requestUpdateState']);
 
 
-    //
+    //..
 });
 
 
