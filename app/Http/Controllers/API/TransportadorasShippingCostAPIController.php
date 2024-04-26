@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Models\CarriersExternal;
+use App\Models\PedidosShopify;
 use App\Models\TransaccionPedidoTransportadora;
 use App\Models\Transportadora;
 use App\Models\TransportadorasShippingCost;
@@ -143,7 +145,7 @@ class TransportadorasShippingCostAPIController extends Controller
                 }
 
                 $total_proceeds = round($total_proceeds, 2);
-                $count_orders =  $pedidos->flatten()->count();
+                $count_orders = $pedidos->flatten()->count();
                 $shipping_total = $costo_transportadora * $count_orders;
                 $total_day = $total_proceeds - $shipping_total;
 
@@ -174,8 +176,126 @@ class TransportadorasShippingCostAPIController extends Controller
                 }
 
                 $total_proceeds = round($total_proceeds, 2);
-                $count_orders =  $pedidos->flatten()->count();
+                $count_orders = $pedidos->flatten()->count();
                 $shipping_total = $costo_transportadora * $count_orders;
+                $total_day = $total_proceeds - $shipping_total;
+
+                $transportadoraShipping->update([
+                    'status' => 'PENDIENTE',
+                    'daily_proceeds' => $total_proceeds,
+                    'daily_shipping_cost' => $shipping_total,
+                    'daily_total' => $total_day
+                ]);
+                // return response()->json(["message" => "Updated este registro ya existe", "id" => $idTSC, "data" => $transportadoraShippingCost], 200);
+            }
+        }
+
+        return response()->json([], 200);
+    }
+
+    // ! carrier external
+    public function getShippingCostCarrierExternalPerDay()
+    {
+        error_log("entro");
+
+        $transportadoras = CarriersExternal::all();
+        // $transportadoraId = 19;
+        // $transportadoraId = 1;
+        // $transportadora = Transportadora::find($transportadoraId);
+
+        $shipping_total = 0;
+        $count_orders = 0;
+        $total_proceeds = 0;
+        $total_day = 0;
+
+        $currentDate = now()->format('j/n/Y');
+        // $currentDate = '12/10/2023';
+        // $currentDate =  Carbon::createFromFormat('j/n/Y', $currentDate)->format('j/n/Y');
+
+        $currentDateTime = date('Y-m-d H:i:s');
+        // $desiredTime = '23:58:13';
+        // $currentDateTime = Carbon::createFromFormat('d/n/Y H:i:s', $currentDate . ' ' . $desiredTime)->format('Y-m-d H:i:s');
+        $costo_transportadora = 0;
+
+
+
+
+        foreach ($transportadoras as $transportadora) {
+
+            $transportadoraId = $transportadora->id;
+
+            // ! sacar carrier external cost de los pedidos
+            $pedidosAux = PedidosShopify::where('carrier_external_id', $transportadoraId)
+                ->where('fecha_entrega', $currentDate)
+                ->get();
+
+            foreach ($pedidosAux as $pedido) {
+                // if (($pedido["estado_interno"] == "CONFIRMADO" && $pedido["estado_logistico"] == "ENVIADO") && ($pedido["status"] == "ENTREGADO" || $pedido["status"] == "NO  ENTREGADO")) {
+                // if ($pedido["status"] == "ENTREGADO" || $pedido["status"] == "NO  ENTREGADO") {
+                    $costo_transportadora += floatval($pedido["carrierexternal_cost"]);
+                // }
+                
+            }
+            error_log("step1 -> external_cost sumatoria");
+
+            // $costo_transportadora = $transportadora->costo_transportadora;
+
+            $dateFormatted = Carbon::createFromFormat('j/n/Y', $currentDate)->format('Y-m-d');
+            $transportadoraShippingCost = TransportadorasShippingCost::where('id_carrierexternal', $transportadoraId)
+                ->whereDate('time_stamp', $dateFormatted)
+                ->get();
+
+            if ($transportadoraShippingCost->count() === 0) {
+
+                // $pedidos = TransaccionPedidoTransportadora::where('id_transportadora', $transportadoraId)
+                //     ->where('fecha_entrega', $currentDate)
+                //     ->get();
+
+                $total_proceeds = 0;
+                foreach ($pedidosAux as $pedido) {
+                    if ($pedido["status"] == "ENTREGADO") {
+                        $precioTotal = floatval($pedido["precio_total"]);
+                        $total_proceeds += $precioTotal;
+                    }
+                }
+
+                $total_proceeds = round($total_proceeds, 2);
+                // $count_orders =  $pedidos->flatten()->count();
+                    // $shipping_total = $costo_transportadora * $count_orders;
+                    $total_day = $total_proceeds - $shipping_total;
+
+                $newTransportadoraShippingCost = new TransportadorasShippingCost();
+                $newTransportadoraShippingCost->status = 'PENDIENTE';
+                $newTransportadoraShippingCost->time_stamp = $currentDateTime;
+                $newTransportadoraShippingCost->daily_proceeds = $total_proceeds;
+                // $newTransportadoraShippingCost->daily_shipping_cost = $shipping_total;
+                $newTransportadoraShippingCost->daily_shipping_cost = $costo_transportadora;
+                $newTransportadoraShippingCost->daily_total = $total_day;
+                // $newTransportadoraShippingCost->id_transportadora = $transportadoraId;
+                $newTransportadoraShippingCost->id_transportadora = 19;
+                $newTransportadoraShippingCost->save();
+                // return response()->json(["message" => "este registro NO existe", "fecha" => $dateFormatted, "id_transportadora" => $newTransportadoraShippingCost], 200);
+            } else {
+                //update
+                $firstResult = $transportadoraShippingCost->first();
+                $idTSC = $firstResult->id;
+                $transportadoraShipping = TransportadorasShippingCost::findOrFail($idTSC);
+                // $pedidos = TransaccionPedidoTransportadora::where('id_transportadora', $transportadoraId)
+                //     ->where('fecha_entrega', $currentDate)
+                //     ->get();
+
+                $total_proceeds = 0;
+                foreach ($pedidosAux as $pedido) {
+                    if ($pedido["status"] == "ENTREGADO") {
+                        $precioTotal = floatval($pedido["precio_total"]);
+                        $total_proceeds += $precioTotal;
+                    }
+                }
+
+                $total_proceeds = round($total_proceeds, 2);
+                // $count_orders =  $pedidos->flatten()->count();
+                // $shipping_total = $costo_transportadora * $count_orders;
+                $shipping_total = $costo_transportadora;
                 $total_day = $total_proceeds - $shipping_total;
 
                 $transportadoraShipping->update([
@@ -211,6 +331,26 @@ class TransportadorasShippingCostAPIController extends Controller
 
         return response()->json(['data' => $shippingCostsMonthly], 200);
     }
+    public function getByTransportadoraExternal(Request $request, $idTransportadora)
+    {
+        $data = $request->json()->all();
+        $monthToFind = $data['month'];
+        $yearToFind = $data['year'];
+
+        $shippingCostsMonthly = TransportadorasShippingCost::where('id_carrierexternal', $idTransportadora)
+            ->selectRaw('id, status, DATE(time_stamp) as fecha, daily_proceeds, daily_shipping_cost, daily_total, rejected_reason, url_proof_payment')
+            ->whereYear('time_stamp', $yearToFind)
+            ->whereMonth('time_stamp', $monthToFind)
+            ->get();
+
+        if ($shippingCostsMonthly->isEmpty()) {
+            // return response()->json(["message" => "No existen datos en este mes-año"], 200);
+            return response()->json([], 204);
+
+        }
+
+        return response()->json(['data' => $shippingCostsMonthly], 200);
+    }
 
     public function byDate(Request $request)
     {
@@ -230,7 +370,8 @@ class TransportadorasShippingCostAPIController extends Controller
         return response()->json(['message' => "Ya existe un registro", "dailyCosts" => $dailyCosts], 200);
     }
 
-    public function uploadFile0(Request $request) {
+    public function uploadFile0(Request $request)
+    {
         if ($request->hasFile('files')) {
             $file = $request->file('files');
             $fileName = time() . '_' . $file->getClientOriginalName();
@@ -245,25 +386,26 @@ class TransportadorasShippingCostAPIController extends Controller
         }
     }
 
-    public function uploadFile(Request $request) {
+    public function uploadFile(Request $request)
+    {
         if ($request->hasFile('files')) {
             $file = $request->file('files');
             $fileName = time() . '_' . $file->getClientOriginalName();
             $file->storeAs('uploads', $fileName, 'public'); // Almacenar en la carpeta 'public/uploads'
-            
+
             // Construye la URL que comienza desde "/uploads"
             $fileUrl = asset('storage/uploads/' . $fileName);
-    
+
             // Devuelve solo la parte de la URL después de "/uploads"
             $relativePath = str_replace(asset('storage/'), '', $fileUrl);
-    
+
             return response()->json($relativePath, 200);
         } else {
             return response()->json(['error' => 'No se proporcionó un archivo válido.'], 400);
         }
     }
 
-    public function recalculateValues(string $id,string $deliveredDate, string $transportadoraId)
+    public function recalculateValues(string $id, string $deliveredDate, string $transportadoraId)
     {
 
         $transportadoraShipping = TransportadorasShippingCost::findOrFail($id);
@@ -285,7 +427,7 @@ class TransportadorasShippingCostAPIController extends Controller
         }
 
         $total_proceeds = round($total_proceeds, 2);
-        $count_orders =  $pedidos->flatten()->count();
+        $count_orders = $pedidos->flatten()->count();
         $shipping_total = $costo_transportadora * $count_orders;
         $total_day = $total_proceeds - $shipping_total;
 
@@ -298,5 +440,5 @@ class TransportadorasShippingCostAPIController extends Controller
 
         return response()->json(["message" => "Se ha actualizado correctamente", "id" => $id, "data" => $transportadoraShipping], 200);
     }
-    
+
 }

@@ -433,4 +433,17 @@ class CarrierExternalAPIController extends Controller
             ], 500);
         }
     }
+
+    public function getCarriersExternal(Request $request)
+{
+    
+    $transportadoras = CarriersExternal::where('active', 1) 
+        ->select(DB::raw('CONCAT(name, "-", id) as id_nombre')) 
+        ->distinct()
+        ->get()
+        ->pluck('id_nombre');
+        
+    return response()->json(['transportadoras' => $transportadoras]);
+}
+
 }

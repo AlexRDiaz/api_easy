@@ -36,7 +36,8 @@ class TransportadorasShippingCost extends Model
 		'daily_proceeds' => 'float',
 		'daily_shipping_cost' => 'float',
 		'daily_total' => 'float',
-		'id_transportadora' => 'int'
+		'id_transportadora' => 'int',
+		'id_carrierexternal' => 'int'
 	];
 
 	protected $fillable = [
@@ -47,11 +48,17 @@ class TransportadorasShippingCost extends Model
 		'daily_total',
 		'rejected_reason',
 		'url_proof_payment',
-		'id_transportadora'
+		'id_transportadora',
+		'id_carrierexternal'
+
 	];
 
 	public function transportadora()
 	{
 		return $this->belongsTo(Transportadora::class, 'id_transportadora');
+	}
+	public function carriersexternal()
+	{
+		return $this->belongsTo(CarriersExternal::class, 'id_carrierexternal');
 	}
 }

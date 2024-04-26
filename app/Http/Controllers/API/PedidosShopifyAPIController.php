@@ -1764,6 +1764,103 @@ class PedidosShopifyAPIController extends Controller
         ]);
     }
 
+    // ! NUEVA PARA EXTERNAL CARRIER
+    public function CalculateValuesExternalCarrier(Request $request)
+    {
+        $data = $request->json()->all();
+        $startDate = Carbon::createFromFormat('j/n/Y', $data['start'])->format('Y-m-d');
+        $endDate = Carbon::createFromFormat('j/n/Y', $data['end'])->format('Y-m-d');
+        $Map = $data['and'];
+        $not = $data['not'];
+        // $idUser = $data['id_user'];  // ! <---- PASAR ID PARA QUE BUSQUE LA TRANSPORTADORA EXTERNA
+        $dateFilter = $data["date_filter"];
+
+
+        $selectedFilter = "fecha_entrega";
+        if ($dateFilter != "FECHA ENTREGA") {
+            $selectedFilter = "marca_tiempo_envio";
+        }
+
+        $query = PedidosShopify::query()
+            ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider', 'carrierExternal'])
+            // ->where('',$idUser)  // ! <---- se pretende usar el id de la transportadora externa que seleccione
+            ->where('carrier_external_id',1)
+            ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate]);
+
+
+        $this->applyConditionsAnd($query, $Map);
+        $this->applyConditions($query, $not, true);
+        $query1 = clone $query;
+        // $query2 = clone $query;
+        // $query3 = clone $query;
+        // $saldoProvider = Provider::where('user_id', $idUser)->first();
+        $summary = [
+            // "ped"=>$query,
+            'totalValoresRecibidos' => $query1
+            ->where('estado_interno',"CONFIRMADO")
+            ->where('estado_logistico',"ENVIADO")
+            ->whereIn('status', ['ENTREGADO'])->sum(DB::raw('REPLACE(precio_total, ",", "")')),
+
+            // ******************************* CODIGO A USAR         ******************************
+            // *************************************************************************************
+            'totalCostoEntregas' => $query1
+            ->where('estado_interno',"CONFIRMADO")
+            ->where('estado_logistico',"ENVIADO")
+            // ->whereIn('status', ['ENTREGADO'])
+            ->whereNotIn('status', ['PEDIDO PROGRAMADO'])
+            ->sum(DB::raw('REPLACE(carrierexternal_cost, ",", "")')),
+
+            // 'totalCostoDevolucion' => $query1
+            // ->where('estado_interno',"CONFIRMADO")
+            // ->where('estado_logistico',"ENVIADO")
+            // ->whereIn('status', ['ENTREGADO'])->sum(DB::raw('REPLACE(precio_total, ",", "")')),
+
+
+            // 'totalCostoEnvío' => $query1
+            // ->where('estado_interno',"CONFIRMADO")
+            // ->where('estado_logistico',"ENVIADO")
+            // ->whereIn('status', ['ENTREGADO'])->sum(DB::raw('REPLACE(precio_total, ",", "")')),
+            // *************************************************************************************
+            // 'totalValoresRecibidos' => $query1->whereIn('status', ['ENTREGADO'])->
+            // whereHas('product.warehouse.provider', function ($query) use ($idUser) {
+            //     $query->where('user_id', $idUser);
+            // })->sum(DB::raw('REPLACE(value_product_warehouse, ",", "")')),
+
+            // "totalRetirosEfectivo" => OrdenesRetiro::whereHas('users_permissions_user.providers', function ($query) use ($idUser) {
+            //     $query->where('user_id', $idUser);
+            // })
+            //     ->where(function ($query) {
+            //         $query->where('estado', 'APROBADO')
+            //             ->orWhere('estado', 'REALIZADO');
+            //     })
+            //     ->whereRaw("STR_TO_DATE(" . "fecha" . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
+            //     ->sum('monto'),
+
+            // 'saldoActual' => $saldoProvider->saldo,
+
+            //     ->whereIn('status', ['ENTREGADO', 'NO ENTREGADO'])
+            //     ->join('up_users_pedidos_shopifies_links', 'pedidos_shopifies.id', '=', 'up_users_pedidos_shopifies_links.pedidos_shopify_id')
+            //     ->join('up_users', 'up_users_pedidos_shopifies_links.user_id', '=', 'up_users.id')
+            //     ->join('up_users_vendedores_links', 'up_users.id', '=', 'up_users_vendedores_links.user_id')
+            //     ->join('vendedores', 'up_users_vendedores_links.vendedor_id', '=', 'vendedores.id')
+            //     ->sum(DB::raw('REPLACE(vendedores.costo_envio, ",", "")')),
+
+            // 'totalCostoDevolucion' => $query3
+            //     ->whereIn('status', ['NOVEDAD'])
+            //     ->whereNotIn('estado_devolucion', ['PENDIENTE'])
+            //     ->join('up_users_pedidos_shopifies_links', 'pedidos_shopifies.id', '=', 'up_users_pedidos_shopifies_links.pedidos_shopify_id')
+            //     ->join('up_users', 'up_users_pedidos_shopifies_links.user_id', '=', 'up_users.id')
+            //     ->join('up_users_vendedores_links', 'up_users.id', '=', 'up_users_vendedores_links.user_id')
+            //     ->join('vendedores', 'up_users_vendedores_links.vendedor_id', '=', 'vendedores.id')
+            //     ->sum(DB::raw('REPLACE(vendedores.costo_devolucion, ",", "")')),
+
+        ];
+
+        return response()->json([
+            'data' => $summary,
+        ]);
+    }
+
 
 
     public function shopifyPedidos(Request $request, $id)
