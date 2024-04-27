@@ -9,6 +9,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Models\CarriersExternal;
+use App\Models\Novedade;
+use App\Models\NovedadesPedidosShopifyLink;
 use App\Models\PedidosShopify;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
@@ -164,6 +166,41 @@ class IntegrationAPIController extends Controller
         }
     }
 
+    public function getLabelGTM(Request $request)
+    {
+        error_log("getLabelGTM");
+
+        // Obtener los datos del formulario
+        $data = $request->all();
+
+        // URL de la API externa
+        $apiUrl = 'https://ec.gintracom.site/web/easy/label';
+
+        // Nombre de usuario y contraseña para la autenticación básica
+        $username = 'easy';
+        $password = 'f7b2d589796f5f209e72d5697026500d';
+
+        // Realizar la solicitud POST a la API externa con autenticación básica
+        $response = Http::withBasicAuth($username, $password)
+            ->post($apiUrl, $data);
+
+        // Verificar el estado de la respuesta
+        if ($response->successful()) {
+            // La solicitud fue exitosa
+            error_log("La solicitud fue exitosa");
+            if ($response->header('content-type') === 'application/pdf') {
+                return response($response->body())
+                    ->header('Content-Type', 'application/pdf');
+            } else {
+                return $response->json();
+            }
+        } else {
+            // La solicitud falló
+            error_log("La solicitud a la API externa falló $response");
+            return response()->json(['error' => 'La solicitud a la API externa falló'], $response->status());
+        }
+    }
+
     public function requestUpdateState()
     {
         //* Verificar si se proporcionaron credenciales de autenticación
@@ -246,12 +283,16 @@ class IntegrationAPIController extends Controller
                     foreach ($status_array as $status) {
                         $id_ref = $status['id_ref'];
 
-                        error_log("id_ref: $id_ref");
                         if ($id_ref == $estado) {
+                            error_log("id_ref: $id_ref");
+
                             $key = $status['estado'];
                             $name_local = $status['name_local'];
                             $name = $status['name'];
                             $id = $status['id'];
+
+                            error_log("name_local: $$name_local");
+
                             // error_log("Estado: $key, Nombre Local: $name_local, ID Ref: $id_ref, Nombre: $name, ID: $id");
                             if ($key == "estado_interno") {
                                 // $order->estado_devolucion = "";
@@ -273,6 +314,24 @@ class IntegrationAPIController extends Controller
                             } else if ($key == "status") {
                                 if ($name_local == "ENTREGADO" || $name_local == "NO ENTREGADO") {
                                     $order->fecha_entrega = $date;
+                                } else if ($name_local == "NOVEDAD") {
+                                    //
+                                    $novedades = NovedadesPedidosShopifyLink::where('pedidos_shopify_id', $order->id)->get();
+                                    $novedades_try = $novedades->isEmpty() ? 0 : $novedades->count();
+
+                                    $novedad = new Novedade();
+                                    $novedad->m_t_novedad = $currentDateTimeText;
+                                    $novedad->try = $novedades_try + 1;
+                                    // $novedad->url_image = $path;//como manejar para mostrar
+                                    $novedad->comment = $no_novedad;
+                                    $novedad->published_at = $currentDateTime;
+                                    $novedad->save();
+
+                                    $novedad_pedido = new NovedadesPedidosShopifyLink();
+                                    $novedad_pedido->novedad_id = $novedad->id;
+                                    $novedad_pedido->pedidos_shopify_id = $order->id;
+                                    $novedad_pedido->novedad_order = $novedades_try + 1;
+                                    $novedad_pedido->save();
                                 }
                                 $order->status = $name_local;
                                 $order->status_last_modified_at = $currentDateTime;
@@ -304,7 +363,6 @@ class IntegrationAPIController extends Controller
 
                     DB::commit();
                     return response()->json(['message' => 'Order updated successfully.'], 200);
-
                 } catch (\Exception $e) {
                     DB::rollback();
                     return response()->json([
@@ -313,6 +371,5 @@ class IntegrationAPIController extends Controller
                 }
             }
         }
-
     }
 }

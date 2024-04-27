@@ -563,6 +563,8 @@ Route::middleware(['cors'])->group(function () {
 
     Route::post('/gintracom/postorder', [IntegrationAPIController::class, 'putIntegrationsUrlStoreG']);
     Route::post('gintracom/updatestate', [IntegrationAPIController::class, 'requestUpdateState']);
+    Route::post('/gintracom/getlabel', [IntegrationAPIController::class, 'getLabelGTM']);
+
 
     //  * 
     Route::post('upuserswarehouse', [App\Http\Controllers\API\UpUsersWarehouseLinkAPIController::class, 'store']);
