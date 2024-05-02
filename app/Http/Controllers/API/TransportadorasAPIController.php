@@ -66,12 +66,12 @@ class TransportadorasAPIController extends Controller
     public function getActiveTransportadoras(Request $request)
     {
         $transportadoras = Transportadora::where('active', 1)->get();
-    
+
         $formattedTransportadoras = $transportadoras->map(function ($transportadora) {
             return $transportadora->nombre . ' - ' . $transportadora->id;
         })->toArray();
-    
-        return response()->json( $formattedTransportadoras);
+
+        return response()->json($formattedTransportadoras);
     }
 
     public function getSpecificDataGeneral(Request $request)
@@ -120,7 +120,6 @@ class TransportadorasAPIController extends Controller
             return response()->json($databackend);
         } catch (\Throwable $th) {
             return response()->json(['message' => 'No se encontro la data Solicitada.']);
-
         }
     }
     public function generalData(Request $request)
@@ -144,7 +143,7 @@ class TransportadorasAPIController extends Controller
         }
 
         // Opcional: Verificar si el modelo es uno de los permitidos
-        $allowedModels = ['Transportadora', 'UpUser', 'Vendedore', 'UpUsersVendedoresLink', 'UpUsersRolesFrontLink', 'OrdenesRetiro','PedidosShopify','Provider'];
+        $allowedModels = ['Transportadora', 'UpUser', 'Vendedore', 'UpUsersVendedoresLink', 'UpUsersRolesFrontLink', 'OrdenesRetiro', 'PedidosShopify', 'Provider'];
 
         if (!in_array($modelName, $allowedModels)) {
             return response()->json(['error' => 'Acceso al modelo no permitido'], 403);
@@ -152,7 +151,7 @@ class TransportadorasAPIController extends Controller
 
         if (isset($data['data_filter'])) {
             $dateFilter = $data["date_filter"];
-                $selectedFilter = "fecha_entrega";
+            $selectedFilter = "fecha_entrega";
             if ($dateFilter != "FECHA ENTREGA") {
                 $selectedFilter = "marca_tiempo_envio";
             }
@@ -192,7 +191,7 @@ class TransportadorasAPIController extends Controller
             //         $databackend->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
             //     }
             // }
-            foreach ($filteFields as $field) { 
+            foreach ($filteFields as $field) {
                 if (strpos($field, '.') !== false) {
                     $segments = explode('.', $field);
                     $lastSegment = array_pop($segments);
@@ -205,42 +204,49 @@ class TransportadorasAPIController extends Controller
                     $databackend->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
                 }
             }
-
-
         })
+
             ->where((function ($databackend) use ($Map) {
                 foreach ($Map as $condition) {
                     foreach ($condition as $key => $valor) {
                         $parts = explode("/", $key);
                         $type = $parts[0];
                         $filter = $parts[1];
-                        if (strpos($filter, '.') !== false) {
-                            $relacion = substr($filter, 0, strpos($filter, '.'));
-                            $propiedad = substr($filter, strpos($filter, '.') + 1);
-                            $this->recursiveWhereHas($databackend, $relacion, $propiedad, $valor);
+                        if ($valor === null) {
+                            $databackend->whereNull($filter);
                         } else {
-                            if ($type == "equals") {
-                                $databackend->where($filter, '=', $valor);
+                            if (strpos($filter, '.') !== false) {
+                                $relacion = substr($filter, 0, strpos($filter, '.'));
+                                $propiedad = substr($filter, strpos($filter, '.') + 1);
+                                $this->recursiveWhereHas($databackend, $relacion, $propiedad, $valor);
                             } else {
-                                $databackend->where($filter, 'LIKE', '%' . $valor . '%');
+                                if ($type == "equals") {
+                                    $databackend->where($filter, '=', $valor);
+                                } else {
+                                    $databackend->where($filter, 'LIKE', '%' . $valor . '%');
+                                }
                             }
                         }
                     }
                 }
-            }))->where((function ($databackend) use ($not) {
+            }))
+            ->where((function ($databackend) use ($not) {
                 foreach ($not as $condition) {
                     foreach ($condition as $key => $valor) {
                         if ($valor === '') {
                             $databackend->whereRaw("$key <> ''");
                         } else {
-                            if (strpos($key, '.') !== false) {
-                                $relacion = substr($key, 0, strpos($key, '.'));
-                                $propiedad = substr($key, strpos($key, '.') + 1);
-                                $this->recursiveWhereHas($databackend, $relacion, $propiedad, $valor);
+                            if ($valor === null) {
+                                $databackend->whereNotNull($key);
                             } else {
-                                // $databackend->where($key, '!=', $valor);
-                                $databackend->whereRaw("$key <> ''");
-
+                                if (strpos($key, '.') !== false) {
+                                    $relacion = substr($key, 0, strpos($key, '.'));
+                                    $propiedad = substr($key, strpos($key, '.') + 1);
+                                    $this->recursiveWhereHas($databackend, $relacion, $propiedad, $valor);
+                                } else {
+                                    // $databackend->where($key, '!=', $valor);
+                                    $databackend->whereRaw("$key <> ''");
+                                }
                             }
                         }
                     }

@@ -101,7 +101,7 @@ class PedidosShopifyAPIController extends Controller
 
     public function show($id)
     {
-        $pedido = PedidosShopify::with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', "statusLastModifiedBy"])
+        $pedido = PedidosShopify::with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', "statusLastModifiedBy", "carrierExternal"])
             ->findOrFail($id);
 
         return response()->json($pedido);
@@ -560,7 +560,7 @@ class PedidosShopifyAPIController extends Controller
         // ! *************************************
 
         // $pedidos = PedidosShopify::with(['transportadora', 'users', 'users.vendedores', 'pedidoFecha', 'ruta', 'printedBy', 'sentBy', 'product.warehouse.provider'])
-        $pedidos = PedidosShopify::with(['transportadora', 'users', 'users.vendedores', 'pedidoFecha', 'ruta', 'printedBy', 'sentBy', 'product_s.warehouses.provider'])
+        $pedidos = PedidosShopify::with(['transportadora', 'users', 'users.vendedores', 'pedidoFecha', 'ruta', 'printedBy', 'sentBy', 'product_s.warehouses.provider', 'carrierExternal'])
             ->where(function ($pedidos) use ($searchTerm, $filteFields) {
                 foreach ($filteFields as $field) {
                     if (strpos($field, '.') !== false) {
@@ -575,12 +575,23 @@ class PedidosShopifyAPIController extends Controller
             ->where((function ($pedidos) use ($Map) {
                 foreach ($Map as $condition) {
                     foreach ($condition as $key => $valor) {
-                        if (strpos($key, '.') !== false) {
-                            $relacion = substr($key, 0, strpos($key, '.'));
-                            $propiedad = substr($key, strpos($key, '.') + 1);
-                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                        $parts = explode("/", $key);
+                        $type = $parts[0];
+                        $filter = $parts[1];
+                        if ($valor === null) {
+                            $pedidos->whereNull($filter);
                         } else {
-                            $pedidos->where($key, '=', $valor);
+                            if (strpos($filter, '.') !== false) {
+                                $relacion = substr($filter, 0, strpos($filter, '.'));
+                                $propiedad = substr($filter, strpos($filter, '.') + 1);
+                                $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                            } else {
+                                if ($type == "equals") {
+                                    $pedidos->where($filter, '=', $valor);
+                                } else {
+                                    $pedidos->where($filter, 'LIKE', '%' . $valor . '%');
+                                }
+                            }
                         }
                     }
                 }
@@ -606,12 +617,20 @@ class PedidosShopifyAPIController extends Controller
             ->where((function ($pedidos) use ($not) {
                 foreach ($not as $condition) {
                     foreach ($condition as $key => $valor) {
-                        if (strpos($key, '.') !== false) {
-                            $relacion = substr($key, 0, strpos($key, '.'));
-                            $propiedad = substr($key, strpos($key, '.') + 1);
-                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                        if ($valor === '') {
+                            $pedidos->whereRaw("$key <> ''");
                         } else {
-                            $pedidos->where($key, '!=', $valor);
+                            if ($valor === null) {
+                                $pedidos->whereNotNull($key);
+                            } else {
+                                if (strpos($key, '.') !== false) {
+                                    $relacion = substr($key, 0, strpos($key, '.'));
+                                    $propiedad = substr($key, strpos($key, '.') + 1);
+                                    $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                                } else {
+                                    $pedidos->whereRaw("$key <> ''");
+                                }
+                            }
                         }
                     }
                 }
@@ -887,7 +906,7 @@ class PedidosShopifyAPIController extends Controller
     public function getOrderbyId(Request $req, $id)
     {
 
-        $pedido = PedidosShopify::with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta'])
+        $pedido = PedidosShopify::with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'carrierExternal'])
             ->where('id', $id)
             ->first();
         if (!$pedido) {
@@ -1406,8 +1425,8 @@ class PedidosShopifyAPIController extends Controller
         $countProductWarehouseNotNull  = PedidosShopify::with(['operadore.up_users'])
             ->with('subRuta')
             ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
-            ->where('estado_interno','CONFIRMADO')
-            ->where('estado_logistico','ENVIADO')
+            ->where('estado_interno', 'CONFIRMADO')
+            ->where('estado_logistico', 'ENVIADO')
             ->whereNotNull('value_product_warehouse')
             ->count();
 
@@ -1671,7 +1690,7 @@ class PedidosShopifyAPIController extends Controller
         $query3 = clone $query;
         $query4 = clone $query;
         $query5 = clone $query;
-        
+
         $summary = [
             'totalValoresRecibidos' => $query1->whereIn('status', ['ENTREGADO'])->sum(DB::raw('REPLACE(precio_total, ",", "")')),
 
@@ -1691,19 +1710,19 @@ class PedidosShopifyAPIController extends Controller
                 ->join('up_users_vendedores_links', 'up_users.id', '=', 'up_users_vendedores_links.user_id')
                 ->join('vendedores', 'up_users_vendedores_links.vendedor_id', '=', 'vendedores.id')
                 ->sum(DB::raw('REPLACE(vendedores.costo_devolucion, ",", "")')),
-            
+
             'totalProductWarehouse' => floatval($query4
-            ->where('estado_interno','CONFIRMADO')
-            ->where('estado_logistico','ENVIADO')
-            ->where('status','ENTREGADO')
-            ->sum('value_product_warehouse')),
-            
+                ->where('estado_interno', 'CONFIRMADO')
+                ->where('estado_logistico', 'ENVIADO')
+                ->where('status', 'ENTREGADO')
+                ->sum('value_product_warehouse')),
+
             'totalReferer' => floatval($query5
-            ->where('estado_interno','CONFIRMADO')
-            ->where('estado_logistico','ENVIADO')
-            ->where('status','ENTREGADO')
-            ->sum('value_referer')),
-            
+                ->where('estado_interno', 'CONFIRMADO')
+                ->where('estado_logistico', 'ENVIADO')
+                ->where('status', 'ENTREGADO')
+                ->sum('value_referer')),
+
 
         ];
 
@@ -2693,7 +2712,6 @@ class PedidosShopifyAPIController extends Controller
             $pedido->confirmed_by = $idUser;
             $pedido->confirmed_at = $currentDateTime;
             $pedido->name_comercial = $nombreComercial;
-
         }
 
         $pedido->save();
@@ -3591,6 +3609,7 @@ class PedidosShopifyAPIController extends Controller
             $recaudo = $data['recaudo'];
             $productId =  $data['product_id'];
             $variant_details =  $data['variant_details'];
+            $costo_envio = $data['costo_envio'];
             //transp
             $newrouteId = $data['ruta'];
             $newtransportadoraId = $data['transportadora'];
@@ -3675,6 +3694,8 @@ class PedidosShopifyAPIController extends Controller
                 $createOrder->id_product = $productId;
                 $createOrder->variant_details = $variant_details;
                 $createOrder->recaudo = $recaudo;
+                $createOrder->costo_envio = $costo_envio;
+
 
                 if ($newrouteId == 0) {
                     error_log("*****Transp externa********\n");
@@ -3753,6 +3774,35 @@ class PedidosShopifyAPIController extends Controller
             return response()->json([
                 'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+
+    // *
+    public function deleteRouteAndTransport($id)
+    {
+
+        $order = PedidosShopify::with(['ruta', 'transportadora'])->find($id);
+        if (!$order) {
+            return response()->json(['message' => 'Orden no encontrada'], 404);
+        }
+
+
+        $resRuta = $order->pedidos_shopifies_ruta_links;
+        $resRutaNum = count($resRuta);
+
+        if ($resRutaNum === 0) {
+            $pedidoRuta = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $id)->first();
+            $pedidoTransportadora = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $id)->first();
+
+            if ($pedidoRuta) {
+                $pedidoRuta->delete();
+            }
+
+            if ($pedidoTransportadora) {
+                $pedidoTransportadora->delete();
+            }
+            return response()->json(['orden' => 'Ruta&Transportadora eliminada exitosamente'], 200);
         }
     }
 }

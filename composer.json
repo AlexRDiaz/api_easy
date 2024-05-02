@@ -6,6 +6,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.1",
+        "fpdf/fpdf": "^1.86",
         "guzzlehttp/guzzle": "^7.2",
         "infyomlabs/laravel-generator": "^6.0",
         "laravel/framework": "^10.10",
@@ -14,7 +15,9 @@
         "maatwebsite/excel": "^3.1",
         "psr/simple-cache": "1.0",
         "ramsey/uuid": "^4.7",
+        "setasign/fpdi": "^2.6",
         "spatie/laravel-html": "*",
+        "tecnickcom/tcpdf": "^6.7",
         "tymon/jwt-auth": "^2.0"
     },
     "require-dev": {

@@ -564,6 +564,7 @@ Route::middleware(['cors'])->group(function () {
     Route::post('/gintracom/postorder', [IntegrationAPIController::class, 'putIntegrationsUrlStoreG']);
     Route::post('gintracom/updatestate', [IntegrationAPIController::class, 'requestUpdateState']);
     Route::post('/gintracom/getlabel', [IntegrationAPIController::class, 'getLabelGTM']);
+    Route::post('/gintracom/multilabel', [IntegrationAPIController::class, 'getMultiLabels']);
 
 
     //  * 
@@ -573,6 +574,10 @@ Route::middleware(['cors'])->group(function () {
     Route::get('warehouses/specials', [WarehouseAPIController::class, 'getSpecials']);
     Route::put('productwarehouse/update', [App\Http\Controllers\API\ProductWarehouseLinkAPIController::class, 'update']);
     Route::post('catalog/all', [ProductAPIController::class, 'getProductsNew']);
+
+    //*
+    Route::delete('pedidos-shopify/deleteroutetransport/{id}', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'deleteRouteAndTransport']);
+
 
 
     //.

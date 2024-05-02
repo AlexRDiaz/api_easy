@@ -8,13 +8,21 @@ use App\Models\Integration;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Models\CarrierCoverage;
 use App\Models\CarriersExternal;
 use App\Models\Novedade;
 use App\Models\NovedadesPedidosShopifyLink;
 use App\Models\PedidosShopify;
+use App\Models\Vendedore;
+use Fpdf\Fpdf;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use setasign\Fpdi\PdfParser\StreamReader;
+use setasign\Fpdi\Tcpdf\Fpdi;
+
+use function Laravel\Prompts\error;
+use TCPDF;
 
 /**
  * Class IntegrationAPIController
@@ -201,6 +209,47 @@ class IntegrationAPIController extends Controller
         }
     }
 
+    public function getMultiLabels(Request $request)
+    {
+        error_log("getMultiLabels");
+        try {
+
+            $data = $request->all();
+
+            $ids = $data['ids'];
+
+            $idsArray = json_decode($ids, true);
+            $pdfFinal = new Fpdi();
+
+            foreach ($idsArray as $id) {
+                $request = new Request();
+
+                $request->merge([
+                    'guia' => $id
+                ]);
+                $res = $this->getLabelGTM($request);
+                $content = $res->getContent();
+
+                $pdfFinal->setSourceFile(StreamReader::createByString($content));
+                $templateId = $pdfFinal->importPage(1); // Importar la primera página del PDF
+                $pdfFinal->addPage(); // Agregar una nueva página al PDF principal
+                $pdfFinal->useTemplate($templateId, 0, 0, $pdfFinal->GetPageWidth(), $pdfFinal->GetPageHeight(), true); // Usar la página importada como plantilla en la nueva página y ajustar su tamaño para que ocupe toda la página
+
+            }
+
+            $pdfContent = $pdfFinal->Output('', 'S');
+
+            return response($pdfContent)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'attachment; filename="pdftotal.pdf"');
+        } catch (\Exception $e) {
+            error_log("Error: $e");
+
+            return response()->json(['Error'], 500);
+        }
+    }
+
+
     public function requestUpdateState()
     {
         //* Verificar si se proporcionaron credenciales de autenticación
@@ -268,14 +317,42 @@ class IntegrationAPIController extends Controller
                 error_log("no_novedad input: $no_novedad ");
 
 
-                $order = PedidosShopify::where('id_externo', $guia)->first();
                 // error_log("pedido: $order");
+                // error_log("pedido: $order");
+                $order = PedidosShopify::with(['users.vendedores', 'product.warehouses', 'ciudadExternal'])
+                    ->where('carrier_external_id', 1)
+                    ->where('id_externo', $guia)->first();
+                // error_log("pedido: $order");
+
+                // Obtener los almacenes del producto
+                $warehouses = $order['product']['warehouses'];
+
+                // Llamar a la función getWarehouseAddress y pasarle los datos de almacén
+                $prov_origen = $this->getWarehouseProv($warehouses);
+                error_log("Remitente product provincia: $prov_origen");
+
+                $orderData = json_decode($order, true);
+                $prov_destiny = $orderData['ciudad_external']['id_provincia'];
+                $city_destiny = $orderData['ciudad_external']['id'];
+                error_log("prov_destiny: $prov_destiny");
+                error_log("city_destiny: $city_destiny");
+
+                $variants = $orderData['variant_details'];
+                error_log("->> $variants");
 
                 $carrierExternal = CarriersExternal::where('id', 1)->first();
                 // error_log("carrierExternal: $carrierExternal");
 
                 $status_array = json_decode($carrierExternal->status, true);
 
+                // Decodificar la cadena JSON en un arreglo asociativo
+                $costs = json_decode($carrierExternal->costs, true);
+
+                // Acceder a los valores de costs
+                $costo_seguro = $costs['costo_seguro'];
+
+                $city_type = CarrierCoverage::where('id_carrier', 1)->where('id_coverage', $city_destiny)->first();
+                $coverage_type = $city_type['type'];
 
                 DB::beginTransaction();
                 try {
@@ -284,14 +361,14 @@ class IntegrationAPIController extends Controller
                         $id_ref = $status['id_ref'];
 
                         if ($id_ref == $estado) {
-                            error_log("id_ref: $id_ref");
+                            // error_log("id_ref: $id_ref");
 
                             $key = $status['estado'];
                             $name_local = $status['name_local'];
                             $name = $status['name'];
                             $id = $status['id'];
 
-                            error_log("name_local: $$name_local");
+                            // error_log("name_local: $$name_local");
 
                             // error_log("Estado: $key, Nombre Local: $name_local, ID Ref: $id_ref, Nombre: $name, ID: $id");
                             if ($key == "estado_interno") {
@@ -304,16 +381,102 @@ class IntegrationAPIController extends Controller
                                     // $order->printed_by = $idUser;
                                 }
                                 if ($name_local == "ENVIADO") {  //from externo
+
+                                    $deliveryPrice = 0;
+                                    if ($prov_destiny == $prov_origen) {
+                                        error_log("Provincial");
+                                        if ($coverage_type == "Normal") {
+                                            $deliveryPrice = (float)$costs['normal1'];
+                                        } else {
+                                            $deliveryPrice = (float)$costs['especial1'];
+                                        }
+                                    } else {
+                                        error_log("Nacional");
+                                        if ($coverage_type == "Normal") {
+                                            $deliveryPrice = (float)$costs['normal2'];
+                                        } else {
+                                            $deliveryPrice = (float)$costs['especial2'];
+                                        }
+                                    }
+                                    error_log("after type: $deliveryPrice");
+
+                                    $costo_seguro = (((float)$orderData['precio_total']) * ((float)$costs['costo_seguro'])) / 100;
+                                    $costo_seguro = round($costo_seguro, 2);
+
+                                    $deliveryPrice += $costo_seguro;
+                                    error_log("after costo_seguro: $deliveryPrice");
+
+                                    if ($orderData['recaudo'] == 1) {
+                                        if (((float)$orderData['precio_total']) <= ((float)$costs['costo_recaudo']['max_price'])) {
+                                            $base = round(((float)$costs['costo_recaudo']['base']), 2);
+                                            $deliveryPrice += $base;
+                                        } else {
+                                            $incremental = (((float)$orderData['precio_total']) * ((float)$costs['costo_recaudo']['incremental'])) / 100;
+                                            $incremental = round($incremental, 2);
+                                            $deliveryPrice += $incremental;
+                                        }
+                                    }
+
+                                    error_log("after recaudo: $deliveryPrice");
+                                    $order->costo_transportadora = strval($deliveryPrice);
                                     $order->estado_logistico = $name_local;
                                     $order->sent_at = $currentDateTime;
                                     // $order->sent_by = $idUser;
                                     $order->marca_tiempo_envio = $date;
                                     $order->estado_interno = "CONFIRMADO";
                                     $order->fecha_entrega = $date;
+
+                                    //reduccion del stock falta
+                                    /*
+                                    $request = new Request();
+
+                                    $request->merge([
+                                        'variant_detail' => $variants,
+                                        'id_comercial' => $orderData['id_comercial'],
+                                        'type' => 0, //reducir
+                                    ]);
+                                    $productController = new ProductAPIController();
+                                    $response = $productController->updateProductVariantStock($request);
+                                    */
+                                    //
                                 }
                             } else if ($key == "status") {
                                 if ($name_local == "ENTREGADO" || $name_local == "NO ENTREGADO") {
-                                    $order->fecha_entrega = $date;
+                                    // $order->status = $name_local;
+                                    // $order->fecha_entrega = $date;
+                                    // $order->status_last_modified_at = $currentDateTime;
+                                    // $order->status_last_modified_by = $idUser;
+
+                                    $nombreComercial = $order->users[0]->vendedores[0]->nombre_comercial;
+                                    $codigo_order = $nombreComercial . "-" . $order->id;
+                                    error_log("codigo_order: $codigo_order");
+
+
+                                    //THIS solo para transacciones
+                                    // $SellerCreditFinalValue = $this->updateProductAndProviderBalance(
+                                    //     $variants,
+                                    //     $orderData['precio_total'],
+                                    //     'GTM',
+                                    //     $orderData['precio_total'],
+                                    //     $name_local,
+                                    //     $codigo_order,
+
+                                    // );
+
+                                    // if (isset($SellerCreditFinalValue['value_product_warehouse']) && $SellerCreditFinalValue['value_product_warehouse'] !== null) {
+                                    //     $order->value_product_warehouse = $SellerCreditFinalValue['value_product_warehouse'];
+                                    // }
+
+                                    // $vendedor = Vendedore::where('id_master', $order->id_comercial)->first();
+                                    // if ($vendedor->referer != null) {
+                                    //     $vendedorPrincipal = Vendedore::where('id_master', $vendedor->referer)->first();
+                                    //     if ($vendedorPrincipal->referer_cost != 0) {
+                                    //         $order->value_referer = $vendedorPrincipal->referer_cost;
+                                    //     }
+                                    // }
+
+
+                                    //
                                 } else if ($name_local == "NOVEDAD") {
                                     //
                                     $novedades = NovedadesPedidosShopifyLink::where('pedidos_shopify_id', $order->id)->get();
@@ -322,7 +485,7 @@ class IntegrationAPIController extends Controller
                                     $novedad = new Novedade();
                                     $novedad->m_t_novedad = $currentDateTimeText;
                                     $novedad->try = $novedades_try + 1;
-                                    // $novedad->url_image = $path;//como manejar para mostrar
+                                    $novedad->url_image = $path; //como manejar para mostrar
                                     $novedad->comment = $no_novedad;
                                     $novedad->published_at = $currentDateTime;
                                     $novedad->save();
@@ -371,5 +534,27 @@ class IntegrationAPIController extends Controller
                 }
             }
         }
+    }
+
+
+    function getWarehouseProv($warehousesJson)
+    {
+        $name = "";
+
+        $warehousesList = json_decode($warehousesJson, true);
+
+        foreach ($warehousesList as $warehouseJson) {
+            if (is_array($warehouseJson)) {
+                if (count($warehousesList) == 1) {
+                    $name = "{$warehouseJson['id_provincia']}";
+                } else {
+                    $lastWarehouse = end($warehousesList);
+                    $name = "{$lastWarehouse['id_provincia']}";
+                }
+            } else {
+                error_log("El elemento de la lista no es un mapa válido: ");
+            }
+        }
+        return $name;
     }
 }

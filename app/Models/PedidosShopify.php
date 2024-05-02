@@ -313,11 +313,11 @@ class PedidosShopify extends Model
 
 	public function carrierExternal()
 	{
-		return $this->belongsTo(CarriersExternal::class, 'carrier_external_id', 'id')->select('id', 'name');;
+		return $this->belongsTo(CarriersExternal::class, 'carrier_external_id', 'id')->select('id', 'name');
 	}
 
 	public function ciudadExternal()
 	{
-		return $this->belongsTo(CoverageExternal::class, 'ciudad_external_id', 'id')->select('id', 'ciudad');;
+		return $this->belongsTo(CoverageExternal::class, 'ciudad_external_id', 'id');
 	}
 }
