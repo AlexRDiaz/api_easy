@@ -229,13 +229,14 @@ class TransportadorasShippingCostAPIController extends Controller
                 ->where('fecha_entrega', $currentDate)
                 ->get();
 
-            foreach ($pedidosAux as $pedido) {
-                // if (($pedido["estado_interno"] == "CONFIRMADO" && $pedido["estado_logistico"] == "ENVIADO") && ($pedido["status"] == "ENTREGADO" || $pedido["status"] == "NO  ENTREGADO")) {
-                // if ($pedido["status"] == "ENTREGADO" || $pedido["status"] == "NO  ENTREGADO") {
-                    $costo_transportadora += floatval($pedido["carrierexternal_cost"]);
-                // }
+            // foreach ($pedidosAux as $pedido) {
+            //     // if (($pedido["estado_interno"] == "CONFIRMADO" && $pedido["estado_logistico"] == "ENVIADO") && ($pedido["status"] == "ENTREGADO" || $pedido["status"] == "NO  ENTREGADO")) {
+            //     // if ($pedido["status"] == "ENTREGADO" || $pedido["status"] == "NO  ENTREGADO") {
+            //         $costo_transportadora += floatval($pedido["carrierexternal_cost"]);
+            //     // }
                 
-            }
+            // }
+
             error_log("step1 -> external_cost sumatoria");
 
             // $costo_transportadora = $transportadora->costo_transportadora;
@@ -272,6 +273,7 @@ class TransportadorasShippingCostAPIController extends Controller
                 $newTransportadoraShippingCost->daily_shipping_cost = $costo_transportadora;
                 $newTransportadoraShippingCost->daily_total = $total_day;
                 // $newTransportadoraShippingCost->id_transportadora = $transportadoraId;
+                // ! modificar el campo id_trnasportadora
                 $newTransportadoraShippingCost->id_transportadora = 19;
                 $newTransportadoraShippingCost->save();
                 // return response()->json(["message" => "este registro NO existe", "fecha" => $dateFormatted, "id_transportadora" => $newTransportadoraShippingCost], 200);

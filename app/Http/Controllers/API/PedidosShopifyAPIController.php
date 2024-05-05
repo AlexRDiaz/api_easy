@@ -1772,7 +1772,7 @@ class PedidosShopifyAPIController extends Controller
         $endDate = Carbon::createFromFormat('j/n/Y', $data['end'])->format('Y-m-d');
         $Map = $data['and'];
         $not = $data['not'];
-        // $idUser = $data['id_user'];  // ! <---- PASAR ID PARA QUE BUSQUE LA TRANSPORTADORA EXTERNA
+        $idUser = $data['id_user'];  // ! <---- PASAR ID PARA QUE BUSQUE LA TRANSPORTADORA EXTERNA
         $dateFilter = $data["date_filter"];
 
 
@@ -1783,8 +1783,8 @@ class PedidosShopifyAPIController extends Controller
 
         $query = PedidosShopify::query()
             ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider', 'carrierExternal'])
-            // ->where('',$idUser)  // ! <---- se pretende usar el id de la transportadora externa que seleccione
-            ->where('carrier_external_id',1)
+            ->where('carrier_external_id',$idUser)  // ! <---- se pretende usar el id de la transportadora externa que seleccione
+            // ->where('carrier_external_id',1)
             ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate]);
 
 
@@ -1803,12 +1803,35 @@ class PedidosShopifyAPIController extends Controller
 
             // ******************************* CODIGO A USAR         ******************************
             // *************************************************************************************
-            'totalCostoEntregas' => $query1
+            'totalCostoEntrega' => $query1
             ->where('estado_interno',"CONFIRMADO")
             ->where('estado_logistico',"ENVIADO")
-            // ->whereIn('status', ['ENTREGADO'])
-            ->whereNotIn('status', ['PEDIDO PROGRAMADO'])
+            ->whereIn('status', ['ENTREGADO'])
             ->sum(DB::raw('REPLACE(carrierexternal_cost, ",", "")')),
+            
+            // 'totalCostoEntregas' => $query1
+            // ->where('estado_interno',"CONFIRMADO")
+            // ->where('estado_logistico',"ENVIADO")
+            // // ->whereIn('status', ['ENTREGADO'])
+            // ->whereNotIn('status', ['PEDIDO PROGRAMADO'])
+            // ->sum(DB::raw('REPLACE(costo_envio, ",", "")')),
+
+            // ************************************************************************************* 
+            // ! costo devolucion 
+            'totalCostoDevolucion' => $query1
+            ->where('estado_devolucion', '<>', 'PENDIENTE')
+            ->sum(DB::raw('REPLACE(carrierexternal_cost, ",", "") + REPLACE(costo_devolucion, ",", "")'))
+            // ->sum(DB::raw('REPLACE(costo_envio, ",", "") + REPLACE(costo_devolucion, ",", "")'))
+            + $query1
+            ->where(function($query){
+                $query->where('status', 'NOVEDAD')
+                    ->orWhere('status', 'NO ENTREGADO');
+            })
+            // ->sum(DB::raw('REPLACE(costo_envio, ",", "")'))
+            ->sum(DB::raw('REPLACE(carrierexternal_cost, ",", "")'))
+        
+        // Ahora tienes el total de ambos componentes
+        
 
             // 'totalCostoDevolucion' => $query1
             // ->where('estado_interno',"CONFIRMADO")
@@ -2346,6 +2369,57 @@ class PedidosShopifyAPIController extends Controller
 
 
     //  *
+    public function updateVerifyPaymentCostDelivery(Request $request) {
+        try {
+            $data = $request->json()->all();
+            if (!isset($data['state'])) {
+                return response()->json(['error' => 'El estado no está presente en los datos.'], 400);
+            }
+    
+            if (!isset($data['ids']) || !is_array($data['ids'])) {
+                return response()->json(['error' => 'Los IDs no están presentes o no son un arreglo.'], 400);
+            }
+    
+            $state = $data['state'];
+            $ids = $data['ids'];
+            
+            // Actualizar el estado de los pedidos directamente con los IDs recibidos
+            PedidosShopify::whereIn('id', $ids)->update(['payment_cost_delivery' => $state]);
+    
+            return response()->json(['message' => 'El estado de los pedidos se ha actualizado correctamente.'], 200);
+    
+        } catch (\Throwable $th) {
+            return response()->json(['error' => 'Se produjo un error al procesar la solicitud.'], 500);
+        }
+    }
+    
+
+    public function updateVerifyPaymentCostDeliveryInd(Request $request, $idOrder) {
+        try {
+            $data = $request->json()->all();
+            if (!isset($data['state'])) {
+                return response()->json(['error' => 'El estado no está presente en los datos.'], 400);
+            }
+    
+            $state = $data['state'];
+    
+            $order = PedidosShopify::where('id', $idOrder)->first();
+    
+            if (!$order) {
+                return response()->json(['error' => 'No se encontró ningún pedido con el ID especificado.'], 404);
+            }
+    
+            $order->payment_cost_delivery = $state;
+            $order->save();
+    
+            return response()->json(['message' => 'El estado del pedido se ha actualizado correctamente.'], 200);
+    
+        } catch (\Throwable $th) {
+            return response()->json(['error' => 'Se produjo un error al procesar la solicitud.'], 500);
+        }
+    }
+    
+    
     public function getByDateRangeAll(Request $request)
     {
         $data = $request->json()->all();

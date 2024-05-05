@@ -69,6 +69,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property Carbon|null $confirmed_at
  * @property float|null $value_product_warehouse
  * @property float|null $value_referer
+ * @property int|null $payment_cost_delivery
+ * 
  * 
  * @property AdminUser|null $admin_user
  * @property Collection|Novedade[] $novedades
@@ -109,6 +111,7 @@ class PedidosShopify extends Model
 		'recaudo' => 'int',
 		'carrier_external_id' => 'int',
 		'ciudad_external_id' => 'int',
+		'payment_cost_delivery' => 'int'
 	];
 
 	protected $fillable = [
@@ -173,7 +176,9 @@ class PedidosShopify extends Model
 		'recaudo',
 		'carrier_external_id',
 		'ciudad_external_id',
-		'id_externo'
+		'id_externo',
+		'payment_cost_delivery' 
+
 	];
 
 	public function admin_user()

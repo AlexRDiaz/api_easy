@@ -36,6 +36,7 @@ class TransaccionPedidoTransportadora extends Model
 		'costo_transportadora' => 'float',
 		'id_pedido' => 'int',
 		'id_transportadora' => 'int',
+		'id_carrier_external' => 'int',
 		'id_operador' => 'int'
 	];
 
@@ -46,7 +47,8 @@ class TransaccionPedidoTransportadora extends Model
 		'costo_transportadora',
 		'id_pedido',
 		'id_transportadora',
-		'id_operador'
+		'id_operador',
+		'id_carrier_external'
 	];
 
 	public function pedidos_shopify()
@@ -62,5 +64,10 @@ class TransaccionPedidoTransportadora extends Model
 	public function operadore()
 	{
 		return $this->belongsTo(Operadore::class, 'id_operador');
+	}
+
+	public function transportadora_externa()
+	{
+		return $this->belongsTo(CarriersExternal::class, 'id_carrier_external');
 	}
 }
