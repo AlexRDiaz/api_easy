@@ -580,7 +580,7 @@ Route::middleware(['cors'])->group(function () {
 
 
 
-    //.
+    //...
 });
 
 
