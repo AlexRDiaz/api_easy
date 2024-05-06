@@ -431,7 +431,7 @@ class IntegrationAPIController extends Controller
                                     $request = new Request();
 
                                     $request->merge([
-                                        'variant_detail' => $variants,
+                                        'variant_detail' => $orderData['variant_detail'] ,
                                         'id_comercial' => $orderData['id_comercial'],
                                         'type' => 0, //reducir
                                     ]);
@@ -442,9 +442,9 @@ class IntegrationAPIController extends Controller
                                 }
                             } else if ($key == "status") {
                                 if ($name_local == "ENTREGADO" || $name_local == "NO ENTREGADO") {
-                                    // $order->status = $name_local;
-                                    // $order->fecha_entrega = $date;
-                                    // $order->status_last_modified_at = $currentDateTime;
+                                    $order->status = $name_local;
+                                    $order->fecha_entrega = $date;
+                                    $order->status_last_modified_at = $currentDateTime;
                                     // $order->status_last_modified_by = $idUser;
 
                                     $nombreComercial = $order->users[0]->vendedores[0]->nombre_comercial;
@@ -500,21 +500,33 @@ class IntegrationAPIController extends Controller
                                 $order->status_last_modified_at = $currentDateTime;
                                 // $order->status_last_modified_by = $idUser;
                             } else if ($key == "estado_devolucion") {
-                                if ($name_local == "EN BODEGA") { //from logistic
-                                    $order->estado_devolucion = $name_local;
-                                    $order->dl = $name_local;
-                                    $order->marca_t_d_l = $currentDateTimeText;
-                                    // $order->received_by = $idUser;
-                                } else if ($name_local == "ENTREGADO EN OFICINA") {
-                                    $order->estado_devolucion = $name_local;
-                                    $order->dt = $name_local;
-                                    $order->marca_t_d = $currentDateTimeText;
-                                    // $order->received_by = $idUser;
-                                } else if ($name_local == "DEVOLUCION EN RUTA") {
-                                    $order->estado_devolucion = $name_local;
-                                    $order->dt = $name_local;
-                                    $order->marca_t_d_t = $currentDateTimeText;
-                                    // $order->received_by = $idUser;
+                                //solo se puede poner en devolucion si se encuentra en NOVEDAD
+                                if ($order->status == "NOVEDAD") {
+                                    //
+                                    if ($name_local == "EN BODEGA") { //from logistic
+                                        $order->estado_devolucion = $name_local;
+                                        $order->dl = $name_local;
+                                        $order->marca_t_d_l = $currentDateTimeText;
+                                        // $order->received_by = $idUser;
+                                    } else if ($name_local == "ENTREGADO EN OFICINA") {
+                                        $order->estado_devolucion = $name_local;
+                                        $order->dt = $name_local;
+                                        $order->marca_t_d = $currentDateTimeText;
+                                        // $order->received_by = $idUser;
+                                    } else if ($name_local == "DEVOLUCION EN RUTA") {
+                                        $order->estado_devolucion = $name_local;
+                                        $order->dt = $name_local;
+                                        $order->marca_t_d_t = $currentDateTimeText;
+                                        // $order->received_by = $idUser;
+                                    }
+                                    $refundpercentage = $costs['costo_devolucion'];
+                                    $refound_seller = (((float)$orderData['costo_envio']) * ($refundpercentage)) / 100;
+                                    $refound_transp = (((float)$orderData['costo_transportadora']) * ($refundpercentage)) / 100;
+
+                                    $order->costo_devolucion = round(((float)$refound_seller), 2);
+                                    $order->cost_refound_external = round(((float)$refound_transp), 2);
+                                }else{
+                                    return response()->json(['message' => "Error, Order must be in NOVEDAD."], 400);
                                 }
                             }
 

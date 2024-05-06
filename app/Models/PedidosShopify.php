@@ -173,7 +173,8 @@ class PedidosShopify extends Model
 		'recaudo',
 		'carrier_external_id',
 		'ciudad_external_id',
-		'id_externo'
+		'id_externo',
+		'cost_refound_external'
 	];
 
 	public function admin_user()

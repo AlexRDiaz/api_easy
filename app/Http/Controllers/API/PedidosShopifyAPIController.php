@@ -560,7 +560,7 @@ class PedidosShopifyAPIController extends Controller
         // ! *************************************
 
         // $pedidos = PedidosShopify::with(['transportadora', 'users', 'users.vendedores', 'pedidoFecha', 'ruta', 'printedBy', 'sentBy', 'product.warehouse.provider'])
-        $pedidos = PedidosShopify::with(['transportadora', 'users', 'users.vendedores', 'pedidoFecha', 'ruta', 'printedBy', 'sentBy', 'product_s.warehouses.provider', 'carrierExternal'])
+        $pedidos = PedidosShopify::with(['transportadora', 'users', 'users.vendedores', 'pedidoFecha', 'ruta', 'printedBy', 'sentBy', 'product_s.warehouses.provider', 'carrierExternal', 'ciudadExternal'])
             ->where(function ($pedidos) use ($searchTerm, $filteFields) {
                 foreach ($filteFields as $field) {
                     if (strpos($field, '.') !== false) {
@@ -575,12 +575,16 @@ class PedidosShopifyAPIController extends Controller
             ->where((function ($pedidos) use ($Map) {
                 foreach ($Map as $condition) {
                     foreach ($condition as $key => $valor) {
-                        if (strpos($key, '.') !== false) {
-                            $relacion = substr($key, 0, strpos($key, '.'));
-                            $propiedad = substr($key, strpos($key, '.') + 1);
-                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                        if ($valor === null) {
+                            $pedidos->whereNotNull($key);
                         } else {
-                            $pedidos->where($key, '=', $valor);
+                            if (strpos($key, '.') !== false) {
+                                $relacion = substr($key, 0, strpos($key, '.'));
+                                $propiedad = substr($key, strpos($key, '.') + 1);
+                                $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                            } else {
+                                $pedidos->where($key, '=', $valor);
+                            }
                         }
                     }
                 }
@@ -606,12 +610,16 @@ class PedidosShopifyAPIController extends Controller
             ->where((function ($pedidos) use ($not) {
                 foreach ($not as $condition) {
                     foreach ($condition as $key => $valor) {
-                        if (strpos($key, '.') !== false) {
-                            $relacion = substr($key, 0, strpos($key, '.'));
-                            $propiedad = substr($key, strpos($key, '.') + 1);
-                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                        if ($valor === null) {
+                            $pedidos->whereNotNull($key);
                         } else {
-                            $pedidos->where($key, '!=', $valor);
+                            if (strpos($key, '.') !== false) {
+                                $relacion = substr($key, 0, strpos($key, '.'));
+                                $propiedad = substr($key, strpos($key, '.') + 1);
+                                $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                            } else {
+                                $pedidos->where($key, '!=', $valor);
+                            }
                         }
                     }
                 }
@@ -2016,6 +2024,7 @@ class PedidosShopifyAPIController extends Controller
 
     public function getOrdersForPrintGuidesInSendGuidesPrincipalLaravel(Request $request)
     {
+        error_log("getOrdersForPrintGuidesInSendGuidesPrincipalLaravel");
         $data = $request->json()->all();
         // $startDate = $data['start'];
         // $startDateFormatted = Carbon::createFromFormat('j/n/Y', $startDate)->format('Y-m-d');
@@ -2056,18 +2065,22 @@ class PedidosShopifyAPIController extends Controller
                         $parts = explode("/", $key);
                         $type = $parts[0];
                         $filter = $parts[1];
-                        if ($key === '/marca_tiempo_envio') {
-                            $startDateFormatted = Carbon::createFromFormat('j/n/Y', $valor)->format('Y-m-d');
-                            $pedidos->whereRaw("STR_TO_DATE(marca_tiempo_envio, '%e/%c/%Y') = ?", [$startDateFormatted]);
-                        } elseif (strpos($filter, '.') !== false) {
-                            $relacion = substr($filter, 0, strpos($filter, '.'));
-                            $propiedad = substr($filter, strpos($filter, '.') + 1);
-                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                        if ($valor === null) {
+                            $pedidos->whereNotNull($key);
                         } else {
-                            if ($type == "equals") {
-                                $pedidos->where($filter, '=', $valor);
+                            if ($key === '/marca_tiempo_envio') {
+                                $startDateFormatted = Carbon::createFromFormat('j/n/Y', $valor)->format('Y-m-d');
+                                $pedidos->whereRaw("STR_TO_DATE(marca_tiempo_envio, '%e/%c/%Y') = ?", [$startDateFormatted]);
+                            } elseif (strpos($filter, '.') !== false) {
+                                $relacion = substr($filter, 0, strpos($filter, '.'));
+                                $propiedad = substr($filter, strpos($filter, '.') + 1);
+                                $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
                             } else {
-                                $pedidos->where($filter, 'LIKE', '%' . $valor . '%');
+                                if ($type == "equals") {
+                                    $pedidos->where($filter, '=', $valor);
+                                } else {
+                                    $pedidos->where($filter, 'LIKE', '%' . $valor . '%');
+                                }
                             }
                         }
                     }
@@ -2075,12 +2088,16 @@ class PedidosShopifyAPIController extends Controller
             }))->where((function ($pedidos) use ($not) {
                 foreach ($not as $condition) {
                     foreach ($condition as $key => $valor) {
-                        if (strpos($key, '.') !== false) {
-                            $relacion = substr($key, 0, strpos($key, '.'));
-                            $propiedad = substr($key, strpos($key, '.') + 1);
-                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                        if ($valor === null) {
+                            $pedidos->whereNotNull($key);
                         } else {
-                            $pedidos->where($key, '!=', $valor);
+                            if (strpos($key, '.') !== false) {
+                                $relacion = substr($key, 0, strpos($key, '.'));
+                                $propiedad = substr($key, strpos($key, '.') + 1);
+                                $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                            } else {
+                                $pedidos->where($key, '!=', $valor);
+                            }
                         }
                     }
                 }
@@ -3151,6 +3168,7 @@ class PedidosShopifyAPIController extends Controller
 
     public function getOrdersForPrintGuidesInSendGuidesPrincipalLaravelD(Request $request)
     {
+        error_log("getOrdersForPrintGuidesInSendGuidesPrincipalLaravelD");
         $data = $request->json()->all();
         // $startDate = $data['start'];
         // $startDateFormatted = Carbon::createFromFormat('j/n/Y', $startDate)->format('Y-m-d');
