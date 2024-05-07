@@ -13,6 +13,9 @@ use App\Models\CarriersExternal;
 use App\Models\Novedade;
 use App\Models\NovedadesPedidosShopifyLink;
 use App\Models\PedidosShopify;
+use App\Models\Product;
+use App\Models\Reserve;
+use App\Models\StockHistory;
 use App\Models\Vendedore;
 use Fpdf\Fpdf;
 use Illuminate\Http\Response;
@@ -310,11 +313,11 @@ class IntegrationAPIController extends Controller
                 // foreach ($data as $key => $value) {
                 //     error_log("$key: $value");
                 // }
-                error_log("guia input: $guia ");
-                error_log("estado input: $estado ");
-                error_log("path input: $path ");
-                error_log("id_novedad input: $id_novedad ");
-                error_log("no_novedad input: $no_novedad ");
+                // error_log("guia input: $guia ");
+                // error_log("estado input: $estado ");
+                // error_log("path input: $path ");
+                // error_log("id_novedad input: $id_novedad ");
+                // error_log("no_novedad input: $no_novedad ");
 
 
                 // error_log("pedido: $order");
@@ -329,16 +332,16 @@ class IntegrationAPIController extends Controller
 
                 // Llamar a la función getWarehouseAddress y pasarle los datos de almacén
                 $prov_origen = $this->getWarehouseProv($warehouses);
-                error_log("Remitente product provincia: $prov_origen");
+                // error_log("Remitente product provincia: $prov_origen");
 
                 $orderData = json_decode($order, true);
                 $prov_destiny = $orderData['ciudad_external']['id_provincia'];
                 $city_destiny = $orderData['ciudad_external']['id'];
-                error_log("prov_destiny: $prov_destiny");
-                error_log("city_destiny: $city_destiny");
+                // error_log("prov_destiny: $prov_destiny");
+                // error_log("city_destiny: $city_destiny");
 
                 $variants = $orderData['variant_details'];
-                error_log("->> $variants");
+                // error_log("->> $variants");
 
                 $carrierExternal = CarriersExternal::where('id', 1)->first();
                 // error_log("carrierExternal: $carrierExternal");
@@ -384,27 +387,27 @@ class IntegrationAPIController extends Controller
 
                                     $deliveryPrice = 0;
                                     if ($prov_destiny == $prov_origen) {
-                                        error_log("Provincial");
+                                        // error_log("Provincial");
                                         if ($coverage_type == "Normal") {
                                             $deliveryPrice = (float)$costs['normal1'];
                                         } else {
                                             $deliveryPrice = (float)$costs['especial1'];
                                         }
                                     } else {
-                                        error_log("Nacional");
+                                        // error_log("Nacional");
                                         if ($coverage_type == "Normal") {
                                             $deliveryPrice = (float)$costs['normal2'];
                                         } else {
                                             $deliveryPrice = (float)$costs['especial2'];
                                         }
                                     }
-                                    error_log("after type: $deliveryPrice");
+                                    // error_log("after type: $deliveryPrice");
 
                                     $costo_seguro = (((float)$orderData['precio_total']) * ((float)$costs['costo_seguro'])) / 100;
                                     $costo_seguro = round($costo_seguro, 2);
 
                                     $deliveryPrice += $costo_seguro;
-                                    error_log("after costo_seguro: $deliveryPrice");
+                                    // error_log("after costo_seguro: $deliveryPrice");
 
                                     if ($orderData['recaudo'] == 1) {
                                         if (((float)$orderData['precio_total']) <= ((float)$costs['costo_recaudo']['max_price'])) {
@@ -417,7 +420,7 @@ class IntegrationAPIController extends Controller
                                         }
                                     }
 
-                                    error_log("after recaudo: $deliveryPrice");
+                                    // error_log("after recaudo: $deliveryPrice");
                                     $order->costo_transportadora = strval($deliveryPrice);
                                     $order->estado_logistico = $name_local;
                                     $order->sent_at = $currentDateTime;
@@ -426,20 +429,76 @@ class IntegrationAPIController extends Controller
                                     $order->estado_interno = "CONFIRMADO";
                                     $order->fecha_entrega = $date;
 
-                                    //reduccion del stock falta
-                                    /*
-                                    $request = new Request();
+                                    //reduccion del stock
+                                    $variants = json_decode($orderData['variant_details'], true);
 
-                                    $request->merge([
-                                        'id_comercial' => $orderData['id_comercial'],
-                                        'type' => 0, //reducir
-                                        'variant_detail' => $variants,
+                                    $idComercial = $orderData['id_comercial'];
+                                    $responses = [];
+                                    if ($variants != null) {
+                                        foreach ($variants as $variant) {
+                                            $quantity = $variant['quantity'];
+                                            $skuProduct = $variant['sku'];
+                                            $type = 0;
+                                            $productapi = new ProductAPIController();
 
-                                    ]);
-                                    $productController = new ProductAPIController();
-                                    $response = $productController->updateProductVariantStock($request);
-                                    */
-                                    //
+                                            $result = $productapi->splitSku($skuProduct);
+
+                                            $onlySku = $result['sku'];
+                                            $productIdFromSKU = $result['id'];
+                                            $reserveController = new ReserveAPIController();
+
+                                            $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
+                                            $searchResult = json_decode($response->getContent());
+
+                                            if ($searchResult && $searchResult->response) {
+                                                $reserve = $searchResult->reserve;
+
+                                                if ($type == 0 && $quantity > $reserve->stock) {
+                                                    $responses[] = ['message' => 'No Dispone de Stock en la Reserva'];
+                                                    continue;
+                                                }
+
+                                                // Actualizar el stock
+                                                $reserve->stock += ($type == 1) ? $quantity : -$quantity;
+
+                                                // Assuming you have a 'Reserve' model that you want to save after updating
+                                                $reserveModel = Reserve::find($reserve->id);
+                                                if ($reserveModel) {
+                                                    $reserveModel->stock = $reserve->stock;
+                                                    $reserveModel->save();
+                                                }
+
+                                                $responses[] = ['message' => 'Stock actualizado con éxito', 'reserve' => $reserveModel];
+                                            } else {
+                                                // Encuentra el producto por su SKU.
+                                                $product = Product::find($productIdFromSKU);
+
+                                                if ($product === null) {
+                                                    return null;
+                                                }
+
+                                                if ($product) {
+                                                    $result = $product->changeStockGen($productIdFromSKU, $onlySku, $quantity, $type);
+                                                    $currentDateTime = date('Y-m-d H:i:s');
+
+                                                    $createHistory = new StockHistory();
+                                                    $createHistory->product_id = $productIdFromSKU;
+                                                    $createHistory->variant_sku = $onlySku;
+                                                    $createHistory->type = $type;
+                                                    $createHistory->date = $currentDateTime;
+                                                    $createHistory->units = $quantity;
+                                                    $createHistory->last_stock = $product->stock + $quantity;
+                                                    $createHistory->current_stock = $product->stock;
+                                                    $createHistory->description = "Reducción de stock General Pedido ENVIADO";
+
+                                                    $createHistory->save();
+                                                } else {
+                                                    $responses[] = ['message' => 'Product not found'];
+                                                    continue;
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             } else if ($key == "status") {
                                 if ($name_local == "ENTREGADO" || $name_local == "NO ENTREGADO") {
@@ -526,7 +585,7 @@ class IntegrationAPIController extends Controller
 
                                     $order->costo_devolucion = round(((float)$refound_seller), 2);
                                     $order->cost_refound_external = round(((float)$refound_transp), 2);
-                                }else{
+                                } else {
                                     return response()->json(['message' => "Error, Order must be in NOVEDAD."], 400);
                                 }
                             }
