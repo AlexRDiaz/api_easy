@@ -431,9 +431,10 @@ class IntegrationAPIController extends Controller
                                     $request = new Request();
 
                                     $request->merge([
-                                        'variant_detail' => $orderData['variant_detail'] ,
                                         'id_comercial' => $orderData['id_comercial'],
                                         'type' => 0, //reducir
+                                        'variant_detail' => $variants,
+
                                     ]);
                                     $productController = new ProductAPIController();
                                     $response = $productController->updateProductVariantStock($request);
@@ -506,12 +507,12 @@ class IntegrationAPIController extends Controller
                                     if ($name_local == "EN BODEGA") { //from logistic
                                         $order->estado_devolucion = $name_local;
                                         $order->dl = $name_local;
-                                        $order->marca_t_d_l = $currentDateTimeText;
+                                        $order->marca_t_d_t = $currentDateTimeText;
                                         // $order->received_by = $idUser;
                                     } else if ($name_local == "ENTREGADO EN OFICINA") {
                                         $order->estado_devolucion = $name_local;
                                         $order->dt = $name_local;
-                                        $order->marca_t_d = $currentDateTimeText;
+                                        $order->marca_t_d_t = $currentDateTimeText;
                                         // $order->received_by = $idUser;
                                     } else if ($name_local == "DEVOLUCION EN RUTA") {
                                         $order->estado_devolucion = $name_local;
