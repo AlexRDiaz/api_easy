@@ -310,11 +310,11 @@ class IntegrationAPIController extends Controller
                 // foreach ($data as $key => $value) {
                 //     error_log("$key: $value");
                 // }
-                error_log("guia input: $guia ");
-                error_log("estado input: $estado ");
-                error_log("path input: $path ");
-                error_log("id_novedad input: $id_novedad ");
-                error_log("no_novedad input: $no_novedad ");
+                // error_log("guia input: $guia ");
+                // error_log("estado input: $estado ");
+                // error_log("path input: $path ");
+                // error_log("id_novedad input: $id_novedad ");
+                // error_log("no_novedad input: $no_novedad ");
 
 
                 // error_log("pedido: $order");
@@ -329,16 +329,16 @@ class IntegrationAPIController extends Controller
 
                 // Llamar a la función getWarehouseAddress y pasarle los datos de almacén
                 $prov_origen = $this->getWarehouseProv($warehouses);
-                error_log("Remitente product provincia: $prov_origen");
+                // error_log("Remitente product provincia: $prov_origen");
 
                 $orderData = json_decode($order, true);
                 $prov_destiny = $orderData['ciudad_external']['id_provincia'];
                 $city_destiny = $orderData['ciudad_external']['id'];
-                error_log("prov_destiny: $prov_destiny");
-                error_log("city_destiny: $city_destiny");
+                // error_log("prov_destiny: $prov_destiny");
+                // error_log("city_destiny: $city_destiny");
 
                 $variants = $orderData['variant_details'];
-                error_log("->> $variants");
+                // error_log("->> $variants");
 
                 $carrierExternal = CarriersExternal::where('id', 1)->first();
                 // error_log("carrierExternal: $carrierExternal");
@@ -359,7 +359,7 @@ class IntegrationAPIController extends Controller
 
                     foreach ($status_array as $status) {
                         $id_ref = $status['id_ref'];
-
+                        $costo_easy = 2;
                         if ($id_ref == $estado) {
                             // error_log("id_ref: $id_ref");
 
@@ -371,6 +371,9 @@ class IntegrationAPIController extends Controller
                             // error_log("name_local: $$name_local");
 
                             // error_log("Estado: $key, Nombre Local: $name_local, ID Ref: $id_ref, Nombre: $name, ID: $id");
+                            $iva = 0.15; //15%
+                            $costo_easy = 2; //15%
+
                             if ($key == "estado_interno") {
                                 // $order->estado_devolucion = "";
 
@@ -382,43 +385,6 @@ class IntegrationAPIController extends Controller
                                 }
                                 if ($name_local == "ENVIADO") {  //from externo
 
-                                    $deliveryPrice = 0;
-                                    if ($prov_destiny == $prov_origen) {
-                                        error_log("Provincial");
-                                        if ($coverage_type == "Normal") {
-                                            $deliveryPrice = (float)$costs['normal1'];
-                                        } else {
-                                            $deliveryPrice = (float)$costs['especial1'];
-                                        }
-                                    } else {
-                                        error_log("Nacional");
-                                        if ($coverage_type == "Normal") {
-                                            $deliveryPrice = (float)$costs['normal2'];
-                                        } else {
-                                            $deliveryPrice = (float)$costs['especial2'];
-                                        }
-                                    }
-                                    error_log("after type: $deliveryPrice");
-
-                                    $costo_seguro = (((float)$orderData['precio_total']) * ((float)$costs['costo_seguro'])) / 100;
-                                    $costo_seguro = round($costo_seguro, 2);
-
-                                    $deliveryPrice += $costo_seguro;
-                                    error_log("after costo_seguro: $deliveryPrice");
-
-                                    if ($orderData['recaudo'] == 1) {
-                                        if (((float)$orderData['precio_total']) <= ((float)$costs['costo_recaudo']['max_price'])) {
-                                            $base = round(((float)$costs['costo_recaudo']['base']), 2);
-                                            $deliveryPrice += $base;
-                                        } else {
-                                            $incremental = (((float)$orderData['precio_total']) * ((float)$costs['costo_recaudo']['incremental'])) / 100;
-                                            $incremental = round($incremental, 2);
-                                            $deliveryPrice += $incremental;
-                                        }
-                                    }
-
-                                    error_log("after recaudo: $deliveryPrice");
-                                    $order->costo_transportadora = strval($deliveryPrice);
                                     $order->estado_logistico = $name_local;
                                     $order->sent_at = $currentDateTime;
                                     // $order->sent_by = $idUser;
@@ -442,7 +408,9 @@ class IntegrationAPIController extends Controller
                                     //
                                 }
                             } else if ($key == "status") {
-                                if ($name_local == "ENTREGADO" || $name_local == "NO ENTREGADO") {
+
+
+                                if ($name_local == "ENTREGADO") {
                                     $order->status = $name_local;
                                     $order->fecha_entrega = $date;
                                     $order->status_last_modified_at = $currentDateTime;
@@ -452,6 +420,65 @@ class IntegrationAPIController extends Controller
                                     $codigo_order = $nombreComercial . "-" . $order->id;
                                     error_log("codigo_order: $codigo_order");
 
+                                    //updt
+                                    $deliveryPrice = 0;
+                                    if ($prov_destiny == $prov_origen) {
+                                        error_log("Provincial");
+                                        if ($coverage_type == "Normal") {
+                                            $deliveryPrice = (float)$costs['normal1'];
+                                        } else {
+                                            $deliveryPrice = (float)$costs['especial1'];
+                                        }
+                                    } else {
+                                        error_log("Nacional");
+                                        if ($coverage_type == "Normal") {
+                                            $deliveryPrice = (float)$costs['normal2'];
+                                        } else {
+                                            $deliveryPrice = (float)$costs['especial2'];
+                                        }
+                                    }
+                                    $deliveryPrice = $deliveryPrice + ($deliveryPrice * $iva);
+                                    $deliveryPrice = round($deliveryPrice, 2);
+
+                                    error_log("after type + iva: $deliveryPrice");
+
+                                    $costo_seguro = (((float)$orderData['precio_total']) * ((float)$costs['costo_seguro'])) / 100;
+                                    $costo_seguro = round($costo_seguro, 2);
+                                    $costo_seguro =  $costo_seguro + ($costo_seguro * $iva);
+                                    $costo_seguro = round($costo_seguro, 2);
+
+                                    error_log("costo_seguro: $costo_seguro");
+
+                                    $deliveryPrice += $costo_seguro;
+                                    error_log("after costo_seguro: $deliveryPrice");
+                                    $costo_recaudo = 0;
+                                    //como si entrego add recaudo
+                                    if ($orderData['recaudo'] == 1) {
+                                        if (((float)$orderData['precio_total']) <= ((float)$costs['costo_recaudo']['max_price'])) {
+                                            $base = round(((float)$costs['costo_recaudo']['base']), 2);
+                                            $base = $base + ($base * $iva);
+                                            $base = round($base, 2);
+                                            error_log("costo base: $base");
+                                            $costo_recaudo = $base;
+                                        } else {
+                                            $incremental = (((float)$orderData['precio_total']) * ((float)$costs['costo_recaudo']['incremental'])) / 100;
+                                            $incremental = round($incremental, 2);
+                                            $incremental = $incremental + ($incremental * $iva);
+                                            $incremental = round($incremental, 2);
+                                            error_log("costo incremental: $incremental");
+                                            $costo_recaudo = $incremental;
+                                        }
+                                    }
+                                    $deliveryPrice += $costo_recaudo;
+
+                                    $deliveryPrice = round($deliveryPrice, 2);
+                                    $deliveryPriceSeller = $deliveryPrice + $costo_easy;
+                                    $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
+
+                                    error_log("costo entrega after recaudo: $deliveryPrice");
+                                    error_log("costo deliveryPriceSeller: $deliveryPriceSeller");
+                                    $order->costo_transportadora = strval($deliveryPrice);
+                                    $order->costo_envio = strval($deliveryPriceSeller);
 
                                     //THIS solo para transacciones
                                     // $SellerCreditFinalValue = $this->updateProductAndProviderBalance(
@@ -466,7 +493,7 @@ class IntegrationAPIController extends Controller
 
                                     // if (isset($SellerCreditFinalValue['value_product_warehouse']) && $SellerCreditFinalValue['value_product_warehouse'] !== null) {
                                     //     $order->value_product_warehouse = $SellerCreditFinalValue['value_product_warehouse'];
-                                    // }
+                                    // } 
 
                                     // $vendedor = Vendedore::where('id_master', $order->id_comercial)->first();
                                     // if ($vendedor->referer != null) {
@@ -500,6 +527,7 @@ class IntegrationAPIController extends Controller
                                 $order->status = $name_local;
                                 $order->status_last_modified_at = $currentDateTime;
                                 // $order->status_last_modified_by = $idUser;
+
                             } else if ($key == "estado_devolucion") {
                                 //solo se puede poner en devolucion si se encuentra en NOVEDAD
                                 if ($order->status == "NOVEDAD") {
@@ -520,13 +548,59 @@ class IntegrationAPIController extends Controller
                                         $order->marca_t_d_t = $currentDateTimeText;
                                         // $order->received_by = $idUser;
                                     }
+
+                                    //
+                                    $deliveryPrice = 0;
+                                    if ($prov_destiny == $prov_origen) {
+                                        error_log("Provincial");
+                                        if ($coverage_type == "Normal") {
+                                            $deliveryPrice = (float)$costs['normal1'];
+                                        } else {
+                                            $deliveryPrice = (float)$costs['especial1'];
+                                        }
+                                    } else {
+                                        error_log("Nacional");
+                                        if ($coverage_type == "Normal") {
+                                            $deliveryPrice = (float)$costs['normal2'];
+                                        } else {
+                                            $deliveryPrice = (float)$costs['especial2'];
+                                        }
+                                    }
+                                    $deliveryPrice = $deliveryPrice + ($deliveryPrice * $iva);
+                                    $deliveryPrice = round($deliveryPrice, 2);
+
+                                    error_log("after type + iva: $deliveryPrice");
+
+                                    $costo_seguro = (((float)$orderData['precio_total']) * ((float)$costs['costo_seguro'])) / 100;
+                                    $costo_seguro = round($costo_seguro, 2);
+                                    $costo_seguro =  $costo_seguro + ($costo_seguro * $iva);
+                                    $costo_seguro = round($costo_seguro, 2);
+
+                                    error_log("costo_seguro: $costo_seguro");
+
+                                    $deliveryPrice += $costo_seguro;
+                                    error_log("after costo_seguro: $deliveryPrice");
+                                    $costo_recaudo = 0;
+
+                                    $deliveryPrice += $costo_recaudo;
+                                    $deliveryPrice = round($deliveryPrice, 2);
+                                    $deliveryPriceSeller = $deliveryPrice + $costo_easy;
+                                    $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
+
+                                    error_log("costo entrega after recaudo: $deliveryPrice");
+                                    error_log("costo deliveryPriceSeller: $deliveryPriceSeller");
+
+                                    $order->costo_transportadora = strval($deliveryPrice);
+                                    $order->costo_envio = strval($deliveryPriceSeller);
+
+
                                     $refundpercentage = $costs['costo_devolucion'];
-                                    $refound_seller = (((float)$orderData['costo_envio']) * ($refundpercentage)) / 100;
-                                    $refound_transp = (((float)$orderData['costo_transportadora']) * ($refundpercentage)) / 100;
+                                    $refound_seller = ($deliveryPriceSeller * ($refundpercentage)) / 100;
+                                    $refound_transp = ($deliveryPrice * ($refundpercentage)) / 100;
 
                                     $order->costo_devolucion = round(((float)$refound_seller), 2);
                                     $order->cost_refound_external = round(((float)$refound_transp), 2);
-                                }else{
+                                } else {
                                     return response()->json(['message' => "Error, Order must be in NOVEDAD."], 400);
                                 }
                             }
