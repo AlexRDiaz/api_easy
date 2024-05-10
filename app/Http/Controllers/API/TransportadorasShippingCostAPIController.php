@@ -274,7 +274,9 @@ class TransportadorasShippingCostAPIController extends Controller
                 $newTransportadoraShippingCost->daily_total = $total_day;
                 // $newTransportadoraShippingCost->id_transportadora = $transportadoraId;
                 // ! modificar el campo id_trnasportadora
-                $newTransportadoraShippingCost->id_transportadora = 19;
+                $newTransportadoraShippingCost->id_transportadora = null;
+                $newTransportadoraShippingCost->id_carrierexternal = $transportadoraId;
+                // $newTransportadoraShippingCost->id_transportadora = 19;
                 $newTransportadoraShippingCost->save();
                 // return response()->json(["message" => "este registro NO existe", "fecha" => $dateFormatted, "id_transportadora" => $newTransportadoraShippingCost], 200);
             } else {

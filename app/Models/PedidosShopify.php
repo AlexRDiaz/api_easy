@@ -70,6 +70,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property float|null $value_product_warehouse
  * @property float|null $value_referer
  * @property int|null $payment_cost_delivery
+ * @property float|null $cost_refound_external
  * 
  * 
  * @property AdminUser|null $admin_user
@@ -111,7 +112,8 @@ class PedidosShopify extends Model
 		'recaudo' => 'int',
 		'carrier_external_id' => 'int',
 		'ciudad_external_id' => 'int',
-		'payment_cost_delivery' => 'int'
+		'payment_cost_delivery' => 'int',
+		'cost_refound_external' => 'float'
 	];
 
 	protected $fillable = [
@@ -177,8 +179,8 @@ class PedidosShopify extends Model
 		'carrier_external_id',
 		'ciudad_external_id',
 		'id_externo',
-		'payment_cost_delivery' 
-
+		'payment_cost_delivery',
+		'cost_refound_external'
 	];
 
 	public function admin_user()

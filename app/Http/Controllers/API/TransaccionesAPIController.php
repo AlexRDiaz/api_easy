@@ -1692,8 +1692,8 @@ class TransaccionesAPIController extends Controller
                         $order->status = "PEDIDO PROGRAMADO";
                         $order->estado_devolucion = "PENDIENTE";
                         $order->costo_devolucion = null;
-                        $order->costo_envio = null;
-                        $order->costo_transportadora = null;
+                        $order->costo_envio = null; //5.5
+                        $order->costo_transportadora = null; //2.75
                         $order->value_product_warehouse = null;
                         $order->value_referer = null;
                         // $order->estado_interno = "PENDIENTE";

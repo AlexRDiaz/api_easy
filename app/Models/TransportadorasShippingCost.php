@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $rejected_reason
  * @property string|null $url_proof_payment
  * @property int $id_transportadora
+ * @property int $id_carrierexternal
  * 
  * @property Transportadora $transportadora
  *

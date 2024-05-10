@@ -769,8 +769,10 @@ class PedidosShopifyAPIController extends Controller
 
 
         $selectedFilter = "fecha_entrega";
-        if ($dateFilter != "FECHA ENTREGA") {
+        if ($dateFilter != "FECHA ENTREGA " && $dateFilter != "FECHA DEVOLUCION") {
             $selectedFilter = "marca_tiempo_envio";
+        } else if($dateFilter == "FECHA DEVOLUCION"){
+            $selectedFilter = "marca_t_d_t";
         }
 
 
@@ -1791,7 +1793,7 @@ class PedidosShopifyAPIController extends Controller
         $this->applyConditionsAnd($query, $Map);
         $this->applyConditions($query, $not, true);
         $query1 = clone $query;
-        // $query2 = clone $query;
+        $query2 = clone $query;
         // $query3 = clone $query;
         // $saldoProvider = Provider::where('user_id', $idUser)->first();
         $summary = [
@@ -1803,79 +1805,32 @@ class PedidosShopifyAPIController extends Controller
 
             // ******************************* CODIGO A USAR         ******************************
             // *************************************************************************************
+            
             'totalCostoEntrega' => $query1
             ->where('estado_interno',"CONFIRMADO")
             ->where('estado_logistico',"ENVIADO")
             ->whereIn('status', ['ENTREGADO'])
-            ->sum(DB::raw('REPLACE(carrierexternal_cost, ",", "")')),
-            
-            // 'totalCostoEntregas' => $query1
-            // ->where('estado_interno',"CONFIRMADO")
-            // ->where('estado_logistico',"ENVIADO")
-            // // ->whereIn('status', ['ENTREGADO'])
-            // ->whereNotIn('status', ['PEDIDO PROGRAMADO'])
-            // ->sum(DB::raw('REPLACE(costo_envio, ",", "")')),
+            ->sum(DB::raw('REPLACE(costo_transportadora, ",", "")')),
 
             // ************************************************************************************* 
+
             // ! costo devolucion 
-            'totalCostoDevolucion' => $query1
-            ->where('estado_devolucion', '<>', 'PENDIENTE')
-            ->sum(DB::raw('REPLACE(carrierexternal_cost, ",", "") + REPLACE(costo_devolucion, ",", "")'))
-            // ->sum(DB::raw('REPLACE(costo_envio, ",", "") + REPLACE(costo_devolucion, ",", "")'))
-            + $query1
+            'totalCostoDevolucion' => $query2
+            ->where('estado_interno', "CONFIRMADO")
+            ->where('estado_logistico', "ENVIADO")
+            ->whereNotIn('estado_devolucion', ['PENDIENTE'])
+            ->sum(DB::raw('REPLACE(costo_transportadora, ",", "") + COALESCE(REPLACE(cost_refound_external, ",", ""), 0)'))
+            + 
+            $query1
+            ->where('estado_interno', "CONFIRMADO")
+            ->where('estado_logistico', "ENVIADO")
             ->where(function($query){
                 $query->where('status', 'NOVEDAD')
                     ->orWhere('status', 'NO ENTREGADO');
             })
-            // ->sum(DB::raw('REPLACE(costo_envio, ",", "")'))
-            ->sum(DB::raw('REPLACE(carrierexternal_cost, ",", "")'))
+            ->sum(DB::raw('REPLACE(costo_transportadora, ",", "")'))
         
-        // Ahora tienes el total de ambos componentes
-        
-
-            // 'totalCostoDevolucion' => $query1
-            // ->where('estado_interno',"CONFIRMADO")
-            // ->where('estado_logistico',"ENVIADO")
-            // ->whereIn('status', ['ENTREGADO'])->sum(DB::raw('REPLACE(precio_total, ",", "")')),
-
-
-            // 'totalCostoEnvío' => $query1
-            // ->where('estado_interno',"CONFIRMADO")
-            // ->where('estado_logistico',"ENVIADO")
-            // ->whereIn('status', ['ENTREGADO'])->sum(DB::raw('REPLACE(precio_total, ",", "")')),
             // *************************************************************************************
-            // 'totalValoresRecibidos' => $query1->whereIn('status', ['ENTREGADO'])->
-            // whereHas('product.warehouse.provider', function ($query) use ($idUser) {
-            //     $query->where('user_id', $idUser);
-            // })->sum(DB::raw('REPLACE(value_product_warehouse, ",", "")')),
-
-            // "totalRetirosEfectivo" => OrdenesRetiro::whereHas('users_permissions_user.providers', function ($query) use ($idUser) {
-            //     $query->where('user_id', $idUser);
-            // })
-            //     ->where(function ($query) {
-            //         $query->where('estado', 'APROBADO')
-            //             ->orWhere('estado', 'REALIZADO');
-            //     })
-            //     ->whereRaw("STR_TO_DATE(" . "fecha" . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
-            //     ->sum('monto'),
-
-            // 'saldoActual' => $saldoProvider->saldo,
-
-            //     ->whereIn('status', ['ENTREGADO', 'NO ENTREGADO'])
-            //     ->join('up_users_pedidos_shopifies_links', 'pedidos_shopifies.id', '=', 'up_users_pedidos_shopifies_links.pedidos_shopify_id')
-            //     ->join('up_users', 'up_users_pedidos_shopifies_links.user_id', '=', 'up_users.id')
-            //     ->join('up_users_vendedores_links', 'up_users.id', '=', 'up_users_vendedores_links.user_id')
-            //     ->join('vendedores', 'up_users_vendedores_links.vendedor_id', '=', 'vendedores.id')
-            //     ->sum(DB::raw('REPLACE(vendedores.costo_envio, ",", "")')),
-
-            // 'totalCostoDevolucion' => $query3
-            //     ->whereIn('status', ['NOVEDAD'])
-            //     ->whereNotIn('estado_devolucion', ['PENDIENTE'])
-            //     ->join('up_users_pedidos_shopifies_links', 'pedidos_shopifies.id', '=', 'up_users_pedidos_shopifies_links.pedidos_shopify_id')
-            //     ->join('up_users', 'up_users_pedidos_shopifies_links.user_id', '=', 'up_users.id')
-            //     ->join('up_users_vendedores_links', 'up_users.id', '=', 'up_users_vendedores_links.user_id')
-            //     ->join('vendedores', 'up_users_vendedores_links.vendedor_id', '=', 'vendedores.id')
-            //     ->sum(DB::raw('REPLACE(vendedores.costo_devolucion, ",", "")')),
 
         ];
 
