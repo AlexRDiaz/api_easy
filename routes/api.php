@@ -296,6 +296,9 @@ Route::middleware(['cors'])->group(function () {
     Route::post('pedidos-shopify/products/values/transport', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'CalculateValuesTransport']);
     Route::post('pedidos-shopify/products/values/seller', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'CalculateValuesSeller']);
     Route::post('pedidos-shopify/products/values/provider', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'CalculateValuesProvider']);
+    Route::post('pedidos-shopify/values/external_carrier', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'CalculateValuesExternalCarrier']);
+
+    
     Route::post('pedidos-shopify/testChatby', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'testChatby']);
 
 
@@ -465,7 +468,9 @@ Route::middleware(['cors'])->group(function () {
     Route::put('pedidos-shopify/updatesubrouteoperator/{id}', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'updateOrderSubRouteAndOperator']);
     //  *
     Route::post('pedidos-shopify/filterall', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getByDateRangeAll']);
-    //  *  delete
+    Route::post('pedidos-shopify/update-payment-cost-delivery', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'updateVerifyPaymentCostDelivery']);
+    Route::put('pedidos-shopify/update-payment-cost-delivery/ind/{id}', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'updateVerifyPaymentCostDeliveryInd']);
+    //  *  delete   
     //  *
 
 
@@ -477,6 +482,7 @@ Route::middleware(['cors'])->group(function () {
         Route::put('/{id}', [TransportadorasShippingCostAPIController::class, 'update']);
         Route::get('/perday', [App\Http\Controllers\API\TransportadorasShippingCostAPIController::class, 'getShippingCostPerDay']);
         Route::post('bytransportadora/{id}', [App\Http\Controllers\API\TransportadorasShippingCostAPIController::class, 'getByTransportadora']);
+        Route::post('bytransportadoraexternal/{id}', [App\Http\Controllers\API\TransportadorasShippingCostAPIController::class, 'getByTransportadoraExternal']);
     });
 
     // 
@@ -488,6 +494,9 @@ Route::middleware(['cors'])->group(function () {
         Route::post('/bydates', [TransaccionPedidoTransportadoraAPIController::class, 'getByTransportadoraDates']);
         Route::delete('/{id}', [TransaccionPedidoTransportadoraAPIController::class, 'destroy']);
         Route::post('/ordersperday', [TransaccionPedidoTransportadoraAPIController::class, 'getOrdersPerDay']);
+        Route::post('/ordersperdayexternal', [TransportadorasShippingCostAPIController::class, 'getOrdersPerDayExternal']);
+        // ! para testear la cronometrizada de las transportadoaras externas
+        // Route::post('/ordersperdayexternal', [TransportadorasShippingCostAPIController::class, 'getShippingCostCarrierExternalPerDay']);
     });
 
     Route::prefix('providers')->group(function () {
@@ -539,6 +548,7 @@ Route::middleware(['cors'])->group(function () {
     Route::prefix('carrierexternal')->group(function () {
         Route::post('/all', [CarrierExternalAPIController::class, 'index']);
         // Route::get('cantones/{id}', [DpaProvinciaAPIController::class, 'getCantones']);
+        Route::get('/active', [CarrierExternalAPIController::class, 'getCarriersExternal']);
         Route::get('/{id}', [CarrierExternalAPIController::class, 'show']);
         Route::post('/', [CarrierExternalAPIController::class, 'store']);
         Route::put('/{id}', [CarrierExternalAPIController::class, 'update']);

@@ -559,7 +559,7 @@ class TransaccionesAPIController extends Controller
                 // Obtener el último registro de transacción
                 $lastTransaction = $transaccionSellerPrevious->last();
                 error_log($lastTransaction);
-                if ($lastTransaction->origen !== 'reembolso' && $lastTransaction->origen !== 'envio') {
+                if ($lastTransaction->origen !== 'reembolso' && $lastTransaction->origen !== 'envio' ) {
                     return response()->json(["res" => "Transacciones ya Registradas"]);
                 }
             }
@@ -1692,8 +1692,8 @@ class TransaccionesAPIController extends Controller
                         $order->status = "PEDIDO PROGRAMADO";
                         $order->estado_devolucion = "PENDIENTE";
                         $order->costo_devolucion = null;
-                        $order->costo_envio = null;
-                        $order->costo_transportadora = null;
+                        $order->costo_envio = null; //5.5
+                        $order->costo_transportadora = null; //2.75
                         $order->value_product_warehouse = null;
                         $order->value_referer = null;
                         // $order->estado_interno = "PENDIENTE";

@@ -160,6 +160,129 @@ class TransaccionPedidoTransportadoraAPIController extends Controller
 
         return response()->json(['message' => "Ya existe un registro", "transaccion" => $transaccion], 200);
     }
+    
+    public function getOrdersPerDayExternal(Request $request)
+    {
+        //for show orders per day
+        $data = $request->json()->all();
+        // $startDate = $data['start'];
+        // $endDate = $data['end'];
+        // $startDateFormatted = Carbon::createFromFormat('j/n/Y', $startDate)->format('Y-m-d');
+        // $endDateFormatted = Carbon::createFromFormat('j/n/Y', $endDate)->format('Y-m-d');
+        $idTransportadora = $data['id_transportadora'];
+        $deliveredDate = $data['fecha_entrega'];
+        $populate = $data['populate'];
+        $pageSize = $data['page_size'];
+        $pageNumber = $data['page_number'];
+        $sort = $data['sort'];
+        $searchTerm = $data['search'];
+
+        // if ($searchTerm != "") {
+        //     $filteFields = $data['or'];
+        // } else {
+        //     $filteFields = [];
+        // }
+
+        // ! *************
+        // $orConditions = $data['or_multiple'];
+        $andCondition = $data['and'];
+        // $not = $data['not'];
+        // ! *************
+
+        $dateFormatted = Carbon::createFromFormat('Y-m-d', $deliveredDate)->format('j/n/Y');
+        // $orders = TransaccionPedidoTransportadora::with('pedidos_shopify', 'transportadora', 'operadore.up_users')
+        $orders = TransaccionPedidoTransportadora::with($populate)
+            ->where('id_transportadora', $idTransportadora)
+            ->where('fecha_entrega', $dateFormatted)
+            ->where((function ($pedidos) use ($andCondition) {
+                foreach ($andCondition as $condition) {
+                    foreach ($condition as $key => $valor) {
+                        if (strpos($key, '.') !== false) {
+                            $relacion = substr($key, 0, strpos($key, '.'));
+                            $propiedad = substr($key, strpos($key, '.') + 1);
+                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                        } else {
+                            $pedidos->where($key, '=', $valor);
+                        }
+                    }
+                }
+            }));
+        // ->get();
+
+
+        // ! Sort
+        $orderByText = null;
+        $orderByDate = null;
+        $sortParts = explode(':', $sort);
+
+        $pt1 = $sortParts[0];
+
+        $type = (stripos($pt1, 'fecha') !== false || stripos($pt1, 'marca') !== false) ? 'date' : 'text';
+
+        $dataSort = [
+            [
+                'field' => $sortParts[0],
+                'type' => $type,
+                'direction' => $sortParts[1],
+            ],
+        ];
+
+        foreach ($dataSort as $value) {
+            $field = $value['field'];
+            $direction = $value['direction'];
+            $type = $value['type'];
+
+            if ($type === "text") {
+                $orderByText = [$field => $direction];
+            } else {
+                $orderByDate = [$field => $direction];
+            }
+        }
+
+        if ($orderByText !== null) {
+            $orders->orderBy(key($orderByText), reset($orderByText));
+        } else {
+            $orders->orderBy(DB::raw("STR_TO_DATE(" . key($orderByDate) . ", '%e/%c/%Y')"), reset($orderByDate));
+        }
+        // ! ******************
+        $orders = $orders->paginate($pageSize, ['*'], 'page', $pageNumber);
+
+        if ($orders->isEmpty()) {
+            // return response()->json(["message" => "No existen datos en este mes-año"], 200);
+            return response()->json([], 204);
+        }
+
+        $total_proceeds = 0;
+        $count_orders = 0;
+        foreach ($orders as $pedido) {
+            $count_orders++;
+            if ($pedido["status"] == "ENTREGADO") {
+                $precioTotal = floatval($pedido["precio_total"]);
+                $total_proceeds += $precioTotal;
+            }
+        }
+
+        $transportadora = Transportadora::find($idTransportadora);
+        $costo_transportadora = $transportadora->costo_transportadora;
+
+        $total_proceeds = round($total_proceeds, 2);
+        error_log("total_proceeds $total_proceeds");
+        $shipping_total = $costo_transportadora * $count_orders;
+        error_log("shipping_total $shipping_total");
+        $total_day = $total_proceeds - $shipping_total;
+        error_log("total_day $total_day");
+
+        // return response()->json($orders);
+        // return response()->json($orders, 200);
+        return response()->json([
+            'data' => $orders,
+            'total_proceeds' => $total_proceeds,
+            'shipping_total' => $shipping_total,
+            'total_day' => $total_day
+
+        ]);
+    }
+
 
     public function getOrdersPerDay(Request $request)
     {
