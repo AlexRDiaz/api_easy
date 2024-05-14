@@ -916,6 +916,7 @@ class ProductAPIController extends Controller
     // }
     public function updateProductVariantStockInternal($variant_details, $type, $idComercial)
     {
+        error_log("updateProductVariantStock INTERNAL");
         $variants = json_decode($variant_details, true);
         $responses = [];
 
@@ -938,22 +939,60 @@ class ProductAPIController extends Controller
             }
 
             if ($product) {
-
-                $result = $product->changeStockGen($productIdFromSKU, $onlySku, $quantity, $type);
-
                 $currentDateTime = date('Y-m-d H:i:s');
 
-                $createHistory = new StockHistory();
-                $createHistory->product_id = $productIdFromSKU;
-                $createHistory->variant_sku = $onlySku;
-                $createHistory->type = $type;
-                $createHistory->date = $currentDateTime;
-                $createHistory->units = $quantity;
-                $createHistory->last_stock = $product->stock - $quantity;
-                $createHistory->current_stock = $product->stock;
-                $createHistory->description = "Incremento de stock General Pedido EN BODEGA";
+                if ($product->seller_owned != 0 || $product->seller_owned == null) {
+                    error_log("$productIdFromSKU IS seller_owned: $product->seller_owned");
 
-                $createHistory->save();
+                    $reserveController = new ReserveAPIController();
+
+                    $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
+                    $searchResult = json_decode($response->getContent());
+
+                    if ($searchResult && $searchResult->response) {
+                        $reserve = $searchResult->reserve;
+                        $previous_stock = $reserve->stock;
+                        if ($type == 0 && $quantity > $reserve->stock) {
+                            $responses[] = ['message' => 'No Dispone de Stock en la Reserva'];
+                            continue;
+                        }
+
+                        // Actualizar el stock
+                        $reserve->stock += ($type == 1) ? $quantity : -$quantity;
+
+                        // Assuming you have a 'Reserve' model that you want to save after updating
+                        $reserveModel = Reserve::find($reserve->id);
+                        if ($reserveModel) {
+                            $reserveModel->stock = $reserve->stock;
+                            $reserveModel->save();
+                        }
+
+                        $createHistory = new StockHistory();
+                        $createHistory->product_id = $productIdFromSKU;
+                        $createHistory->variant_sku = $onlySku;
+                        $createHistory->type = $type;
+                        $createHistory->date = $currentDateTime;
+                        $createHistory->units = $quantity;
+                        $createHistory->last_stock_reserve = $previous_stock;
+                        $createHistory->current_stock_reserve = $reserve->stock;
+                        $createHistory->description = "Incremento de stock Reserva Pedido EN BODEGA";
+                        $createHistory->save();
+                    }
+                } else {
+                    $result = $product->changeStockGen($productIdFromSKU, $onlySku, $quantity, $type);
+
+                    $createHistory = new StockHistory();
+                    $createHistory->product_id = $productIdFromSKU;
+                    $createHistory->variant_sku = $onlySku;
+                    $createHistory->type = $type;
+                    $createHistory->date = $currentDateTime;
+                    $createHistory->units = $quantity;
+                    $createHistory->last_stock = $product->stock - $quantity;
+                    $createHistory->current_stock = $product->stock;
+                    $createHistory->description = "Incremento de stock General Pedido EN BODEGA";
+
+                    $createHistory->save();
+                }
             } else {
                 // $responses[] =['message' => 'Product not found'];
                 // continue;
@@ -993,6 +1032,7 @@ class ProductAPIController extends Controller
 
                 if ($searchResult && $searchResult->response) {
                     $reserve = $searchResult->reserve;
+                    $previous_stock = $reserve->stock;
 
                     if ($type == 0 && $quantity > $reserve->stock) {
                         // No se puede restar más de lo que hay en stock
@@ -1005,13 +1045,26 @@ class ProductAPIController extends Controller
 
                     // Assuming you have a 'Reserve' model that you want to save after updating
                     $reserveModel = Reserve::find($reserve->id);
+
                     if ($reserveModel) {
                         $reserveModel->stock = $reserve->stock;
                         $reserveModel->save();
                     }
 
+                    $currentDateTime = date('Y-m-d H:i:s');
+
+                    $createHistory = new StockHistory();
+                    $createHistory->product_id = $productIdFromSKU;
+                    $createHistory->variant_sku = $onlySku;
+                    $createHistory->type = $type;
+                    $createHistory->date = $currentDateTime;
+                    $createHistory->units = $quantity;
+                    $createHistory->last_stock_reserve = $previous_stock;
+                    $createHistory->current_stock_reserve = $reserve->stock;
+                    $createHistory->description = "Reducción de stock Reserva Pedido ENVIADO";
+                    $createHistory->save();
                     // Devolver la respuesta
-                    $responses[] = ['message' => 'Stock actualizado con éxito', 'reserve' => $reserveModel];
+                    // $responses[] = ['message' => 'Stock actualizado con éxito', 'reserve' => $reserveModel];
                 } else {
                     // Encuentra el producto por su SKU.
                     $product = Product::find($productIdFromSKU);

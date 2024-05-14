@@ -39,7 +39,9 @@ class StockHistory extends Model
 		'date' => 'datetime',
 		'units' => 'int',
 		'last_stock' => 'int',
-		'current_stock' => 'int'
+		'current_stock' => 'int',
+		'last_stock_reserve' => 'int',
+		'current_stock_reserve' => 'int'
 	];
 
 	protected $fillable = [
@@ -50,7 +52,9 @@ class StockHistory extends Model
 		'units',
 		'last_stock',
 		'current_stock',
-		'description'
+		'description',
+		'last_stock_reserve',
+		'current_stock_reserve',
 	];
 
 	public function product()
@@ -58,4 +62,3 @@ class StockHistory extends Model
 		return $this->belongsTo(Product::class);
 	}
 }
-

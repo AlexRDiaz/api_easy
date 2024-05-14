@@ -40,7 +40,7 @@ class MiSaldoAPIController extends Controller
             ->where('estado_logistico', 'ENVIADO')
             ->where('status', 'ENTREGADO')
             ->sum('precio_total');
-
+        error_log("sumaEntregados: $sumaEntregados");
         //OBTENER COSTO SUMA SELLER
         // foreach ($searchGeneralSellers as $seller) {
         //     if ($seller->id_master == $upuser) {
@@ -63,8 +63,8 @@ class MiSaldoAPIController extends Controller
             ->sum('value_referer');
 
 
-        // error_log($AmountProductWarehouse);
-        // error_log($refererValue);
+        error_log("AmountProductWarehouse: $AmountProductWarehouse");
+        error_log("refererValue: $refererValue");
 
 
         $sumaCostoInicial = Vendedore::where('id_master', $upuser)
@@ -78,6 +78,8 @@ class MiSaldoAPIController extends Controller
         // }
 
         $sumaCostodb = DB::table('pedidos_shopifies')
+            ->join('pedidos_shopifies_ruta_links', 'pedidos_shopifies.id', '=', 'pedidos_shopifies_ruta_links.pedidos_shopify_id')
+            // ->join('pedidos_shopifies_transportadora_links', 'pedidos_shopifies.id', '=', 'pedidos_shopifies_transportadora_links.pedidos_shopify_id')
             ->selectRaw('SUM(' . $sumaCostoInicial . ') as sumaCosto')
             ->where('estado_interno', 'CONFIRMADO')
             ->where('estado_logistico', 'ENVIADO')
@@ -88,6 +90,23 @@ class MiSaldoAPIController extends Controller
             })
             ->first();
         $sumaCosto = $sumaCostodb->sumaCosto;
+
+
+        error_log("sumaCosto TranspInt: $sumaCosto");
+
+        $sumaCostodbCE = DB::table('pedidos_shopifies')
+            ->join('pedidos_shopifies_carrier_external_links', 'pedidos_shopifies.id', '=', 'pedidos_shopifies_carrier_external_links.pedidos_shopify_id')
+            ->where('estado_interno', 'CONFIRMADO')
+            ->where('estado_logistico', 'ENVIADO')
+            ->where('id_comercial', $upuser)
+            ->where(function ($query) {
+                $query->whereIn('status', ['ENTREGADO', 'NOVEDAD']);
+            })
+            ->sum('costo_envio');
+        error_log("sumaCostodbCE: $sumaCostodbCE");
+
+        $sumaCosto += $sumaCostodbCE;
+        error_log("sumaCosto Envio: $sumaCosto");
 
 
         //OBTENER DEVOLUCION SUMA SELLER
@@ -116,6 +135,8 @@ class MiSaldoAPIController extends Controller
         // }
 
         $sumaDevolucion = DB::table('pedidos_shopifies')
+            //->leftJoin('pedidos_shopifies_carrier_external_links', 'pedidos_shopifies.id', '=', 'pedidos_shopifies_carrier_external_links.pedidos_shopify_id')
+            ->join('pedidos_shopifies_ruta_links', 'pedidos_shopifies.id', '=', 'pedidos_shopifies_ruta_links.pedidos_shopify_id')
             ->where('id_comercial', $upuser)
             // ->where(function ($query) {
             //     $query->orWhere('estado_devolucion', 'ENTREGADO EN OFICINA')
@@ -138,6 +159,29 @@ class MiSaldoAPIController extends Controller
             })
             ->sum(DB::raw($sumaDevolucionInicial));
 
+        // error_log("sumaDevolucion TranspInt: $sumaDevolucion");
+
+        $sumaDevolucionCE = DB::table('pedidos_shopifies')
+            ->join('pedidos_shopifies_carrier_external_links', 'pedidos_shopifies.id', '=', 'pedidos_shopifies_carrier_external_links.pedidos_shopify_id')
+            ->where('id_comercial', $upuser)
+            ->where('estado_interno', 'CONFIRMADO')
+            ->where('estado_logistico', 'ENVIADO')
+            ->where('status', 'NOVEDAD')
+            ->where(function ($query) {
+                $query->where('estado_devolucion', '<>', 'PENDIENTE')
+                    ->where(function ($query) {
+                        $query->orWhere('estado_devolucion', 'ENTREGADO EN OFICINA')
+                            ->orWhere('estado_devolucion', 'DEVOLUCION EN RUTA')
+                            ->orWhere('estado_devolucion', 'EN BODEGA')
+                            ->orWhere('estado_devolucion', 'EN BODEGA PROVEEDOR');
+                    });
+            })
+            ->sum('costo_devolucion');
+
+        // error_log("sumaDevolucionCE: $sumaDevolucionCE");
+        $sumaDevolucion += $sumaDevolucionCE;
+        error_log("sumaDevolucion : $sumaDevolucion");
+
         // foreach ($searchWithDrawal as $retiro) {
         //     if (
         //         $retiro->ordenes_retiros_users_permissions_user_links->upuser == $upuser &&
@@ -154,6 +198,7 @@ class MiSaldoAPIController extends Controller
                     ->orWhere('ordenes_retiros.estado', 'REALIZADO');
             })
             ->sum('ordenes_retiros.monto');
+        // error_log("sumaRetiros: $sumaRetiros");
 
         $responseFinal = (($sumaEntregados + $refererValue) - ($sumaCosto + $sumaDevolucion + $sumaRetiros + $AmountProductWarehouse));
 

@@ -16,6 +16,7 @@ use App\Http\Controllers\API\RutaAPIController;
 use App\Http\Controllers\API\StockHistoryAPIController;
 use App\Http\Controllers\API\SubRutaAPIController;
 use App\Http\Controllers\API\OperadoreAPIController;
+use App\Http\Controllers\API\PedidosShopifiesCarrierExternalLinkAPIController;
 use App\Http\Controllers\API\TransaccionPedidoTransportadoraAPIController;
 use App\Http\Controllers\API\TransportadorasShippingCostAPIController;
 use App\Http\Controllers\API\UpUserAPIController;
@@ -508,6 +509,7 @@ Route::middleware(['cors'])->group(function () {
     //  *
     Route::prefix('reserve')->group(function () {
         Route::post('/', [ReserveAPIController::class, 'store']);
+        Route::put('/editstock', [ReserveAPIController::class, 'editStock']);
     });
 
     //  *
@@ -578,7 +580,12 @@ Route::middleware(['cors'])->group(function () {
     //*
     Route::delete('pedidos-shopify/deleteroutetransport/{id}', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'deleteRouteAndTransport']);
 
-
+    //  *
+    Route::prefix('ordercarrier')->group(function () {
+        Route::post('/', [PedidosShopifiesCarrierExternalLinkAPIController::class, 'store']);
+        Route::put('/{id}', [PedidosShopifiesCarrierExternalLinkAPIController::class, 'update']);
+        Route::put('byorder/{id}', [PedidosShopifiesCarrierExternalLinkAPIController::class, 'updateByOrder']);
+    });
 
     //...
 });

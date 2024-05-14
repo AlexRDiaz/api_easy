@@ -269,13 +269,23 @@ class PedidosShopify extends Model
 	public function printedBy()
 	{
 		// return $this->belongsTo(UpUser::class, 'printed_by', 'id');
-		return $this->belongsTo(UpUser::class, 'printed_by', 'id')->with('rolesFronts');
+		// return $this->belongsTo(UpUser::class, 'printed_by', 'id')->with('rolesFronts');
+		return $this->belongsTo(UpUser::class, 'printed_by', 'id')
+			->select('id', 'username', 'email')
+			->with(['rolesFronts' => function ($query) {
+				$query->select('roles_fronts.id', 'roles_fronts.titulo');
+			}]);
 	}
 
 	public function sentBy()
 	{
 		// return $this->belongsTo(UpUser::class, 'sent_by', 'id');
-		return $this->belongsTo(UpUser::class, 'sent_by', 'id')->with('rolesFronts');
+		// return $this->belongsTo(UpUser::class, 'sent_by', 'id')->with('rolesFronts');
+		return $this->belongsTo(UpUser::class, 'sent_by', 'id')
+			->select('id', 'username', 'email')
+			->with(['rolesFronts' => function ($query) {
+				$query->select('roles_fronts.id', 'roles_fronts.titulo');
+			}]);
 	}
 
 	public function receivedBy()
@@ -300,7 +310,7 @@ class PedidosShopify extends Model
 	public function product_s()
 	{
 		return $this->belongsTo(\App\Models\Product::class, 'id_product')
-		->select('product_id', 'product_name','stock','price','isvariable','warehouse_id');
+			->select('product_id', 'product_name', 'stock', 'price', 'isvariable', 'warehouse_id');
 		// ->with('warehouses');
 		// return $this->belongsToMany(Warehouse::class, 'product_warehouse_link', 'id_product', 'id_warehouse')
 		// ->select('warehouse_id', 'branch_name','id_provincia','city','address','customer_service_phone','provider_id')
@@ -320,5 +330,10 @@ class PedidosShopify extends Model
 	public function ciudadExternal()
 	{
 		return $this->belongsTo(CoverageExternal::class, 'ciudad_external_id', 'id');
+	}
+
+	public function pedidoCarrier()
+	{
+		return $this->hasMany(PedidosShopifiesCarrierExternalLink::class, 'pedidos_shopify_id')->with('carrier', 'cityExternal');
 	}
 }
