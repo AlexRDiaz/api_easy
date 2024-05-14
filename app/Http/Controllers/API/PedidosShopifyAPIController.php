@@ -793,14 +793,20 @@ class PedidosShopifyAPIController extends Controller
 
 
 
+        // $selectedFilter = "fecha_entrega";
+        // if ($dateFilter != "FECHA ENTREGA "
+        // //   $dateFilter != "FECHA DEVOLUCION"
+        //  ) {
+        //     $selectedFilter = "marca_tiempo_envio";
+        // }
+        // //  else if($dateFilter == "FECHA DEVOLUCION"){
+        //     // $selectedFilter = "marca_t_d_t";
+        // // }
+
         $selectedFilter = "fecha_entrega";
-        if ($dateFilter != "FECHA ENTREGA " && $dateFilter != "FECHA DEVOLUCION") {
+        if ($dateFilter != "FECHA ENTREGA") {
             $selectedFilter = "marca_tiempo_envio";
-        } else if($dateFilter == "FECHA DEVOLUCION"){
-            $selectedFilter = "marca_t_d_t";
         }
-
-
 
         if ($searchTerm != "") {
             $filteFields = $data['or']; // && SOLO QUITO  ((||)&&())
@@ -1414,10 +1420,23 @@ class PedidosShopifyAPIController extends Controller
         $countProductWarehouseNotNull  = PedidosShopify::with(['operadore.up_users'])
             ->with('subRuta')
             ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
-            ->where('estado_interno','CONFIRMADO')
-            ->where('estado_logistico','ENVIADO')
             ->whereNotNull('value_product_warehouse')
+            ->where("status","ENTREGADO")
+            ->where((function ($pedidos) use ($Map) {
+                foreach ($Map as $condition) {
+                    foreach ($condition as $key => $valor) {
+                        if (strpos($key, '.') !== false) {
+                            $relacion = substr($key, 0, strpos($key, '.'));
+                            $propiedad = substr($key, strpos($key, '.') + 1);
+                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                        } else {
+                            $pedidos->where($key, '=', $valor);
+                        }
+                    }
+                }
+            }))
             ->count();
+
 
         $result = PedidosShopify::with(['operadore.up_users'])
             ->with('transportadora')
@@ -1455,10 +1474,6 @@ class PedidosShopifyAPIController extends Controller
                 }
             }
             ))->get();
-
-
-
-
 
         $stateTotals = [
             'ENTREGADO' => 0,
