@@ -1431,7 +1431,7 @@ class PedidosShopifyAPIController extends Controller
             ->with('subRuta')
             ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
             ->whereNotNull('value_product_warehouse')
-            ->where("status","ENTREGADO")
+            ->where("status", "ENTREGADO")
             ->where((function ($pedidos) use ($Map) {
                 foreach ($Map as $condition) {
                     foreach ($condition as $key => $valor) {
@@ -1925,7 +1925,7 @@ class PedidosShopifyAPIController extends Controller
 
         $query = PedidosShopify::query()
             ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider', 'carrierExternal'])
-            ->where('carrier_external_id',$idUser)  // ! <---- se pretende usar el id de la transportadora externa que seleccione
+            ->where('carrier_external_id', $idUser)  // ! <---- se pretende usar el id de la transportadora externa que seleccione
             // ->where('carrier_external_id',1)
             ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate]);
 
@@ -1939,37 +1939,37 @@ class PedidosShopifyAPIController extends Controller
         $summary = [
             // "ped"=>$query,
             'totalValoresRecibidos' => $query1
-            ->where('estado_interno',"CONFIRMADO")
-            ->where('estado_logistico',"ENVIADO")
-            ->whereIn('status', ['ENTREGADO'])->sum(DB::raw('REPLACE(precio_total, ",", "")')),
+                ->where('estado_interno', "CONFIRMADO")
+                ->where('estado_logistico', "ENVIADO")
+                ->whereIn('status', ['ENTREGADO'])->sum(DB::raw('REPLACE(precio_total, ",", "")')),
 
             // ******************************* CODIGO A USAR         ******************************
             // *************************************************************************************
-            
+
             'totalCostoEntrega' => $query1
-            ->where('estado_interno',"CONFIRMADO")
-            ->where('estado_logistico',"ENVIADO")
-            ->whereIn('status', ['ENTREGADO'])
-            ->sum(DB::raw('REPLACE(costo_transportadora, ",", "")')),
+                ->where('estado_interno', "CONFIRMADO")
+                ->where('estado_logistico', "ENVIADO")
+                ->whereIn('status', ['ENTREGADO'])
+                ->sum(DB::raw('REPLACE(costo_transportadora, ",", "")')),
 
             // ************************************************************************************* 
 
             // ! costo devolucion 
             'totalCostoDevolucion' => $query2
-            ->where('estado_interno', "CONFIRMADO")
-            ->where('estado_logistico', "ENVIADO")
-            ->whereNotIn('estado_devolucion', ['PENDIENTE'])
-            ->sum(DB::raw('REPLACE(costo_transportadora, ",", "") + COALESCE(REPLACE(cost_refound_external, ",", ""), 0)'))
-            + 
-            $query1
-            ->where('estado_interno', "CONFIRMADO")
-            ->where('estado_logistico', "ENVIADO")
-            ->where(function($query){
-                $query->where('status', 'NOVEDAD')
-                    ->orWhere('status', 'NO ENTREGADO');
-            })
-            ->sum(DB::raw('REPLACE(costo_transportadora, ",", "")'))
-        
+                ->where('estado_interno', "CONFIRMADO")
+                ->where('estado_logistico', "ENVIADO")
+                ->whereNotIn('estado_devolucion', ['PENDIENTE'])
+                ->sum(DB::raw('REPLACE(costo_transportadora, ",", "") + COALESCE(REPLACE(cost_refound_external, ",", ""), 0)'))
+                +
+                $query1
+                ->where('estado_interno', "CONFIRMADO")
+                ->where('estado_logistico', "ENVIADO")
+                ->where(function ($query) {
+                    $query->where('status', 'NOVEDAD')
+                        ->orWhere('status', 'NO ENTREGADO');
+                })
+                ->sum(DB::raw('REPLACE(costo_transportadora, ",", "")'))
+
             // *************************************************************************************
 
         ];
@@ -2472,57 +2472,57 @@ class PedidosShopifyAPIController extends Controller
 
 
     //  *
-    public function updateVerifyPaymentCostDelivery(Request $request) {
+    public function updateVerifyPaymentCostDelivery(Request $request)
+    {
         try {
             $data = $request->json()->all();
             if (!isset($data['state'])) {
                 return response()->json(['error' => 'El estado no está presente en los datos.'], 400);
             }
-    
+
             if (!isset($data['ids']) || !is_array($data['ids'])) {
                 return response()->json(['error' => 'Los IDs no están presentes o no son un arreglo.'], 400);
             }
-    
+
             $state = $data['state'];
             $ids = $data['ids'];
-            
+
             // Actualizar el estado de los pedidos directamente con los IDs recibidos
             PedidosShopify::whereIn('id', $ids)->update(['payment_cost_delivery' => $state]);
-    
+
             return response()->json(['message' => 'El estado de los pedidos se ha actualizado correctamente.'], 200);
-    
         } catch (\Throwable $th) {
             return response()->json(['error' => 'Se produjo un error al procesar la solicitud.'], 500);
         }
     }
-    
 
-    public function updateVerifyPaymentCostDeliveryInd(Request $request, $idOrder) {
+
+    public function updateVerifyPaymentCostDeliveryInd(Request $request, $idOrder)
+    {
         try {
             $data = $request->json()->all();
             if (!isset($data['state'])) {
                 return response()->json(['error' => 'El estado no está presente en los datos.'], 400);
             }
-    
+
             $state = $data['state'];
-    
+
             $order = PedidosShopify::where('id', $idOrder)->first();
-    
+
             if (!$order) {
                 return response()->json(['error' => 'No se encontró ningún pedido con el ID especificado.'], 404);
             }
-    
+
             $order->payment_cost_delivery = $state;
             $order->save();
-    
+
             return response()->json(['message' => 'El estado del pedido se ha actualizado correctamente.'], 200);
-    
         } catch (\Throwable $th) {
             return response()->json(['error' => 'Se produjo un error al procesar la solicitud.'], 500);
         }
     }
-    
-    
+
+
     public function getByDateRangeAll(Request $request)
     {
         $data = $request->json()->all();
@@ -2818,6 +2818,7 @@ class PedidosShopifyAPIController extends Controller
 
     public function updateFieldTime(Request $request, $id)
     {
+        error_log("updateFieldTime");
         $data = $request->all();
 
         $keyvalue = $data['keyvalue'];
@@ -2840,7 +2841,9 @@ class PedidosShopifyAPIController extends Controller
         //"${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year} ${DateTime.now().hour}:${DateTime.now().minute} ";
         $currentDateTimeText = date("d/m/Y H:i");
 
-        $pedido = PedidosShopify::findOrFail($id);
+        // $pedido = PedidosShopify::findOrFail($id);
+        $pedido = PedidosShopify::with('users.vendedores')->where('id', $id)->first();
+
         if ($key == "estado_logistico") {
             if ($value == "IMPRESO") {  //from log,sell
                 $pedido->estado_logistico = $value;
@@ -2938,11 +2941,19 @@ class PedidosShopifyAPIController extends Controller
             }
         }
 
-        //v0
+        //v2
         if ($key == "estado_interno") {
+            $name_comercial = $pedido->tienda_temporal;
+            if (
+                $pedido->users->isNotEmpty() && $pedido->users[0]->vendedores->isNotEmpty()
+            ) {
+                $name_comercial = $pedido->users[0]->vendedores[0]->nombre_comercial;
+            }
+            $pedido->estado_interno = $value;
             $pedido->fecha_confirmacion = $currentDateTimeText;
             $pedido->confirmed_by = $idUser;
             $pedido->confirmed_at = $currentDateTime;
+            $pedido->name_comercial = $name_comercial;
         }
 
         $pedido->save();
