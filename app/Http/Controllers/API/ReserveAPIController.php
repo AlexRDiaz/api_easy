@@ -15,6 +15,8 @@ use App\Models\UpUser;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 
+use function Laravel\Prompts\error;
+
 /**
  * Class ReserveAPIController
  */
@@ -56,7 +58,7 @@ class ReserveAPIController extends Controller
             $id_comercial = $data['id_comercial'];
             $warehouse_price = $data['warehouse_price'];
 
-            $user = UpUser::find($id_comercial); 
+            $user = UpUser::find($id_comercial);
 
             $createReserve = new Reserve();
             $createReserve->product_id = $product_id;
@@ -133,7 +135,7 @@ class ReserveAPIController extends Controller
                 error_log("created reserve-History for variant");
             }
             // return $createReserve;
-            DB::commit(); 
+            DB::commit();
             return response()->json([
                 "res" => "Se realizo la reserva y el createHistory exitosamente"
             ]);
@@ -215,5 +217,82 @@ class ReserveAPIController extends Controller
         // $reserve->delete();
 
         // return $this->sendSuccess('Reserve deleted successfully');
+    }
+
+    public function editStock(Request $request)
+    {
+        error_log("editStock");
+        DB::beginTransaction();
+
+        try {
+
+            $data = $request->json()->all();
+
+            $product_id = $data['product_id'];
+            $skuProduct = $data['sku_product'];
+            $units = $data['units'];
+            $seller_owned = $data['seller_owned'];
+            $description = $data['description'];
+            $type = $data['type'];
+
+
+            $reserveController = new ReserveAPIController();
+
+            $response = $reserveController->findByProductAndSku($product_id, $skuProduct, $seller_owned);
+            $searchResult = json_decode($response->getContent());
+
+            if ($searchResult && $searchResult->response) {
+                $currentDateTime = date('Y-m-d H:i:s');
+
+                $reserve = $searchResult->reserve;
+                $previous_stock = $reserve->stock;
+                if ($type == 0 && $units > $reserve->stock) {
+                    error("No Dispone de Stock en la Reserva");
+                    return response()->json([
+                        'error' => 'Error no se encontro la reserva: '
+                    ], 500);
+                }
+
+                // Actualizar el stock
+                $reserve->stock += ($type == 1) ? $units : -$units;
+
+                // Assuming you have a 'Reserve' model that you want to save after updating
+                $reserveModel = Reserve::find($reserve->id);
+                if ($reserveModel) {
+                    $reserveModel->stock = $reserve->stock;
+                    $reserveModel->save();
+                }
+
+                $createHistory = new StockHistory();
+                $createHistory->product_id = $product_id;
+                $createHistory->variant_sku = $skuProduct;
+                $createHistory->type = $type;
+                $createHistory->date = $currentDateTime;
+                $createHistory->units = $units;
+                $createHistory->last_stock_reserve = $previous_stock;
+                $createHistory->current_stock_reserve = $reserve->stock;
+                $createHistory->description = "Reserva - " . $description;
+                $createHistory->save();
+
+                $responses[] = ['message' => 'Reserva/Stock actualizado con éxito', 'reserve' => $reserveModel];
+            } else {
+                error("Error no se encontro la reserva");
+                return response()->json([
+                    'error' => 'Error no se encontro la reserva: '
+                ], 500);
+            }
+            // return $createReserve;
+            DB::commit();
+            return response()->json([
+                "res" => "Se edito la reserva y el stockHistory exitosamente"
+            ]);
+        } catch (\Exception $e) {
+            error("editStock Error: $e");
+            DB::rollback(); // En caso de error, revierte todos los cambios realizados en la transacción
+            // Maneja el error aquí si es necesario
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }
