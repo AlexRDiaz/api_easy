@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\API\CarrierCoverageAPIController;
 use App\Http\Controllers\API\CarrierExternalAPIController;
+use App\Http\Controllers\API\DBBackUpAPIController;
 use App\Http\Controllers\API\DpaProvinciaAPIController;
 use App\Http\Controllers\API\GenerateReportAPIController;
 use App\Http\Controllers\API\IntegrationAPIController;
@@ -597,7 +598,9 @@ Route::middleware(['cors'])->group(function () {
         Route::put('byorder/{id}', [PedidosShopifiesCarrierExternalLinkAPIController::class, 'updateByOrder']);
     });
 
-    //...
+    //
+    Route::get('dbbackup', [DBBackUpAPIController::class, 'db_backup']);
+
 });
 
 

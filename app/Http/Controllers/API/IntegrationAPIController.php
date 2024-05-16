@@ -17,6 +17,7 @@ use App\Models\PedidosShopify;
 use App\Models\Product;
 use App\Models\Reserve;
 use App\Models\StockHistory;
+use App\Models\Transaccion;
 use App\Models\Vendedore;
 use Fpdf\Fpdf;
 use Illuminate\Http\Response;
@@ -359,6 +360,8 @@ class IntegrationAPIController extends Controller
                 $city_type = CarrierCoverage::where('id_carrier', 1)->where('id_coverage', $city_destiny)->first();
                 $coverage_type = $city_type['type'];
 
+                $orderid = $orderData['id'];
+
                 DB::beginTransaction();
                 try {
 
@@ -377,7 +380,7 @@ class IntegrationAPIController extends Controller
 
                             // error_log("Estado: $key, Nombre Local: $name_local, ID Ref: $id_ref, Nombre: $name, ID: $id");
                             $iva = 0.15; //15%
-                            $costo_easy = 2; 
+                            $costo_easy = 2;
 
                             if ($key == "estado_interno") {
                                 // $order->estado_devolucion = "";
@@ -484,6 +487,22 @@ class IntegrationAPIController extends Controller
 
 
                                 if ($name_local == "ENTREGADO") {
+
+                                    //TRANSACCIONES
+                                    //paymentOrderDelivered
+                                    $transaccionSellerPrevious = Transaccion::where('id_origen', $orderid)
+                                        ->get();
+
+                                    if ($transaccionSellerPrevious->isNotEmpty()) {
+                                        // Obtener el último registro de transacción
+                                        $lastTransaction = $transaccionSellerPrevious->last();
+                                        error_log($lastTransaction);
+                                        if ($lastTransaction->origen !== 'reembolso' && $lastTransaction->origen !== 'envio') {
+                                            return response()->json(["res" => "Transacciones ya Registradas"]);
+                                        }
+                                    }
+
+                                    error_log("Transaccion nueva");
                                     $order->status = $name_local;
                                     $order->fecha_entrega = $date;
                                     $order->status_last_modified_at = $currentDateTime;
@@ -553,29 +572,21 @@ class IntegrationAPIController extends Controller
                                     $order->costo_transportadora = strval($deliveryPrice);
                                     $order->costo_envio = strval($deliveryPriceSeller);
 
-                                    //THIS solo para transacciones
-                                    // $SellerCreditFinalValue = $this->updateProductAndProviderBalance(
-                                    //     $variants,
-                                    //     $orderData['precio_total'],
-                                    //     'GTM',
-                                    //     $orderData['precio_total'],
-                                    //     $name_local,
-                                    //     $codigo_order,
+                                    $variants = json_decode($orderData['variant_details'], true);
 
-                                    // );
 
-                                    // if (isset($SellerCreditFinalValue['value_product_warehouse']) && $SellerCreditFinalValue['value_product_warehouse'] !== null) {
-                                    //     $order->value_product_warehouse = $SellerCreditFinalValue['value_product_warehouse'];
-                                    // } 
+                                    $SellerCreditFinalValue = $this->updateProductAndProviderBalance(
+                                        // "TEST2C1003",
+                                        $variants,
+                                        $orderData['precio_total'],
+                                        // $pedido->cantidad_total,
+                                        $data['generated_by'],
+                                        $data['id_origen'],
+                                        "ENTREGADO",
+                                        $data['codigo'],
 
-                                    // $vendedor = Vendedore::where('id_master', $order->id_comercial)->first();
-                                    // if ($vendedor->referer != null) {
-                                    //     $vendedorPrincipal = Vendedore::where('id_master', $vendedor->referer)->first();
-                                    //     if ($vendedorPrincipal->referer_cost != 0) {
-                                    //         $order->value_referer = $vendedorPrincipal->referer_cost;
-                                    //     }
-                                    // }
-
+                                        // 22.90,
+                                    );
 
                                     //
                                 } else if ($name_local == "NOVEDAD") {
@@ -673,7 +684,6 @@ class IntegrationAPIController extends Controller
 
                                     $order->costo_devolucion = round(((float)$refound_seller), 2);
                                     // $order->cost_refound_external = round(((float)$refound_transp), 2);
-                                    $orderid = $orderData['id'];
                                     $pedidoCarrier = PedidosShopifiesCarrierExternalLink::where('pedidos_shopify_id', $orderid)->first();
                                     $pedidoCarrier->cost_refound_external = round(((float)$refound_transp), 2);
                                     $pedidoCarrier->save();
@@ -739,51 +749,9 @@ class IntegrationAPIController extends Controller
                                                 }
                                             }
                                         }
+                                    } else {
+                                        //producto normal: reducir stock general
                                     }
-                                    /*
-                                    error_log("$product->seller_owned");
-                                    $currentDateTime = date('Y-m-d H:i:s');
-
-                                    if ($product->seller_owned != 0) {
-                                        //
-                                        error_log("IS seller_owned");
-                                        $reserveController = new ReserveAPIController();
-
-                                        $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
-                                        $searchResult = json_decode($response->getContent());
-
-                                        if ($searchResult && $searchResult->response) {
-                                            $reserve = $searchResult->reserve;
-                                            $previous_stock = $reserve->stock;
-                                            if ($type == 0 && $quantity > $reserve->stock) {
-                                                $responses[] = ['message' => 'No Dispone de Stock en la Reserva'];
-                                                continue;
-                                            }
-
-                                            // Actualizar el stock
-                                            $reserve->stock += $quantity;
-
-                                            // Assuming you have a 'Reserve' model that you want to save after updating
-                                            $reserveModel = Reserve::find($reserve->id);
-                                            if ($reserveModel) {
-                                                $reserveModel->stock = $reserve->stock;
-                                                $reserveModel->save();
-                                            }
-
-                                            $createHistory = new StockHistory();
-                                            $createHistory->product_id = $productIdFromSKU;
-                                            $createHistory->variant_sku = $onlySku;
-                                            $createHistory->type = 1;
-                                            $createHistory->date = $currentDateTime;
-                                            $createHistory->units = $quantity;
-                                            $createHistory->last_stock_reserve = $previous_stock;
-                                            $createHistory->current_stock_reserve = $reserve->stock;
-                                            $createHistory->description = "Reducción de stock Reserva Pedido ENVIADO";
-                                            $createHistory->save();
-                                        }
-                                
-                                    } 
-                                    */
                                 } else {
                                     return response()->json(['message' => "Error, Order must be in NOVEDAD."], 400);
                                 }
