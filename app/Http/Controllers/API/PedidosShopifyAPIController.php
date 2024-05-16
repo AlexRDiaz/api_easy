@@ -20,6 +20,7 @@ use App\Models\ProductoShopifiesPedidosShopifyLink;
 use App\Models\Ruta;
 use App\Models\Operadore;
 use App\Models\PedidosShopifiesCarrierExternalLink;
+use App\Models\Product;
 use App\Models\TransaccionPedidoTransportadora;
 use App\Models\TransportStats;
 use App\Models\UpUser;
@@ -2069,7 +2070,10 @@ class PedidosShopifyAPIController extends Controller
                 $parts = explode('C', $sku);
                 $id_product = end($parts);
                 if (is_numeric($id_product)) {
-                    $lastIdProduct = $id_product;
+                    $product = Product::find($id_product);
+                    if ($product != null) {
+                        $lastIdProduct = $id_product;
+                    }
                 }
             }
             $variants = implode(', ', array_column(array_slice($listOfProducts, 0), 'variant_title'));
