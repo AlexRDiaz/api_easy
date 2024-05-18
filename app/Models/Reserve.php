@@ -35,8 +35,8 @@ class Reserve extends Model
 
     public function seller(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->belongsTo(\App\Models\UpUser::class, 'id_comercial');
+        // return $this->belongsTo(\App\Models\UpUser::class, 'id_comercial');
+        return $this->belongsTo(UpUser::class, 'id_comercial', 'id')
+            ->select('id', 'username', 'email');
     }
 }
-
-?>

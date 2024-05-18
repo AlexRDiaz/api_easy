@@ -69,8 +69,8 @@ class Product extends Model
 		// ->withPivot('id')
 		// ->withTimestamps();
 		return $this->belongsToMany(Warehouse::class, 'product_warehouse_link', 'id_product', 'id_warehouse')
-		->select('warehouse_id', 'branch_name','id_provincia','city','address','customer_service_phone','provider_id')
-		->with('up_users');
+			->select('warehouse_id', 'branch_name', 'id_provincia', 'city', 'address', 'customer_service_phone', 'provider_id')
+			->with('up_users');
 	}
 
 	public function productseller(): \Illuminate\Database\Eloquent\Relations\HasMany
@@ -82,6 +82,16 @@ class Product extends Model
 	{
 		return $this->hasMany(\App\Models\Reserve::class, 'product_id');
 	}
+
+	public function owner()
+	{
+		return $this->belongsTo(UpUser::class, 'seller_owned', 'id')
+			->select('id', 'username', 'email')
+			->with(['vendedores' => function ($query) {
+				$query->select('vendedores.id', 'nombre_comercial', 'id_master');
+			}]);
+	}
+
 
 	public function changeStock($skuProduct, $quantity)
 	{
