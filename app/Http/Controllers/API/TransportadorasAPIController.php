@@ -135,6 +135,9 @@ class TransportadorasAPIController extends Controller
         $Map = $data['and'];
         $not = $data['not'];
 
+        $relationsToInclude = $data['include'];
+        $relationsToExclude = $data['exclude'];
+
         $fullModelName = "App\\Models\\" . $modelName;
 
         // Verificar si la clase del modelo existe y es válida
@@ -143,7 +146,7 @@ class TransportadorasAPIController extends Controller
         }
 
         // Opcional: Verificar si el modelo es uno de los permitidos
-        $allowedModels = ['Transportadora', 'UpUser', 'Vendedore', 'UpUsersVendedoresLink', 'UpUsersRolesFrontLink', 'OrdenesRetiro','PedidosShopify','Provider','TransaccionPedidoTransportadora'];
+        $allowedModels = ['Transportadora', 'UpUser', 'Vendedore', 'UpUsersVendedoresLink', 'UpUsersRolesFrontLink', 'OrdenesRetiro', 'PedidosShopify', 'Provider', 'TransaccionPedidoTransportadora'];
 
         if (!in_array($modelName, $allowedModels)) {
             return response()->json(['error' => 'Acceso al modelo no permitido'], 403);
@@ -181,31 +184,32 @@ class TransportadorasAPIController extends Controller
             $databackend->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted]);
         }
 
-        $databackend->where(function ($databackend) use ($searchTerm, $filteFields) {
-            // foreach ($filteFields as $field) {
-            //     if (strpos($field, '.') !== false) {
-            //         $relacion = substr($field, 0, strpos($field, '.'));
-            //         $propiedad = substr($field, strpos($field, '.') + 1);
-            //         $this->recursiveWhereHasLike($databackend, $relacion, $propiedad, $searchTerm);
-            //     } else {
-            //         $databackend->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
-            //     }
-            // }
-            foreach ($filteFields as $field) {
-                if (strpos($field, '.') !== false) {
-                    $segments = explode('.', $field);
-                    $lastSegment = array_pop($segments);
-                    $relation = implode('.', $segments);
+        $databackend
+            // ->whereDoesntHave(['pedidoCarrier',''])
+            ->where(function ($databackend) use ($searchTerm, $filteFields) {
+                // foreach ($filteFields as $field) {
+                //     if (strpos($field, '.') !== false) {
+                //         $relacion = substr($field, 0, strpos($field, '.'));
+                //         $propiedad = substr($field, strpos($field, '.') + 1);
+                //         $this->recursiveWhereHasLike($databackend, $relacion, $propiedad, $searchTerm);
+                //     } else {
+                //         $databackend->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                //     }
+                // }
+                foreach ($filteFields as $field) {
+                    if (strpos($field, '.') !== false) {
+                        $segments = explode('.', $field);
+                        $lastSegment = array_pop($segments);
+                        $relation = implode('.', $segments);
 
-                    $databackend->orWhereHas($relation, function ($query) use ($lastSegment, $searchTerm) {
-                        $query->where($lastSegment, 'LIKE', '%' . $searchTerm . '%');
-                    });
-                } else {
-                    $databackend->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                        $databackend->orWhereHas($relation, function ($query) use ($lastSegment, $searchTerm) {
+                            $query->where($lastSegment, 'LIKE', '%' . $searchTerm . '%');
+                        });
+                    } else {
+                        $databackend->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                    }
                 }
-            }
-        })
-
+            })
             ->where((function ($databackend) use ($Map) {
                 foreach ($Map as $condition) {
                     foreach ($condition as $key => $valor) {
@@ -253,6 +257,31 @@ class TransportadorasAPIController extends Controller
                 }
             }));
 
+
+        // $relationsToInclude = ['ruta', 'transportadora'];
+        // $relationsToExclude = ['pedidoCarrier'];
+
+        // $relationsToInclude = ['pedidoCarrier'];
+        // $relationsToExclude = ['ruta', 'transportadora'];
+
+        if (isset($relationsToInclude)) {
+            error_log("IS relationsToInclude");
+            foreach ($relationsToInclude as $relation) {
+                error_log("Include relation: $relation");
+                $databackend->whereHas($relation);
+            }
+        }
+
+        if (isset($relationsToExclude)) {
+            error_log("IS relationsToInclude");
+            foreach ($relationsToExclude as $relation) {
+                error_log("Exclude relation: $relation");
+                $databackend->whereDoesntHave($relation);
+            }
+        }
+
+
+
         if ($orderBy !== null) {
             $databackend->orderBy(key($orderBy), reset($orderBy));
         }
@@ -261,6 +290,7 @@ class TransportadorasAPIController extends Controller
 
         return response()->json($databackend);
     }
+
     private function recursiveWhereHas($query, $relation, $property, $searchTerm)
     {
         if ($searchTerm == "null") {
@@ -280,6 +310,7 @@ class TransportadorasAPIController extends Controller
             });
         }
     }
+
     private function recursiveWhereHasLike($query, $relation, $property, $searchTerm)
     {
         if ($searchTerm == "null") {

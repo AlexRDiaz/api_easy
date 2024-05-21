@@ -565,6 +565,9 @@ class PedidosShopifyAPIController extends Controller
         // ! *************************************
         $Map = $data['and'];
         $not = $data['not'];
+        //*
+        $relationsToInclude = $data['include'];
+        $relationsToExclude = $data['exclude'];
         // ! *************************************
 
         // $pedidos = PedidosShopify::with(['transportadora', 'users', 'users.vendedores', 'pedidoFecha', 'ruta', 'printedBy', 'sentBy', 'product.warehouse.provider'])
@@ -637,6 +640,23 @@ class PedidosShopifyAPIController extends Controller
                     }
                 }
             }));
+
+        if (isset($relationsToInclude)) {
+            error_log("IS relationsToInclude");
+            foreach ($relationsToInclude as $relation) {
+                error_log("Include relation: $relation");
+                $pedidos->whereHas($relation);
+            }
+        }
+
+        if (isset($relationsToExclude)) {
+            error_log("IS relationsToInclude");
+            foreach ($relationsToExclude as $relation) {
+                error_log("Exclude relation: $relation");
+                $pedidos->whereDoesntHave($relation);
+            }
+        }
+
         // ! Ordenamiento ********************************** 
         $orderByText = null;
         $orderByDate = null;
@@ -2242,6 +2262,9 @@ class PedidosShopifyAPIController extends Controller
         // ! *************************************
         $Map = $data['and'];
         $not = $data['not'];
+        //*
+        $relationsToInclude = $data['include'];
+        $relationsToExclude = $data['exclude'];
         // ! *************************************
 
         $pedidos = PedidosShopify::with($populate)
@@ -2300,6 +2323,22 @@ class PedidosShopifyAPIController extends Controller
                     }
                 }
             }));
+
+        if (isset($relationsToInclude)) {
+            error_log("IS relationsToInclude");
+            foreach ($relationsToInclude as $relation) {
+                error_log("Include relation: $relation");
+                $pedidos->whereHas($relation);
+            }
+        }
+
+        if (isset($relationsToExclude)) {
+            error_log("IS relationsToInclude");
+            foreach ($relationsToExclude as $relation) {
+                error_log("Exclude relation: $relation");
+                $pedidos->whereDoesntHave($relation);
+            }
+        }
         // ! Ordenamiento ********************************** 
         $orderByText = null;
         $orderByDate = null;
@@ -4016,6 +4055,33 @@ class PedidosShopifyAPIController extends Controller
             return response()->json([
                 "data" => $createOrder,
             ], 200);
+        } catch (\Exception $e) {
+            error_log("ERROR: $e");
+            DB::rollback();
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function rutaTranspDestroy($id)
+    {
+        DB::beginTransaction();
+        try {
+            error_log("rutaTranspDestroy");
+            $pedidoRuta = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $id)->first();
+            $pedidoTransportadora = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $id)->first();
+
+            if (!$pedidoRuta  || !$pedidoTransportadora) {
+                return response()->json(['message' => 'No se encontraro pedidoRuta o pedidoTransportadora con el ID especificado'], 404);
+            }
+
+            $pedidoRuta->delete();
+            $pedidoTransportadora->delete();
+
+            DB::commit();
+            return response()->json(['message' => 'PedidoRuta y PedidoTransportadora eliminados correctamente'], 200);
+            
         } catch (\Exception $e) {
             error_log("ERROR: $e");
             DB::rollback();

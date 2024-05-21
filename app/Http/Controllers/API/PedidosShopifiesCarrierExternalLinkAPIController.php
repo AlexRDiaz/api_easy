@@ -37,20 +37,25 @@ class PedidosShopifiesCarrierExternalLinkAPIController extends Controller
             $pedidos_shopify_id = $data['order_id'];
             $carrier_id = $data['carrier_id'];
             $city_external_id = $data['city_external_id'];
-
+            $external_id = $data['external_id'];
+            
             $pedidoCarrier = PedidosShopifiesCarrierExternalLink::where('pedidos_shopify_id', $pedidos_shopify_id)->first();
 
             if ($pedidoCarrier != null) {
+                error_log("update");
                 $pedidoCarrier->pedidos_shopify_id = $pedidos_shopify_id;
                 $pedidoCarrier->carrier_id = $carrier_id;
                 $pedidoCarrier->city_external_id = $city_external_id;
+                $pedidoCarrier->external_id = $external_id;
                 $pedidoCarrier->save();
                 return response()->json(['message' => 'Registro actualizado con éxito', "res" => $pedidoCarrier], 200);
             } else {
+                error_log("new");
                 $newPedidoCarrier = new PedidosShopifiesCarrierExternalLink();
                 $newPedidoCarrier->pedidos_shopify_id = $pedidos_shopify_id;
                 $newPedidoCarrier->carrier_id = $carrier_id;
                 $newPedidoCarrier->city_external_id = $city_external_id;
+                $newPedidoCarrier->external_id = $external_id;
                 $newPedidoCarrier->save();
                 return response()->json(['message' => 'Registro creado con éxito', "res" => $newPedidoCarrier], 200);
             }
