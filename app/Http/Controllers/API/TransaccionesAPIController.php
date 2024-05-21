@@ -3,6 +3,10 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Models\PedidosShopifiesOperadoreLink;
+use App\Models\PedidosShopifiesRutaLink;
+use App\Models\PedidosShopifiesSubRutaLink;
+use App\Models\PedidosShopifiesTransportadoraLink;
 use App\Models\PedidosShopify;
 use App\Models\Transaccion;
 use App\Models\UpUser;
@@ -559,7 +563,7 @@ class TransaccionesAPIController extends Controller
                 // Obtener el último registro de transacción
                 $lastTransaction = $transaccionSellerPrevious->last();
                 error_log($lastTransaction);
-                if ($lastTransaction->origen !== 'reembolso' && $lastTransaction->origen !== 'envio' ) {
+                if ($lastTransaction->origen !== 'reembolso' && $lastTransaction->origen !== 'envio') {
                     return response()->json(["res" => "Transacciones ya Registradas"]);
                 }
             }
@@ -1650,79 +1654,79 @@ class TransaccionesAPIController extends Controller
         $reqTrans = [];
         $reqPedidos = [];
 
+        // if (!empty($ids)) {
         $firstIdTransaction = $ids[0];
-        $transactionFounded = Transaccion::where("id", $firstIdTransaction)->first();
-        $idTransFounded = $transactionFounded->id_origen;
 
-        // $providerTransaction = ProviderTransaction::where("origin_id", $idTransFounded)->first();
-        $providerTransactions = ProviderTransaction::where("origin_id", $idTransFounded)->get();
-        // $totalIds = count($ids);
-        error_log("-> pt -> $providerTransactions");
+        if (!empty($firstIdTransaction)) {
+
+            $transactionFounded = Transaccion::where("id", $firstIdTransaction)->first();
+            $idTransFounded = $transactionFounded->id_origen;
+
+            // $providerTransaction = ProviderTransaction::where("origin_id", $idTransFounded)->first();
+            $providerTransactions = ProviderTransaction::where("origin_id", $idTransFounded)->get();
+            // $totalIds = count($ids);
+            error_log("-> pt -> $providerTransactions");
+        }
+        // }
+        // ! ********************************
+        // $firstIdTransaction = $ids[0];
+        // $transactionFounded = Transaccion::where("id", $firstIdTransaction)->first();
+        // $idTransFounded = $transactionFounded->id_origen;
+
+        // // $providerTransaction = ProviderTransaction::where("origin_id", $idTransFounded)->first();
+        // $providerTransactions = ProviderTransaction::where("origin_id", $idTransFounded)->get();
+        // // $totalIds = count($ids);
+        // error_log("-> pt -> $providerTransactions");
+        // ! ********************************
         // ! ↓ esto se usa
         // $shouldProcessProviderTransaction = $providerTransaction != null && $providerTransaction->state == 1;
-
+        // ! deberia dejarle pasar 
 
         try {
             //code...
             $transaction = null;
 
-            foreach ($ids as $id) {
+            if (empty($firstIdTransaction)) {
+                $order = PedidosShopify::find($idOrigen);
+                if ($order->status != "PEDIDO PROGRAMADO") {
 
-                $transaction = Transaccion::where("id", $id)->first();
+                    $order->status = "PEDIDO PROGRAMADO";
+                    $order->estado_devolucion = "PENDIENTE";
+                    $order->estado_interno = "PENDIENTE";
+                    $order->estado_logistico = "PENDIENTE";
 
-                if ($transaction->origen == "retiro") {
-                    $retiro = OrdenesRetiro::find($transaction->id_origen);
-                    $retiro->estado = "RECHAZADO";
+                    $order->costo_devolucion = null;
+                    $order->costo_envio = null; //5.5
+                    $order->costo_transportadora = null; //2.75
+                    $order->value_product_warehouse = null;
+                    $order->value_referer = null;
 
-                    if ($transaction->tipo == "debit") {
-                        $this->CreditLocal(
-                            $transaction->id_vendedor,
-                            $transaction->monto,
-                            $transaction->id_origen,
-                            $transaction->codigo,
-                            "reembolso",
-                            "reembolso por retiro cancelado",
-                            $generated_by
-                        );
-                    }
-                } else {
+                    $order->save();
 
-                    $order = PedidosShopify::find($transaction->id_origen);
-                    if ($order->status != "PEDIDO PROGRAMADO") {
-                        $order->status = "PEDIDO PROGRAMADO";
-                        $order->estado_devolucion = "PENDIENTE";
-                        $order->costo_devolucion = null;
-                        $order->costo_envio = null; //5.5
-                        $order->costo_transportadora = null; //2.75
-                        $order->value_product_warehouse = null;
-                        $order->value_referer = null;
-                        // $order->estado_interno = "PENDIENTE";
-                        // $order->estado_logistico = "PENDIENTE";
-                        // $order->estado_pagado = "PENDIENTE";
-                        $order->save();
-                    }
+                }
+
+                $pedidosShopifyRutaLink = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $order->id)->delete();
+                $pedidosDhopifyTransportadoraLink = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $order->id)->delete();
+                $pedidosDhopifySubrutaLink = PedidosShopifiesSubRutaLink::where('pedidos_shopify_id', $order->id)->delete();
+                $pedidosDhopifyOperadoreLink = PedidosShopifiesOperadoreLink::where('pedidos_shopify_id', $order->id)->delete();
 
 
+                if (
+                    $pedidosShopifyRutaLink > 0 &&
+                    $pedidosDhopifyTransportadoraLink > 0 &&
+                    $pedidosDhopifySubrutaLink > 0 &&
+                    $pedidosDhopifyOperadoreLink > 0
+                ) {
+                    error_log("ok! er");
+                }
+            } else {
+                foreach ($ids as $id) {
 
-                    array_push($reqTrans, $transaction);
-                    $pedido = PedidosShopify::where("id", $transaction->id_origen)->first();
+                    $transaction = Transaccion::where("id", $id)->first();
+                    if ($transaction->origen == "retiro") {
+                        $retiro = OrdenesRetiro::find($transaction->id_origen);
+                        $retiro->estado = "RECHAZADO";
 
-                    if ($transaction->state == 1) {
-
-                        array_push($reqPedidos, $pedido);
-
-                        $vendedor = UpUser::find($transaction->id_vendedor)->vendedores;
-                        if ($transaction->tipo == "credit") {
-                            $this->DebitLocal(
-                                $transaction->id_vendedor,
-                                $transaction->monto,
-                                $transaction->id_origen,
-                                $transaction->codigo,
-                                "reembolso",
-                                "reembolso por restauracion de pedido",
-                                $generated_by
-                            );
-                        }
                         if ($transaction->tipo == "debit") {
                             $this->CreditLocal(
                                 $transaction->id_vendedor,
@@ -1730,16 +1734,86 @@ class TransaccionesAPIController extends Controller
                                 $transaction->id_origen,
                                 $transaction->codigo,
                                 "reembolso",
-                                "reembolso por restauracion de pedido",
+                                "reembolso por retiro cancelado",
                                 $generated_by
                             );
                         }
-                        $transaction->state = 0;
-                        $transaction->save();
-                        $this->vendedorRepository->update($vendedor[0]->saldo, $vendedor[0]->id);
+                    } else {
+
+                        $order = PedidosShopify::find($transaction->id_origen);
+                        if ($order->status != "PEDIDO PROGRAMADO") {
+
+                            $order->status = "PEDIDO PROGRAMADO";
+                            $order->estado_devolucion = "PENDIENTE";
+                            $order->estado_interno = "PENDIENTE";
+                            $order->estado_logistico = "PENDIENTE";
+
+                            $order->costo_devolucion = null;
+                            $order->costo_envio = null; //5.5
+                            $order->costo_transportadora = null; //2.75
+                            $order->value_product_warehouse = null;
+                            $order->value_referer = null;
+
+                            $order->save();
+
+                        }
+
+
+
+                        $pedidosShopifyRutaLink = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $order->id)->delete();
+                        $pedidosDhopifyTransportadoraLink = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $order->id)->delete();
+                        $pedidosDhopifySubrutaLink = PedidosShopifiesSubRutaLink::where('pedidos_shopify_id', $order->id)->delete();
+                        $pedidosDhopifyOperadoreLink = PedidosShopifiesOperadoreLink::where('pedidos_shopify_id', $order->id)->delete();
+
+
+                        if (
+                            $pedidosShopifyRutaLink > 0 &&
+                            $pedidosDhopifyTransportadoraLink > 0 &&
+                            $pedidosDhopifySubrutaLink > 0 &&
+                            $pedidosDhopifyOperadoreLink > 0
+                        ) {
+                            error_log("ok! er");
+                        }
+
+
+                        array_push($reqTrans, $transaction);
+                        $pedido = PedidosShopify::where("id", $transaction->id_origen)->first();
+
+                        if ($transaction->state == 1) {
+
+                            array_push($reqPedidos, $pedido);
+
+                            $vendedor = UpUser::find($transaction->id_vendedor)->vendedores;
+                            if ($transaction->tipo == "credit") {
+                                $this->DebitLocal(
+                                    $transaction->id_vendedor,
+                                    $transaction->monto,
+                                    $transaction->id_origen,
+                                    $transaction->codigo,
+                                    "reembolso",
+                                    "reembolso por restauracion de pedido",
+                                    $generated_by
+                                );
+                            }
+                            if ($transaction->tipo == "debit") {
+                                $this->CreditLocal(
+                                    $transaction->id_vendedor,
+                                    $transaction->monto,
+                                    $transaction->id_origen,
+                                    $transaction->codigo,
+                                    "reembolso",
+                                    "reembolso por restauracion de pedido",
+                                    $generated_by
+                                );
+                            }
+                            $transaction->state = 0;
+                            $transaction->save();
+                            $this->vendedorRepository->update($vendedor[0]->saldo, $vendedor[0]->id);
+                        }
                     }
                 }
             }
+
 
             // $providerTransactions
             if (!empty($providerTransactions)) {
