@@ -1667,17 +1667,6 @@ class TransaccionesAPIController extends Controller
             // $totalIds = count($ids);
             error_log("-> pt -> $providerTransactions");
         }
-        // }
-        // ! ********************************
-        // $firstIdTransaction = $ids[0];
-        // $transactionFounded = Transaccion::where("id", $firstIdTransaction)->first();
-        // $idTransFounded = $transactionFounded->id_origen;
-
-        // // $providerTransaction = ProviderTransaction::where("origin_id", $idTransFounded)->first();
-        // $providerTransactions = ProviderTransaction::where("origin_id", $idTransFounded)->get();
-        // // $totalIds = count($ids);
-        // error_log("-> pt -> $providerTransactions");
-        // ! ********************************
         // ! ↓ esto se usa
         // $shouldProcessProviderTransaction = $providerTransaction != null && $providerTransaction->state == 1;
         // ! deberia dejarle pasar 
