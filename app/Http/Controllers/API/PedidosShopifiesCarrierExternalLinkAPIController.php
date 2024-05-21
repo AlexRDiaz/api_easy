@@ -30,6 +30,7 @@ class PedidosShopifiesCarrierExternalLinkAPIController extends Controller
     public function store(Request $request)
     {
         //
+        error_log("PedidosCarrierLinkAPI store");
         try {
             $data = $request->json()->all();
             // return response()->json($data, 200);
@@ -60,6 +61,7 @@ class PedidosShopifiesCarrierExternalLinkAPIController extends Controller
                 return response()->json(['message' => 'Registro creado con éxito', "res" => $newPedidoCarrier], 200);
             }
         } catch (\Exception $e) {
+            error_log("Error: $e");
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
