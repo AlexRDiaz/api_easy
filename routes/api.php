@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\API\CarrierCoverageAPIController;
 use App\Http\Controllers\API\CarrierExternalAPIController;
+use App\Http\Controllers\API\DBBackUpAPIController;
 use App\Http\Controllers\API\DpaProvinciaAPIController;
 use App\Http\Controllers\API\GenerateReportAPIController;
 use App\Http\Controllers\API\IntegrationAPIController;
@@ -299,7 +300,7 @@ Route::middleware(['cors'])->group(function () {
     Route::post('pedidos-shopify/products/values/provider', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'CalculateValuesProvider']);
     Route::post('pedidos-shopify/values/external_carrier', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'CalculateValuesExternalCarrier']);
 
-    
+
     Route::post('pedidos-shopify/testChatby', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'testChatby']);
 
 
@@ -373,7 +374,7 @@ Route::middleware(['cors'])->group(function () {
     Route::post('/report', [GenerateReportAPIController::class, 'generateExcel']);
 
 
-   
+
 
 
 
@@ -595,9 +596,14 @@ Route::middleware(['cors'])->group(function () {
         Route::post('/', [PedidosShopifiesCarrierExternalLinkAPIController::class, 'store']);
         Route::put('/{id}', [PedidosShopifiesCarrierExternalLinkAPIController::class, 'update']);
         Route::put('byorder/{id}', [PedidosShopifiesCarrierExternalLinkAPIController::class, 'updateByOrder']);
+        Route::delete('/{id}', [PedidosShopifiesCarrierExternalLinkAPIController::class, 'destroy']); //not yet
+
     });
 
-    //...
+    //  *
+    Route::get('dbbackup', [DBBackUpAPIController::class, 'db_backup']);
+    Route::delete('rutatransp/delete/{id}', [PedidosShopifyAPIController::class, 'rutaTranspDestroy']); //*
+
 });
 
 

@@ -15,9 +15,15 @@ use App\Models\NovedadesPedidosShopifyLink;
 use App\Models\PedidosShopifiesCarrierExternalLink;
 use App\Models\PedidosShopify;
 use App\Models\Product;
+use App\Models\Provider;
+use App\Models\ProviderTransaction;
 use App\Models\Reserve;
 use App\Models\StockHistory;
+use App\Models\Transaccion;
+use App\Models\UpUser;
 use App\Models\Vendedore;
+use App\Repositories\vendedorRepository;
+use DateTime;
 use Fpdf\Fpdf;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
@@ -342,8 +348,8 @@ class IntegrationAPIController extends Controller
                 $prov_destiny = $orderData["pedido_carrier"][0]["city_external"]['id'];
                 $city_destiny = $orderData["pedido_carrier"][0]["city_external"]['id_provincia'];
 
-                // error_log("prov_destiny: $prov_destiny");
-                // error_log("city_destiny: $city_destiny");
+                error_log("prov_destiny: $prov_destiny");
+                error_log("city_destiny: $city_destiny");
 
                 $carrierExternal = CarriersExternal::where('id', 1)->first();
                 // error_log("carrierExternal: $carrierExternal");
@@ -358,6 +364,8 @@ class IntegrationAPIController extends Controller
 
                 $city_type = CarrierCoverage::where('id_carrier', 1)->where('id_coverage', $city_destiny)->first();
                 $coverage_type = $city_type['type'];
+
+                $orderid = $orderData['id'];
 
                 DB::beginTransaction();
                 try {
@@ -377,7 +385,7 @@ class IntegrationAPIController extends Controller
 
                             // error_log("Estado: $key, Nombre Local: $name_local, ID Ref: $id_ref, Nombre: $name, ID: $id");
                             $iva = 0.15; //15%
-                            $costo_easy = 2; 
+                            $costo_easy = 2;
 
                             if ($key == "estado_interno") {
                                 // $order->estado_devolucion = "";
@@ -484,6 +492,26 @@ class IntegrationAPIController extends Controller
 
 
                                 if ($name_local == "ENTREGADO") {
+
+                                    //TRANSACCIONES
+                                    //paymentOrderDelivered
+                                    $transaccionSellerPrevious = Transaccion::where('id_origen', $orderid)
+                                        ->get();
+
+                                    if ($transaccionSellerPrevious->isNotEmpty()) {
+                                        // Obtener el último registro de transacción
+                                        $lastTransaction = $transaccionSellerPrevious->last();
+                                        // error_log($lastTransaction);
+                                        error_log("$lastTransaction->origen");
+
+                                        if ($lastTransaction->origen !== 'reembolso' && $lastTransaction->origen !== 'envio') {
+                                            // return response()->json(["res" => "Transacciones ya Registradas"]);
+                                            return response()->json(['message' => "Error, Transacciones ya Registradas."], 400);
+                                        }
+                                    }
+
+                                    error_log("Registro de costos");
+                                    
                                     $order->status = $name_local;
                                     $order->fecha_entrega = $date;
                                     $order->status_last_modified_at = $currentDateTime;
@@ -491,7 +519,7 @@ class IntegrationAPIController extends Controller
 
                                     $nombreComercial = $order->users[0]->vendedores[0]->nombre_comercial;
                                     $codigo_order = $nombreComercial . "-" . $order->id;
-                                    error_log("codigo_order: $codigo_order");
+                                    // error_log("codigo_order: $codigo_order");
 
                                     //updt
                                     $deliveryPrice = 0;
@@ -499,17 +527,22 @@ class IntegrationAPIController extends Controller
                                         error_log("Provincial");
                                         if ($coverage_type == "Normal") {
                                             $deliveryPrice = (float)$costs['normal1'];
+                                            error_log("normal1: $deliveryPrice");
                                         } else {
                                             $deliveryPrice = (float)$costs['especial1'];
+                                            error_log("especial1: $deliveryPrice");
                                         }
                                     } else {
                                         error_log("Nacional");
                                         if ($coverage_type == "Normal") {
                                             $deliveryPrice = (float)$costs['normal2'];
+                                            error_log("normal2: $deliveryPrice");
                                         } else {
                                             $deliveryPrice = (float)$costs['especial2'];
+                                            error_log("especial2: $deliveryPrice");
                                         }
                                     }
+
                                     $deliveryPrice = $deliveryPrice + ($deliveryPrice * $iva);
                                     $deliveryPrice = round($deliveryPrice, 2);
 
@@ -547,36 +580,132 @@ class IntegrationAPIController extends Controller
                                     $deliveryPrice = round($deliveryPrice, 2);
                                     $deliveryPriceSeller = $deliveryPrice + $costo_easy;
                                     $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
+                                    $deliveryPriceSeller = round($deliveryPriceSeller, 2);
 
+                                    
                                     error_log("costo entrega after recaudo: $deliveryPrice");
                                     error_log("costo deliveryPriceSeller: $deliveryPriceSeller");
                                     $order->costo_transportadora = strval($deliveryPrice);
                                     $order->costo_envio = strval($deliveryPriceSeller);
 
-                                    //THIS solo para transacciones
-                                    // $SellerCreditFinalValue = $this->updateProductAndProviderBalance(
-                                    //     $variants,
-                                    //     $orderData['precio_total'],
-                                    //     'GTM',
-                                    //     $orderData['precio_total'],
-                                    //     $name_local,
-                                    //     $codigo_order,
+                                    $variants = json_decode($orderData['variant_details'], true);
 
-                                    // );
-
-                                    // if (isset($SellerCreditFinalValue['value_product_warehouse']) && $SellerCreditFinalValue['value_product_warehouse'] !== null) {
-                                    //     $order->value_product_warehouse = $SellerCreditFinalValue['value_product_warehouse'];
-                                    // } 
-
-                                    // $vendedor = Vendedore::where('id_master', $order->id_comercial)->first();
-                                    // if ($vendedor->referer != null) {
-                                    //     $vendedorPrincipal = Vendedore::where('id_master', $vendedor->referer)->first();
-                                    //     if ($vendedorPrincipal->referer_cost != 0) {
-                                    //         $order->value_referer = $vendedorPrincipal->referer_cost;
-                                    //     }
-                                    // }
+                                    
+                                    error_log("Transaccion nueva");
+                                    //transactions
+                                    $SellerCreditFinalValue = $this->updateProductAndProviderBalanceInt(
+                                        $variants,
+                                        $orderData['precio_total'],
+                                        1,  //cambiar
+                                        $orderid,
+                                        "ENTREGADO",
+                                        $codigo_order,
+                                    );
 
 
+                                    if (isset($SellerCreditFinalValue['value_product_warehouse']) && $SellerCreditFinalValue['value_product_warehouse'] !== null) {
+                                        $order->value_product_warehouse = $SellerCreditFinalValue['value_product_warehouse'];
+                                    }
+
+                                    $vendedor = Vendedore::where('id_master', $order->id_comercial)->first();
+                                    if ($vendedor->referer != null) {
+                                        $vendedorPrincipal = Vendedore::where('id_master', $vendedor->referer)->first();
+                                        if ($vendedorPrincipal->referer_cost != 0) {
+                                            $order->value_referer = $vendedorPrincipal->referer_cost;
+                                        }
+                                    }
+
+                                    // $order->save(); //esta al final so...
+                                    error_log("Registro de credit por pedido entregado");
+
+                                    $comentarioCredit = 'Recaudo  de valor por pedido ' . $order->status;
+
+                                    $monto = 0;
+                                    if ($SellerCreditFinalValue['total'] != null) {
+                                        $monto = $SellerCreditFinalValue['total'];
+                                    }
+
+                                    $this->CreditInt(
+                                        $order->id_comercial,
+                                        $monto,
+                                        $orderid,
+                                        'recaudo',
+                                        $codigo_order,
+                                        $comentarioCredit,
+                                        1   //cambiar
+                                    );
+
+                                    error_log("Registro de Debit por producto y por costo_envio");
+
+                                    $productValues = [];
+                                    // !*********
+                                    if (!empty($SellerCreditFinalValue['valor_producto'])) {
+                                        $productValues = $SellerCreditFinalValue['valor_producto'];
+                                        // No necesitas codificar a JSON si ya es un array
+                                        // $decodevalues = json_encode($productValues);
+                                        error_log(print_r($productValues, true));
+                                        foreach ($productValues as $valueProduct) {
+                                            // Asumiendo que $valueProduct es un número, podrías necesitar validar o formatearlo según sea necesario
+                                            $comentarioDebit = 'Costo de valor de Producto en Bodega ' . $order->status;
+                                            $this->DebitInt(
+                                                $order->id_comercial,
+                                                $valueProduct,
+                                                $orderid,
+                                                'valor producto bodega',
+                                                $codigo_order,
+                                                $comentarioDebit,
+                                                1   //cambiar
+                                            );
+                                        }
+                                    }
+
+
+                                    $this->DebitInt(
+                                        $order->id_comercial,
+                                        strval($deliveryPriceSeller),
+                                        $orderid,
+                                        'envio',
+                                        $codigo_order,
+                                        'Costo de envio por pedido ENTREGADO',
+                                        1   //cambiar
+                                    );
+
+                                    $vendedor = Vendedore::where("id_master", $order->id_comercial)->get();
+                                    $startDateFormatted = new DateTime();
+
+                                    if ($vendedor[0]->referer != null) {
+                                        $refered = Vendedore::where('id_master', $vendedor[0]->referer)->get();
+                                        $vendedorId = $vendedor[0]->referer;
+                                        $user = UpUser::where("id", $vendedorId)->with('vendedores')->first();
+                                        $vendedor = $user['vendedores'][0];
+                                        $saldo = $vendedor->saldo;
+                                        $nuevoSaldo = $saldo + $refered[0]->referer_cost;
+                                        $vendedor->saldo = $nuevoSaldo;
+
+                                        $newTrans = new Transaccion();
+
+                                        $newTrans->tipo = "credit";
+                                        $newTrans->monto = $refered[0]->referer_cost;
+                                        $newTrans->valor_actual = $nuevoSaldo;
+                                        $newTrans->valor_anterior = $saldo;
+                                        $newTrans->marca_de_tiempo = $startDateFormatted;
+                                        $newTrans->id_origen = $orderid;
+                                        $newTrans->codigo = $codigo_order;
+
+                                        $newTrans->origen = "referido";
+                                        $newTrans->comentario = "comision por referido";
+
+                                        $newTrans->id_vendedor = $vendedorId;
+                                        $newTrans->state = 1;
+                                        $newTrans->generated_by = 1; //cambiar
+                                        $newTrans->save();
+
+                                        $vendedorencontrado = Vendedore::findOrFail($user['vendedores'][0]['id']);
+                                        // Actualiza el saldo del vendedor
+                                        $vendedorencontrado->saldo = $nuevoSaldo;
+                                        $vendedorencontrado->save();
+                                    }
+                                    
                                     //
                                 } else if ($name_local == "NOVEDAD") {
                                     //
@@ -659,6 +788,8 @@ class IntegrationAPIController extends Controller
                                     $deliveryPrice = round($deliveryPrice, 2);
                                     $deliveryPriceSeller = $deliveryPrice + $costo_easy;
                                     $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
+                                    $deliveryPriceSeller = round($deliveryPriceSeller, 2);
+
 
                                     error_log("costo entrega after recaudo: $deliveryPrice");
                                     error_log("costo deliveryPriceSeller: $deliveryPriceSeller");
@@ -673,7 +804,6 @@ class IntegrationAPIController extends Controller
 
                                     $order->costo_devolucion = round(((float)$refound_seller), 2);
                                     // $order->cost_refound_external = round(((float)$refound_transp), 2);
-                                    $orderid = $orderData['id'];
                                     $pedidoCarrier = PedidosShopifiesCarrierExternalLink::where('pedidos_shopify_id', $orderid)->first();
                                     $pedidoCarrier->cost_refound_external = round(((float)$refound_transp), 2);
                                     $pedidoCarrier->save();
@@ -739,51 +869,9 @@ class IntegrationAPIController extends Controller
                                                 }
                                             }
                                         }
+                                    } else {
+                                        //producto normal: reducir stock general
                                     }
-                                    /*
-                                    error_log("$product->seller_owned");
-                                    $currentDateTime = date('Y-m-d H:i:s');
-
-                                    if ($product->seller_owned != 0) {
-                                        //
-                                        error_log("IS seller_owned");
-                                        $reserveController = new ReserveAPIController();
-
-                                        $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
-                                        $searchResult = json_decode($response->getContent());
-
-                                        if ($searchResult && $searchResult->response) {
-                                            $reserve = $searchResult->reserve;
-                                            $previous_stock = $reserve->stock;
-                                            if ($type == 0 && $quantity > $reserve->stock) {
-                                                $responses[] = ['message' => 'No Dispone de Stock en la Reserva'];
-                                                continue;
-                                            }
-
-                                            // Actualizar el stock
-                                            $reserve->stock += $quantity;
-
-                                            // Assuming you have a 'Reserve' model that you want to save after updating
-                                            $reserveModel = Reserve::find($reserve->id);
-                                            if ($reserveModel) {
-                                                $reserveModel->stock = $reserve->stock;
-                                                $reserveModel->save();
-                                            }
-
-                                            $createHistory = new StockHistory();
-                                            $createHistory->product_id = $productIdFromSKU;
-                                            $createHistory->variant_sku = $onlySku;
-                                            $createHistory->type = 1;
-                                            $createHistory->date = $currentDateTime;
-                                            $createHistory->units = $quantity;
-                                            $createHistory->last_stock_reserve = $previous_stock;
-                                            $createHistory->current_stock_reserve = $reserve->stock;
-                                            $createHistory->description = "Reducción de stock Reserva Pedido ENVIADO";
-                                            $createHistory->save();
-                                        }
-                                
-                                    } 
-                                    */
                                 } else {
                                     return response()->json(['message' => "Error, Order must be in NOVEDAD."], 400);
                                 }
@@ -817,15 +905,187 @@ class IntegrationAPIController extends Controller
         foreach ($warehousesList as $warehouseJson) {
             if (is_array($warehouseJson)) {
                 if (count($warehousesList) == 1) {
-                    $name = "{$warehouseJson['id_provincia']}";
+                    $name = $warehouseJson['id_provincia'];
+                    error_log("prov: $name, city: " . $warehouseJson['city']);
                 } else {
                     $lastWarehouse = end($warehousesList);
-                    $name = "{$lastWarehouse['id_provincia']}";
+                    $name = $lastWarehouse['id_provincia'];
+                    error_log("prov: $name, city: " . $warehouseJson['city']);
                 }
             } else {
                 error_log("El elemento de la lista no es un mapa válido: ");
             }
         }
         return $name;
+    }
+
+    public function updateProductAndProviderBalanceInt($variants, $totalPrice, $generated_by, $id_origin, $orderStatus, $codeOrder)
+    {
+        DB::beginTransaction();
+        try {
+            $responses = [];
+            $totalValueProductWarehouse = 0;
+
+
+            foreach ($variants as $variant) {
+                $quantity = $variant['quantity'];
+                $skuProduct = $variant['sku']; // Ahora el SKU viene dentro de cada variante
+
+                // foreach ($variant_details as $variant){}
+                if ($skuProduct == null) {
+                    $skuProduct = "UKNOWNPC0";
+                }
+                $productId = substr($skuProduct, strrpos($skuProduct, 'C') + 1);
+                $firstPart = substr($skuProduct, 0, strrpos($skuProduct, 'C'));
+
+                // Log::info('sku', [$firstPart]);
+
+                // Buscar el producto por ID
+                $product = Product::with('warehouse')->find($productId);
+
+                if ($product === null) {
+                    DB::commit();
+                    return ["total" => null, "valor_producto" => null, "value_product_warehouse" => null, "error" => "Product Not Found!"];
+                }
+
+                error_log("ak-> $id_origin");
+                error_log("ak-> $codeOrder");
+
+
+                $providerTransactionPrevious = ProviderTransaction::where('transaction_type', 'Pago Producto')
+                    ->where('status', 'ENTREGADO')
+                    ->where('origin_id', $id_origin)
+                    ->where('origin_code', $codeOrder)
+                    ->where('sku_product_reference', $skuProduct)
+                    ->first();
+
+                // error_log("ak-> $providerTransactionPrevious");
+
+                $price = 0;
+
+                if (!$providerTransactionPrevious) {
+                    $providerId = $product->warehouse->provider_id;
+                    $productName = $product->product_name;
+
+                    $price = $product->price;
+
+                    // Log::info('price', [$price]);
+
+
+                    $amountToDeduct = $price * $quantity;
+
+                    $total = $totalPrice;
+                    $diferencia = $amountToDeduct;
+
+                    $totalValueProductWarehouse += $price * $quantity;
+
+                    $provider = Provider::findOrFail($providerId);
+                    $provider->saldo += $amountToDeduct;
+                    $provider->save();
+
+
+                    $providerTransaction = new ProviderTransaction([
+                        'transaction_type' => 'Pago Producto',
+                        'amount' => $amountToDeduct,
+                        'previous_value' => $provider->saldo - $amountToDeduct,
+                        'current_value' => $provider->saldo,
+                        'timestamp' => now(),
+                        'origin_id' => $id_origin,
+                        'origin_code' => $codeOrder,
+                        // 'origin_code' => $skuProduct,
+                        'provider_id' => $providerId,
+                        'comment' => $productName,
+                        'generated_by' => $generated_by,
+                        'status' => $orderStatus,
+                        'description' => "Valor por guia ENTREGADA",
+                        'sku_product_reference' => $skuProduct
+                    ]);
+                    $providerTransaction->save();
+                    $responses[] = $diferencia;
+                }
+            }
+            DB::commit(); // Confirmar los cambios
+            return ["total" => $total, "valor_producto" => $responses, "value_product_warehouse" => $totalValueProductWarehouse, "error" => null];
+        } catch (\Exception $e) {
+            DB::rollback();
+            return ["total" => null, "valor_producto" => null, "value_product_warehouse" => null, "error" => $e->getMessage()];
+        }
+    }
+
+    public function CreditInt($vendedorId, $monto, $idOrigen, $origen, $codigo, $comentario, $generated_by)
+    {
+        $startDateFormatted = new DateTime();
+        // $startDateFormatted = Carbon::createFromFormat('j/n/Y H:i', $startDate)->format('Y-m-d H:i');
+        $tipo = "credit";
+
+        $user = UpUser::where("id", $vendedorId)->with('vendedores')->first();
+        $vendedor = $user['vendedores'][0];
+        $saldo = $vendedor->saldo;
+        $nuevoSaldo = $saldo + $monto;
+        $vendedor->saldo = $nuevoSaldo;
+
+        $newTrans = new Transaccion();
+
+        $newTrans->tipo = $tipo;
+        $newTrans->monto = $monto;
+        $newTrans->valor_anterior = $saldo;
+
+        $newTrans->valor_actual = $nuevoSaldo;
+        $newTrans->marca_de_tiempo = $startDateFormatted;
+        $newTrans->id_origen = $idOrigen;
+        $newTrans->codigo = $codigo;
+
+        $newTrans->origen = $origen;
+        $newTrans->comentario = $comentario;
+        $newTrans->id_vendedor = $vendedorId;
+        $newTrans->state = 1;
+        $newTrans->generated_by = $generated_by;
+        $newTrans->save();
+
+        $vendedorencontrado = Vendedore::findOrFail($user['vendedores'][0]['id']);
+        // Actualiza el saldo del vendedor
+        $vendedorencontrado->saldo = $nuevoSaldo;
+        $vendedorencontrado->save();
+
+        return response()->json("Monto acreditado");
+    }
+
+    public function DebitInt($vendedorId, $monto, $idOrigen, $origen, $codigo, $comentario, $generated_by)
+    {
+        $startDateFormatted = new DateTime();
+        //  $startDateFormatted = Carbon::createFromFormat('j/n/Y H:i', $startDate)->format('Y-m-d H:i');
+        $tipo = "debit";
+
+        $user = UpUser::where("id", $vendedorId)->with('vendedores')->first();
+        $vendedor = $user['vendedores'][0];
+        $saldo = $vendedor->saldo;
+        $nuevoSaldo = $saldo - $monto;
+        $vendedor->saldo = $nuevoSaldo;
+
+
+        $newTrans = new Transaccion();
+
+        $newTrans->tipo = $tipo;
+        $newTrans->monto = $monto;
+        $newTrans->valor_actual = $nuevoSaldo;
+        $newTrans->valor_anterior = $saldo;
+        $newTrans->marca_de_tiempo = $startDateFormatted;
+        $newTrans->id_origen = $idOrigen;
+        $newTrans->codigo = $codigo;
+
+        $newTrans->origen = $origen;
+        $newTrans->comentario = $comentario;
+
+        $newTrans->id_vendedor = $vendedorId;
+        $newTrans->state = 1;
+        $newTrans->generated_by = $generated_by;
+
+        $newTrans->save();
+
+        $vendedorencontrado = Vendedore::findOrFail($user['vendedores'][0]['id']);
+        // Actualiza el saldo del vendedor
+        $vendedorencontrado->saldo = $nuevoSaldo;
+        $vendedorencontrado->save();
+        return response()->json("Monto debitado");
     }
 }
