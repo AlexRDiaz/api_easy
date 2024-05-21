@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\PedidosShopifiesCarrierExternalLink;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class PedidosShopifiesCarrierExternalLinkAPIController extends Controller
 {
@@ -137,5 +138,26 @@ class PedidosShopifiesCarrierExternalLinkAPIController extends Controller
     public function destroy(string $id)
     {
         //
+        DB::beginTransaction();
+        try {
+            error_log("OrderCarrier Destroy");
+            $pedidoCarrier = PedidosShopifiesCarrierExternalLink::where('pedidos_shopify_id', $id)->first();
+
+            if (!$pedidoCarrier) {
+                return response()->json(['message' => 'No se encontraro pedidoCarrier con el ID especificado'], 404);
+            }
+
+            $pedidoCarrier->delete();
+
+            DB::commit();
+            return response()->json(['message' => 'PedidoCarrier eliminado correctamente'], 200);
+            
+        } catch (\Exception $e) {
+            error_log("ERROR: $e");
+            DB::rollback();
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }
