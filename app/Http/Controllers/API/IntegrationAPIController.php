@@ -590,7 +590,7 @@ class IntegrationAPIController extends Controller
 
                                     $variants = json_decode($orderData['variant_details'], true);
 
-                                    /*
+                                    
                                     error_log("Transaccion nueva");
                                     //transactions
                                     $SellerCreditFinalValue = $this->updateProductAndProviderBalanceInt(
@@ -705,7 +705,7 @@ class IntegrationAPIController extends Controller
                                         $vendedorencontrado->saldo = $nuevoSaldo;
                                         $vendedorencontrado->save();
                                     }
-                                    */
+                                    
                                     //
                                 } else if ($name_local == "NOVEDAD") {
                                     //
