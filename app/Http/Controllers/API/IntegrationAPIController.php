@@ -345,8 +345,8 @@ class IntegrationAPIController extends Controller
                 // error_log("Remitente product provincia: $prov_origen");
 
                 $orderData = json_decode($order, true);
-                $prov_destiny = $orderData["pedido_carrier"][0]["city_external"]['id'];
-                $city_destiny = $orderData["pedido_carrier"][0]["city_external"]['id_provincia'];
+                $prov_destiny = $orderData["pedido_carrier"][0]["city_external"]['id_provincia'];
+                $city_destiny = $orderData["pedido_carrier"][0]["city_external"]['id'];
 
                 error_log("prov_destiny: $prov_destiny");
                 error_log("city_destiny: $city_destiny");
@@ -511,7 +511,7 @@ class IntegrationAPIController extends Controller
                                     }
 
                                     error_log("Registro de costos");
-                                    
+
                                     $order->status = $name_local;
                                     $order->fecha_entrega = $date;
                                     $order->status_last_modified_at = $currentDateTime;
@@ -590,7 +590,7 @@ class IntegrationAPIController extends Controller
 
                                     $variants = json_decode($orderData['variant_details'], true);
 
-                                    
+                                    /*
                                     error_log("Transaccion nueva");
                                     //transactions
                                     $SellerCreditFinalValue = $this->updateProductAndProviderBalanceInt(
@@ -705,7 +705,7 @@ class IntegrationAPIController extends Controller
                                         $vendedorencontrado->saldo = $nuevoSaldo;
                                         $vendedorencontrado->save();
                                     }
-                                    
+                                    */
                                     //
                                 } else if ($name_local == "NOVEDAD") {
                                     //
