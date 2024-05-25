@@ -642,17 +642,17 @@ class PedidosShopifyAPIController extends Controller
             }));
 
         if (isset($relationsToInclude)) {
-            error_log("IS relationsToInclude");
+            // error_log("IS relationsToInclude");
             foreach ($relationsToInclude as $relation) {
-                error_log("Include relation: $relation");
+                // error_log("Include relation: $relation");
                 $pedidos->whereHas($relation);
             }
         }
 
         if (isset($relationsToExclude)) {
-            error_log("IS relationsToInclude");
+            // error_log("IS relationsToInclude");
             foreach ($relationsToExclude as $relation) {
-                error_log("Exclude relation: $relation");
+                // error_log("Exclude relation: $relation");
                 $pedidos->whereDoesntHave($relation);
             }
         }
@@ -2325,17 +2325,17 @@ class PedidosShopifyAPIController extends Controller
             }));
 
         if (isset($relationsToInclude)) {
-            error_log("IS relationsToInclude");
+            // error_log("IS relationsToInclude");
             foreach ($relationsToInclude as $relation) {
-                error_log("Include relation: $relation");
+                // error_log("Include relation: $relation");
                 $pedidos->whereHas($relation);
             }
         }
 
         if (isset($relationsToExclude)) {
-            error_log("IS relationsToInclude");
+            // error_log("IS relationsToInclude");
             foreach ($relationsToExclude as $relation) {
-                error_log("Exclude relation: $relation");
+                // error_log("Exclude relation: $relation");
                 $pedidos->whereDoesntHave($relation);
             }
         }

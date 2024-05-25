@@ -597,6 +597,7 @@ Route::middleware(['cors'])->group(function () {
         Route::put('/{id}', [PedidosShopifiesCarrierExternalLinkAPIController::class, 'update']);
         Route::put('byorder/{id}', [PedidosShopifiesCarrierExternalLinkAPIController::class, 'updateByOrder']);
         Route::delete('/{id}', [PedidosShopifiesCarrierExternalLinkAPIController::class, 'destroy']); //not yet
+        Route::get('/{id}', [PedidosShopifiesCarrierExternalLinkAPIController::class, 'show']);
 
     });
 

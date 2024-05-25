@@ -40,7 +40,7 @@ class PedidosShopifiesCarrierExternalLinkAPIController extends Controller
             $carrier_id = $data['carrier_id'];
             $city_external_id = $data['city_external_id'];
             $external_id = $data['external_id'];
-            
+
             $pedidoCarrier = PedidosShopifiesCarrierExternalLink::where('pedidos_shopify_id', $pedidos_shopify_id)->first();
 
             if ($pedidoCarrier != null) {
@@ -74,11 +74,12 @@ class PedidosShopifiesCarrierExternalLinkAPIController extends Controller
     {
         //
         $pedidoCarrier = PedidosShopifiesCarrierExternalLink::with(['carrier', 'cityExternal'])
-            ->findOrFail($id);
+            ->where('pedidos_shopify_id', $id)->first();
+
         if (!$pedidoCarrier) {
             return response()->json(['message' => 'pedidoCarrier no encontrada'], 404);
         }
-        return response()->json($pedidoCarrier);
+        return response()->json($pedidoCarrier, 200);
     }
 
     /**
@@ -151,7 +152,6 @@ class PedidosShopifiesCarrierExternalLinkAPIController extends Controller
 
             DB::commit();
             return response()->json(['message' => 'PedidoCarrier eliminado correctamente'], 200);
-            
         } catch (\Exception $e) {
             error_log("ERROR: $e");
             DB::rollback();
