@@ -4069,6 +4069,15 @@ class PedidosShopifyAPIController extends Controller
         DB::beginTransaction();
         try {
             error_log("rutaTranspDestroy");
+            $pedido = PedidosShopify::where('id', $id)->first();
+
+            $pedido->estado_interno = "PENDIENTE";
+            $pedido->fecha_confirmacion = null;
+            $pedido->confirmed_by = null;
+            $pedido->confirmed_at = null;
+            $pedido->name_comercial = null;
+            $pedido->save();
+
             $pedidoRuta = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $id)->first();
             $pedidoTransportadora = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $id)->first();
 
@@ -4078,6 +4087,7 @@ class PedidosShopifyAPIController extends Controller
 
             $pedidoRuta->delete();
             $pedidoTransportadora->delete();
+
 
             DB::commit();
             return response()->json(['message' => 'PedidoRuta y PedidoTransportadora eliminados correctamente'], 200);

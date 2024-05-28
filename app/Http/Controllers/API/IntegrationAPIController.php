@@ -366,6 +366,9 @@ class IntegrationAPIController extends Controller
                 $coverage_type = $city_type['type'];
 
                 $orderid = $orderData['id'];
+                $nombreComercial = $order->users[0]->vendedores[0]->nombre_comercial;
+                $codigo_order = $nombreComercial . "-" . $order->id;
+                // error_log("codigo_order: $codigo_order");
 
                 DB::beginTransaction();
                 try {
@@ -452,7 +455,7 @@ class IntegrationAPIController extends Controller
                                                 $createHistory->units = $quantity;
                                                 $createHistory->last_stock_reserve = $previous_stock;
                                                 $createHistory->current_stock_reserve = $reserve->stock;
-                                                $createHistory->description = "Reducción de stock Reserva Pedido ENVIADO";
+                                                $createHistory->description = "Reducción de stock Reserva Pedido ENVIADO $codigo_order";
                                                 $createHistory->save();
 
                                                 $responses[] = ['message' => 'Stock actualizado con éxito', 'reserve' => $reserveModel];
@@ -476,7 +479,7 @@ class IntegrationAPIController extends Controller
                                                     $createHistory->units = $quantity;
                                                     $createHistory->last_stock = $product->stock + $quantity;
                                                     $createHistory->current_stock = $product->stock;
-                                                    $createHistory->description = "Reducción de stock General Pedido ENVIADO";
+                                                    $createHistory->description = "Reducción de stock General Pedido ENVIADO $codigo_order";
 
                                                     $createHistory->save();
                                                 } else {
@@ -516,10 +519,6 @@ class IntegrationAPIController extends Controller
                                     $order->fecha_entrega = $date;
                                     $order->status_last_modified_at = $currentDateTime;
                                     // $order->status_last_modified_by = $idUser;
-
-                                    $nombreComercial = $order->users[0]->vendedores[0]->nombre_comercial;
-                                    $codigo_order = $nombreComercial . "-" . $order->id;
-                                    // error_log("codigo_order: $codigo_order");
 
                                     //updt
                                     $deliveryPrice = 0;
@@ -860,7 +859,7 @@ class IntegrationAPIController extends Controller
                                                     $createHistory->units = $quantity;
                                                     $createHistory->last_stock_reserve = $previous_stock;
                                                     $createHistory->current_stock_reserve = $reserve->stock;
-                                                    $createHistory->description = "Incremento de stock Reserva Pedido EN BODEGA";
+                                                    $createHistory->description = "Incremento de stock Reserva Pedido EN BODEGA $codigo_order";
                                                     $createHistory->save();
 
                                                     $responses[] = ['message' => 'Stock actualizado con éxito', 'reserve' => $reserveModel];

@@ -722,26 +722,30 @@ class ProductAPIController extends Controller
                     }
                 }
             })
-            ->where(function ($products) use ($andMap) {
+            ->where((function ($products) use ($andMap) {
                 foreach ($andMap as $condition) {
                     foreach ($condition as $key => $valor) {
                         $parts = explode("/", $key);
                         $type = $parts[0];
                         $filter = $parts[1];
-                        if (strpos($filter, '.') !== false) {
-                            $relacion = substr($filter, 0, strpos($filter, '.'));
-                            $propiedad = substr($filter, strpos($filter, '.') + 1);
-                            $this->recursiveWhereHas($products, $relacion, $propiedad, $valor);
+                        if ($valor === null) {
+                            $products->whereNull($filter);
                         } else {
-                            if ($type == "equals") {
-                                $products->where($filter, '=', $valor);
+                            if (strpos($filter, '.') !== false) {
+                                $relacion = substr($filter, 0, strpos($filter, '.'));
+                                $propiedad = substr($filter, strpos($filter, '.') + 1);
+                                $this->recursiveWhereHas($products, $relacion, $propiedad, $valor);
                             } else {
-                                $products->where($filter, 'LIKE', '%' . $valor . '%');
+                                if ($type == "equals") {
+                                    $products->where($filter, '=', $valor);
+                                } else {
+                                    $products->where($filter, 'LIKE', '%' . $valor . '%');
+                                }
                             }
                         }
                     }
                 }
-            })
+            }))
             ->whereHas('warehouses.provider', function ($query) {
                 $query->where('active', 1)->where('approved', 1)->take(1); //primera bodega, primer proveedor
             })
@@ -914,7 +918,7 @@ class ProductAPIController extends Controller
     //         return response()->json(['message' => 'Product not found'], 404);
     //     }
     // }
-    public function updateProductVariantStockInternal($variant_details, $type, $idComercial)
+    public function updateProductVariantStockInternal($variant_details, $type, $idComercial, $codigo_order)
     {
         error_log("updateProductVariantStock INTERNAL");
         $variants = json_decode($variant_details, true);
@@ -975,7 +979,7 @@ class ProductAPIController extends Controller
                         $createHistory->units = $quantity;
                         $createHistory->last_stock_reserve = $previous_stock;
                         $createHistory->current_stock_reserve = $reserve->stock;
-                        $createHistory->description = "Incremento de stock Reserva Pedido EN BODEGA";
+                        $createHistory->description = "Incremento de stock Reserva Pedido EN BODEGA $codigo_order";
                         $createHistory->save();
                     }
                 } else {
@@ -989,7 +993,7 @@ class ProductAPIController extends Controller
                     $createHistory->units = $quantity;
                     $createHistory->last_stock = $product->stock - $quantity;
                     $createHistory->current_stock = $product->stock;
-                    $createHistory->description = "Incremento de stock General Pedido EN BODEGA";
+                    $createHistory->description = "Incremento de stock General Pedido EN BODEGA $codigo_order";
 
                     $createHistory->save();
                 }
@@ -1001,7 +1005,7 @@ class ProductAPIController extends Controller
         // return response()->json($responses);
     }
 
-    // ! ↓ FUNCIONAL ↓ 
+    // ! ↓ FUNCIONAL ↓
     public function updateProductVariantStock(Request $request)
     {
         error_log("updateProductVariantStock");
@@ -1013,6 +1017,8 @@ class ProductAPIController extends Controller
         // $skuProduct = $data['sku_product']; // Esto tendrá un valor como "test2"
         // $type = $data['type'];
         $idComercial = $data['id_comercial'];
+        $code = $data['code'];
+        // error_log(" $code");
         $responses = [];
         if ($variants != null) {
             foreach ($variants as $variant) {
@@ -1061,7 +1067,7 @@ class ProductAPIController extends Controller
                     $createHistory->units = $quantity;
                     $createHistory->last_stock_reserve = $previous_stock;
                     $createHistory->current_stock_reserve = $reserve->stock;
-                    $createHistory->description = "Reducción de stock Reserva Pedido ENVIADO";
+                    $createHistory->description = "Reducción de stock Reserva Pedido ENVIADO $code";
                     $createHistory->save();
                     // Devolver la respuesta
                     // $responses[] = ['message' => 'Stock actualizado con éxito', 'reserve' => $reserveModel];
@@ -1085,7 +1091,7 @@ class ProductAPIController extends Controller
                         $createHistory->units = $quantity;
                         $createHistory->last_stock = $product->stock + $quantity;
                         $createHistory->current_stock = $product->stock;
-                        $createHistory->description = "Reducción de stock General Pedido ENVIADO";
+                        $createHistory->description = "Reducción de stock General Pedido ENVIADO $code";
 
                         $createHistory->save();
                     } else {
@@ -1097,5 +1103,129 @@ class ProductAPIController extends Controller
         }
 
         return response()->json($responses);
+    }
+
+    public function getProductVariantStock(Request $request)
+    {
+        error_log("getProductVariantStock");
+        try {
+
+            $reserveController = new ReserveAPIController();
+            $data = $request->json()->all();
+            // $variants = json_decode($data['variant_detail'], true);
+            $variants = $data['variant_detail'];
+            $idComercial = $data['id_comercial'];
+            $responses = [];
+
+            if ($variants != null) {
+                foreach ($variants as $variant) {
+                    $quantity = $variant['quantity'];
+                    $skuProduct = $variant['sku']; // Ahora el SKU viene dentro de cada variante
+
+                    $result = $this->splitSku($skuProduct);
+
+                    $onlySku = $result['sku'];
+                    $productIdFromSKU = $result['id'];
+
+
+                    $product = Product::find($productIdFromSKU);
+
+                    if ($product === null) {
+                        error_log("Id Product not found");
+                        return null;
+                    }
+                    if ($product) {
+                        error_log("Id Product found");
+
+                        $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
+                        //skuProduct|isAvaliable|#currentStock
+
+                        $searchResult = json_decode($response->getContent());
+
+                        if ($searchResult && $searchResult->response) {
+                            error_log("$productIdFromSKU-$onlySku Reserve found");
+
+                            $reserve = $searchResult->reserve;
+
+                            if ($quantity > $reserve->stock) {
+                                //skuProduct|0|#currentStock
+                                // $responses[] = ['message' => 'No Dispone de Stock en la Reserva'];
+                                // error_log("$skuProduct Reserve $quantity > $reserve->stock");
+                                error_log("$skuProduct|0|$reserve->stock|$quantity");
+                                $responses[] = "$skuProduct|0|$reserve->stock|$quantity";
+                                continue;
+                            } else {
+                                //skuProduct|1|#currentStock
+                                // error_log("$skuProduct Reserve $quantity < $reserve->stock");
+                                error_log("$skuProduct|1|$reserve->stock|$quantity");
+                                $responses[] = "$skuProduct|1|$reserve->stock|$quantity";
+                                continue;
+                            }
+                        } else {
+                            error_log("Product stock general");
+
+                            //stock general
+
+                            $isvariable = $product->isvariable;
+                            if ($product->stock < $quantity) {
+                                if ($isvariable == 1) {
+                                    //skuProduct|2|#currentStock
+                                    // error_log("$skuProduct *insufficient_stock general");
+                                    error_log("$skuProduct|2|$product->stock|$quantity");
+                                    $responses[] = "$skuProduct|2|$product->stock|$quantity";
+                                } else {
+                                    //skuProduct|0|#currentStock
+                                    // error_log("$skuProduct *insufficient_stock general");
+                                    error_log("$skuProduct|0|$product->stock|$quantity");
+                                    $responses[] = "$skuProduct|0|$product->stock|$quantity";
+                                }
+                            } else {
+                                if ($isvariable == 0) {
+                                    //skuProduct|1|#currentStock
+                                    // error_log("$skuProduct *sufficient_stock general $product->stock");
+                                    error_log("$skuProduct|1|$product->stock|$quantity");
+                                    $responses[] = "$skuProduct|1|$product->stock|$quantity";
+                                }
+                            }
+
+                            $features = json_decode($product->features, true);
+                            if ($isvariable == 1) {
+                                if (isset($features['variants']) && is_array($features['variants'])) {
+                                    // Aquí suponemos que 'features' contiene un array de variantes con su 'sku' y 'inventory_quantity'.
+                                    foreach ($features['variants'] as $key => $variant) {
+                                        // Verifica si el SKU de la variante coincide.
+                                        if ($variant['sku'] == $onlySku) {
+                                            $inventory_quantity = $variant['inventory_quantity'];
+                                            if ($variant['inventory_quantity'] < $quantity) {
+                                                //skuProduct|0|#currentStock
+                                                // error_log("$skuProduct *insufficient_stock_variant");
+                                                error_log("$skuProduct|0|$inventory_quantity|$quantity");
+                                                $responses[] = "$skuProduct|0|$inventory_quantity|$quantity";
+                                                continue;
+                                            } else {
+                                                //skuProduct|1|$variant['inventory_quantity']
+                                                // error_log("$skuProduct *aviable_stock_variant");
+                                                error_log("$skuProduct|1|$inventory_quantity|$quantity");
+                                                $responses[] = "$skuProduct|1|$inventory_quantity|$quantity";
+                                                continue;
+                                            }
+
+                                            break; // Salir del loop si ya encontramos y actualizamos la variante
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return response()->json($responses);
+        } catch (\Exception $e) {
+            error_log("Error: $e");
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

@@ -605,6 +605,9 @@ Route::middleware(['cors'])->group(function () {
     Route::get('dbbackup', [DBBackUpAPIController::class, 'db_backup']);
     Route::delete('rutatransp/delete/{id}', [PedidosShopifyAPIController::class, 'rutaTranspDestroy']); //*
 
+    Route::post('checkstock', [ProductAPIController::class, 'getProductVariantStock']);
+
+
 });
 
 
