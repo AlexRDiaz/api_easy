@@ -1018,7 +1018,7 @@ class ProductAPIController extends Controller
         // $type = $data['type'];
         $idComercial = $data['id_comercial'];
         $code = $data['code'];
-        // error_log(" $code");
+        error_log(" $code");
         $responses = [];
         if ($variants != null) {
             foreach ($variants as $variant) {
@@ -1101,7 +1101,7 @@ class ProductAPIController extends Controller
                 }
             }
         }
-
+        error_log("updateed ProductVariantStock");
         return response()->json($responses);
     }
 

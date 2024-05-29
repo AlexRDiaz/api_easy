@@ -265,17 +265,17 @@ class TransportadorasAPIController extends Controller
         // $relationsToExclude = ['ruta', 'transportadora'];
 
         if (isset($relationsToInclude)) {
-            error_log("IS relationsToInclude");
+            // error_log("IS relationsToInclude");
             foreach ($relationsToInclude as $relation) {
-                error_log("Include relation: $relation");
+                // error_log("Include relation: $relation");
                 $databackend->whereHas($relation);
             }
         }
 
         if (isset($relationsToExclude)) {
-            error_log("IS relationsToInclude");
+            // error_log("IS relationsToInclude");
             foreach ($relationsToExclude as $relation) {
-                error_log("Exclude relation: $relation");
+                // error_log("Exclude relation: $relation");
                 $databackend->whereDoesntHave($relation);
             }
         }
