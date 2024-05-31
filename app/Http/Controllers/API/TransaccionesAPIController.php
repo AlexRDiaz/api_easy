@@ -9,6 +9,7 @@ use App\Models\PedidosShopifiesSubRutaLink;
 use App\Models\PedidosShopifiesTransportadoraLink;
 use App\Models\PedidosShopify;
 use App\Models\Transaccion;
+use App\Models\TransactionsGlobal;
 use App\Models\UpUser;
 use App\Models\Vendedore;
 use App\Models\Product;
@@ -25,6 +26,7 @@ use App\Repositories\transaccionesRepository;
 use App\Repositories\vendedorRepository;
 use App\Repositories\providerRepository;
 use App\Repositories\providerTransactionRepository;
+use App\Repositories\transactionsGlobalRepository;
 
 use Carbon\Carbon;
 use DateTime;
@@ -39,6 +41,7 @@ use Illuminate\Support\Facades\Log;
 
 class TransaccionesAPIController extends Controller
 {
+    protected $transactionsGlobalRepository;
     protected $transaccionesRepository;
     protected $vendedorRepository;
     protected $providerTransactionRepository;
@@ -46,11 +49,13 @@ class TransaccionesAPIController extends Controller
 
     public function __construct(
         transaccionesRepository $transaccionesRepository,
+        transactionsGlobalRepository $transactionsGlobalRepository,
         vendedorRepository $vendedorRepository,
         providerTransactionRepository $providerTransactionRepository,
         providerRepository $providerRepository
     ) {
         $this->transaccionesRepository = $transaccionesRepository;
+        $this->transactionsGlobalRepository = $transactionsGlobalRepository;
         $this->vendedorRepository = $vendedorRepository;
         $this->providerTransactionRepository = $providerTransactionRepository;
         $this->providerRepository = $providerRepository;
@@ -539,6 +544,23 @@ class TransaccionesAPIController extends Controller
     }
 
 
+    private function parseDate($date, $default = null)
+    {
+        // Primero intentamos con el formato que incluye hora y minutos
+        $dateTime = DateTime::createFromFormat('j/n/Y H:i:s', $date . ':00'); // Añadimos segundos por defecto
+        if (!$dateTime) {
+            // Si falló, intentamos solo con la fecha
+            $dateTime = DateTime::createFromFormat('j/n/Y', $date);
+        }
+        // Si ninguna conversión fue exitosa, retornamos el valor por defecto
+        if (!$dateTime) {
+            return $default;
+        }
+        // Retornamos la fecha formateada como string
+        return $dateTime->format('Y-m-d H:i:s');
+    }
+
+
     public function paymentOrderDelivered(Request $request)
     {
         DB::beginTransaction();
@@ -549,7 +571,7 @@ class TransaccionesAPIController extends Controller
             $startDateFormatted = new DateTime();
 
             // $pedido = PedidosShopify::findOrFail($data['id_origen']);
-            $pedido = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades', 'operadore', 'transactionTransportadora',])->findOrFail($data['id_origen']);
+            $pedido = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades', 'operadore', 'transactionTransportadora', 'carrierExternal'])->findOrFail($data['id_origen']);
 
             // if ($pedido->costo_envio == null) {
             // error_log("Transaccion nueva");
@@ -569,7 +591,6 @@ class TransaccionesAPIController extends Controller
             }
 
             error_log("Transaccion nueva");
-
             $pedido->status = "ENTREGADO";
             $pedido->fecha_entrega = now()->format('j/n/Y');
             $pedido->status_last_modified_at = date('Y-m-d H:i:s');
@@ -629,6 +650,43 @@ class TransaccionesAPIController extends Controller
             $pedido->save();
 
 
+
+            // ! ************************************************************
+
+            // $newTransGlobal = TransactionsGlobal::where('id_order',$pedido->id)->first();
+            // if ($newTransGlobal) {
+            //     // Si la transacción existe, actualizar solo los campos necesarios
+            //     $newTransGlobal->admission_date = $pedido->marca_t_i; 
+            //     $newTransGlobal->delivery_date = $pedido->fecha_entrega; 
+            //     $newTransGlobal->status = $pedido->status;
+            //     $newTransGlobal->value_order = $pedido->precio_total; 
+            //     $newTransGlobal->delivery_cost = -$pedido->costo_envio; 
+            //     $newTransGlobal->id_seller = $pedido->id_comercial;
+            //     $newTransGlobal->internal_transportation_cost = $pedido->costo_transportadora; 
+            // } else {
+            // ? ********** verificacion de existencia de la transaccion global
+            $newTransGlobal = TransactionsGlobal::where('id_order', $pedido->id)->first();
+            if (!$newTransGlobal) {
+                $newTransGlobal = new TransactionsGlobal();
+            }
+
+            $newTransGlobal = new TransactionsGlobal();
+            $newTransGlobal->admission_date = $this->parseDate($pedido->marca_t_i);
+            $newTransGlobal->delivery_date = $this->parseDate($pedido->fecha_entrega);
+            $newTransGlobal->status = $pedido->status;
+            $newTransGlobal->return_state = "";
+            $newTransGlobal->id_order = $pedido->id;
+            $newTransGlobal->code = $pedido['users'][0]['vendedores'][0]['nombre_comercial'] . '-' . $pedido->numero_orden;
+            $newTransGlobal->origin = "Pedido " . $pedido->status; 
+            $newTransGlobal->withdrawal_price = 0;
+            $newTransGlobal->value_order = $pedido->precio_total;
+            $newTransGlobal->return_cost = 0;
+            $newTransGlobal->delivery_cost = -$pedido->costo_envio != null ? -$pedido->costo_envio : 0;
+            $newTransGlobal->notdelivery_cost = 0;
+            // ! ************************************************************
+
+
+
             $request->merge(['comentario' => 'Recaudo  de valor por pedido ' . $pedido->status]);
             $request->merge(['origen' => 'recaudo']);
 
@@ -652,7 +710,14 @@ class TransaccionesAPIController extends Controller
                     $request->merge(['monto' => $valueProduct]);
 
                     $this->Debit($request);
+
+                    // ! ***************************************************
+                    // $newTransGlobal->provider_cost = 0 ; 
+                    $newTransGlobal->provider_cost = -$valueProduct ; 
+                    // ! ***************************************************
                 }
+            } else {
+                $newTransGlobal->provider_cost = 0 ; 
             }
 
 
@@ -703,7 +768,61 @@ class TransaccionesAPIController extends Controller
 
                 $this->transaccionesRepository->create($newTrans);
                 $this->vendedorRepository->update($nuevoSaldo, $user['vendedores'][0]['id']);
+
+            } 
+
+            // ! ******************************************************************************
+            // ? falta la validadcion de creacion de una transaccion global adicional para el fererido
+
+            if (isset($refered[0]->referer_cost) && $refered[0]->referer_cost != null) {
+                $newTransGlobal->referer_cost = $refered[0]->referer_cost; 
+            } else {
+                $newTransGlobal->referer_cost = 0; // Valor por defecto si no hay referer_cost
             }
+
+            $newTransGlobal->total_transaction = ($newTransGlobal->value_order - ( $newTransGlobal->return_cost + $newTransGlobal->delivery_cost + $newTransGlobal->notdelivery_cost));  
+
+            // ! ****************************
+            $previousTransGlobal = TransactionsGlobal::where("id_seller",$pedido->id_comercial)
+            ->where("order_entry", $newTransGlobal->order_entry - 1 ) 
+            ->first();
+
+
+            if( $previousTransGlobal != null ){
+                $newTransGlobal->previous_value = $previousTransGlobal->current_value; 
+            }else{
+                $newTransGlobal->previous_value = 0; 
+            }
+            // ! ****************************
+            $newTransGlobal->current_value = ($newTransGlobal->previous_value + $newTransGlobal->total_transaction);
+            $newTransGlobal->state = 1;
+            $newTransGlobal->id_seller = $pedido->id_comercial;
+            // ! *************
+            if($pedido['carrier_external'] == null ){
+                $newTransGlobal->internal_transportation_cost = -$pedido->costo_transportadora; 
+                $newTransGlobal->external_transportation_cost = 0; 
+
+            }else{
+                $newTransGlobal->internal_transportation_cost = 0; 
+                $newTransGlobal->external_transportation_cost = -$pedido->costo_transportadora;; 
+            }
+            // ! *************
+            $newTransGlobal->external_return_cost = $pedido['carrier_external'] != null ? $pedido['carrier_external']['cost_refound_external']  : 0 ;            
+
+            $this->transactionsGlobalRepository->create($newTransGlobal);
+
+            error_log("Nueva transacción global creada: ID " . $newTransGlobal->id);
+
+            if ($newTransGlobal->id) {
+                error_log("Se creó la nueva transacción!");
+            } else {
+                error_log("Error al crear la nueva transacción.");
+            }
+
+
+            // ! ******************************************************************************
+
+
 
             // error_log("add en tpt");
 
@@ -755,6 +874,7 @@ class TransaccionesAPIController extends Controller
             // }
 
         } catch (\Exception $e) {
+            error_log(`${$e->getMessage()}`);
             DB::rollback(); // En caso de error, revierte todos los cambios realizados en la transacción
             // Maneja el error aquí si es necesario
             return response()->json([
@@ -762,7 +882,6 @@ class TransaccionesAPIController extends Controller
             ], 500);
         }
     }
-
 
     public function paymentOrderNotDelivered(Request $request)
     {
@@ -786,6 +905,15 @@ class TransaccionesAPIController extends Controller
                 $request->merge(['origen' => 'envio']);
                 $request->merge(['monto' => $data['monto_debit']]);
                 $this->Debit($request);
+
+
+                // ! generacion transaccion global 
+                $newTransGlobal = TransactionsGlobal::where('id_order', $pedido->id)->first();
+                if (!$newTransGlobal) {
+                    $newTransGlobal = new TransactionsGlobal();
+                }
+        
+
             }
             $costoTransportadora = $pedido['transportadora'][0]['costo_transportadora'];
             $pedido->costo_transportadora = $costoTransportadora;
@@ -1683,8 +1811,8 @@ class TransaccionesAPIController extends Controller
 
                     $order->status = "PEDIDO PROGRAMADO";
                     $order->estado_devolucion = "PENDIENTE";
-                    $order->estado_interno = "PENDIENTE";
-                    $order->estado_logistico = "PENDIENTE";
+                    // $order->estado_interno = "PENDIENTE";
+                    // $order->estado_logistico = "PENDIENTE";
 
                     $order->costo_devolucion = null;
                     $order->costo_envio = null; //5.5
@@ -1695,21 +1823,25 @@ class TransaccionesAPIController extends Controller
                     $order->save();
 
                 }
+                
+                // ! el pendiente del grupo --->>>  debe cambiar el estado logistico 
 
-                $pedidosShopifyRutaLink = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $order->id)->delete();
-                $pedidosDhopifyTransportadoraLink = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $order->id)->delete();
-                $pedidosDhopifySubrutaLink = PedidosShopifiesSubRutaLink::where('pedidos_shopify_id', $order->id)->delete();
-                $pedidosDhopifyOperadoreLink = PedidosShopifiesOperadoreLink::where('pedidos_shopify_id', $order->id)->delete();
+                // ! estas relaciones 
+
+                // $pedidosShopifyRutaLink = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $order->id)->delete();
+                // $pedidosDhopifyTransportadoraLink = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $order->id)->delete();
+                // $pedidosDhopifySubrutaLink = PedidosShopifiesSubRutaLink::where('pedidos_shopify_id', $order->id)->delete();
+                // $pedidosDhopifyOperadoreLink = PedidosShopifiesOperadoreLink::where('pedidos_shopify_id', $order->id)->delete();
 
 
-                if (
-                    $pedidosShopifyRutaLink > 0 &&
-                    $pedidosDhopifyTransportadoraLink > 0 &&
-                    $pedidosDhopifySubrutaLink > 0 &&
-                    $pedidosDhopifyOperadoreLink > 0
-                ) {
-                    error_log("ok! er");
-                }
+                // if (
+                //     $pedidosShopifyRutaLink > 0 &&
+                //     $pedidosDhopifyTransportadoraLink > 0 &&
+                //     $pedidosDhopifySubrutaLink > 0 &&
+                //     $pedidosDhopifyOperadoreLink > 0
+                // ) {
+                //     error_log("ok! er");
+                // }
             } else {
                 foreach ($ids as $id) {
 
@@ -1736,8 +1868,8 @@ class TransaccionesAPIController extends Controller
 
                             $order->status = "PEDIDO PROGRAMADO";
                             $order->estado_devolucion = "PENDIENTE";
-                            $order->estado_interno = "PENDIENTE";
-                            $order->estado_logistico = "PENDIENTE";
+                            // $order->estado_interno = "PENDIENTE";
+                            // $order->estado_logistico = "PENDIENTE";
 
                             $order->costo_devolucion = null;
                             $order->costo_envio = null; //5.5
@@ -1751,20 +1883,20 @@ class TransaccionesAPIController extends Controller
 
 
 
-                        $pedidosShopifyRutaLink = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $order->id)->delete();
-                        $pedidosDhopifyTransportadoraLink = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $order->id)->delete();
-                        $pedidosDhopifySubrutaLink = PedidosShopifiesSubRutaLink::where('pedidos_shopify_id', $order->id)->delete();
-                        $pedidosDhopifyOperadoreLink = PedidosShopifiesOperadoreLink::where('pedidos_shopify_id', $order->id)->delete();
+                        // $pedidosShopifyRutaLink = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $order->id)->delete();
+                        // $pedidosDhopifyTransportadoraLink = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $order->id)->delete();
+                        // $pedidosDhopifySubrutaLink = PedidosShopifiesSubRutaLink::where('pedidos_shopify_id', $order->id)->delete();
+                        // $pedidosDhopifyOperadoreLink = PedidosShopifiesOperadoreLink::where('pedidos_shopify_id', $order->id)->delete();
 
 
-                        if (
-                            $pedidosShopifyRutaLink > 0 &&
-                            $pedidosDhopifyTransportadoraLink > 0 &&
-                            $pedidosDhopifySubrutaLink > 0 &&
-                            $pedidosDhopifyOperadoreLink > 0
-                        ) {
-                            error_log("ok! er");
-                        }
+                        // if (
+                        //     $pedidosShopifyRutaLink > 0 &&
+                        //     $pedidosDhopifyTransportadoraLink > 0 &&
+                        //     $pedidosDhopifySubrutaLink > 0 &&
+                        //     $pedidosDhopifyOperadoreLink > 0
+                        // ) {
+                        //     error_log("ok! er");
+                        // }
 
 
                         array_push($reqTrans, $transaction);
