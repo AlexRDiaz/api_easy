@@ -2099,8 +2099,10 @@ class PedidosShopifyAPIController extends Controller
             $variants = implode(', ', array_column(array_slice($listOfProducts, 0), 'variant_title'));
 
             error_log("******************proceso 2 terminado************************\n");
-            error_log("******************numero de orden: . $order_number. ************************\n");
+            error_log("********numero_orden: $order_number-$id: ".json_encode($productos));
             error_log("******************variantes: . $variants. ************************\n");
+
+            error_log("lastIdProduct: $lastIdProduct");
 
             $createOrder = new PedidosShopify([
                 'marca_t_i' => $fechaHoraActual,
@@ -2144,6 +2146,7 @@ class PedidosShopifyAPIController extends Controller
             $createUserPedido->user_id = $id;
             $createUserPedido->pedidos_shopify_id = $createOrder->id;
             $createUserPedido->save();
+
             $user = UpUser::with([
                 'vendedores',
             ])->find($id);
@@ -2177,8 +2180,10 @@ class PedidosShopifyAPIController extends Controller
                     ]);
                 }
             }
+
             error_log("******************proceso 5 terminado************************\n");
 
+            error_log("order created ID: $createOrder->id");
             return response()->json([
                 'message' => 'La orden se ha registrado con éxito.',
                 'orden_ingresada' => $createOrder,
@@ -4091,7 +4096,6 @@ class PedidosShopifyAPIController extends Controller
 
             DB::commit();
             return response()->json(['message' => 'PedidoRuta y PedidoTransportadora eliminados correctamente'], 200);
-            
         } catch (\Exception $e) {
             error_log("ERROR: $e");
             DB::rollback();

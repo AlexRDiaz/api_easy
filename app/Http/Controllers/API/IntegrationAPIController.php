@@ -367,7 +367,7 @@ class IntegrationAPIController extends Controller
 
                 $orderid = $orderData['id'];
                 $nombreComercial = $order->users[0]->vendedores[0]->nombre_comercial;
-                $codigo_order = $nombreComercial . "-" . $order->id;
+                $codigo_order = $nombreComercial . "-" . $order->numero_orden;
                 // error_log("codigo_order: $codigo_order");
 
                 DB::beginTransaction();
