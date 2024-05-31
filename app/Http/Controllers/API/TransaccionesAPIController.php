@@ -912,7 +912,21 @@ class TransaccionesAPIController extends Controller
                 if (!$newTransGlobal) {
                     $newTransGlobal = new TransactionsGlobal();
                 }
-        
+    
+                $newTransGlobal = new TransactionsGlobal();
+                $newTransGlobal->admission_date = $this->parseDate($pedido->marca_t_i);
+                $newTransGlobal->delivery_date = $this->parseDate($pedido->fecha_entrega);
+                $newTransGlobal->status = $pedido->status;
+                $newTransGlobal->return_state = "";
+                $newTransGlobal->id_order = $pedido->id;
+                $newTransGlobal->code = $pedido['users'][0]['vendedores'][0]['nombre_comercial'] . '-' . $pedido->numero_orden;
+                $newTransGlobal->origin = "Pedido " . $pedido->status; 
+                $newTransGlobal->withdrawal_price = 0;
+                $newTransGlobal->value_order = $pedido->precio_total;
+                $newTransGlobal->return_cost = 0;
+                $newTransGlobal->delivery_cost =  0;
+                $newTransGlobal->notdelivery_cost = -$pedido->costo_envio != null ? -$pedido->costo_envio : 0;
+                
 
             }
             $costoTransportadora = $pedido['transportadora'][0]['costo_transportadora'];
