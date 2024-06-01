@@ -263,6 +263,10 @@ Route::middleware(['cors'])->group(function () {
     // ! ***********************
     // !  Rollback transactions
     Route::post("transacciones/rollback", [\App\Http\Controllers\API\TransaccionesAPIController::class, 'rollbackTransaction']);
+
+    // ? pedido programado ************
+    Route::post("transacciones/pedido-programado", [\App\Http\Controllers\API\TransaccionesAPIController::class, 'pedidoProgramado']);
+    // ? ------------------------------
     // ! ***********************
     // ! GetExistTransactions
     Route::post("transacciones/exist", [\App\Http\Controllers\API\TransaccionesAPIController::class, 'getExistTransaction']);

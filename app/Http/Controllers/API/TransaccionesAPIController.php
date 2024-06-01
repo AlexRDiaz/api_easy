@@ -1683,8 +1683,8 @@ class TransaccionesAPIController extends Controller
 
                     $order->status = "PEDIDO PROGRAMADO";
                     $order->estado_devolucion = "PENDIENTE";
-                    $order->estado_interno = "PENDIENTE";
-                    $order->estado_logistico = "PENDIENTE";
+                    // $order->estado_interno = "PENDIENTE";
+                    // $order->estado_logistico = "PENDIENTE";
 
                     $order->costo_devolucion = null;
                     $order->costo_envio = null; //5.5
@@ -1696,20 +1696,20 @@ class TransaccionesAPIController extends Controller
 
                 }
 
-                $pedidosShopifyRutaLink = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $order->id)->delete();
-                $pedidosDhopifyTransportadoraLink = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $order->id)->delete();
-                $pedidosDhopifySubrutaLink = PedidosShopifiesSubRutaLink::where('pedidos_shopify_id', $order->id)->delete();
-                $pedidosDhopifyOperadoreLink = PedidosShopifiesOperadoreLink::where('pedidos_shopify_id', $order->id)->delete();
+                // $pedidosShopifyRutaLink = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $order->id)->delete();
+                // $pedidosDhopifyTransportadoraLink = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $order->id)->delete();
+                // $pedidosDhopifySubrutaLink = PedidosShopifiesSubRutaLink::where('pedidos_shopify_id', $order->id)->delete();
+                // $pedidosDhopifyOperadoreLink = PedidosShopifiesOperadoreLink::where('pedidos_shopify_id', $order->id)->delete();
 
 
-                if (
-                    $pedidosShopifyRutaLink > 0 &&
-                    $pedidosDhopifyTransportadoraLink > 0 &&
-                    $pedidosDhopifySubrutaLink > 0 &&
-                    $pedidosDhopifyOperadoreLink > 0
-                ) {
-                    error_log("ok! er");
-                }
+                // if (
+                //     $pedidosShopifyRutaLink > 0 &&
+                //     $pedidosDhopifyTransportadoraLink > 0 &&
+                //     $pedidosDhopifySubrutaLink > 0 &&
+                //     $pedidosDhopifyOperadoreLink > 0
+                // ) {
+                //     error_log("ok! er");
+                // }
             } else {
                 foreach ($ids as $id) {
 
@@ -1736,8 +1736,8 @@ class TransaccionesAPIController extends Controller
 
                             $order->status = "PEDIDO PROGRAMADO";
                             $order->estado_devolucion = "PENDIENTE";
-                            $order->estado_interno = "PENDIENTE";
-                            $order->estado_logistico = "PENDIENTE";
+                            // $order->estado_interno = "PENDIENTE";
+                            // $order->estado_logistico = "PENDIENTE";
 
                             $order->costo_devolucion = null;
                             $order->costo_envio = null; //5.5
@@ -1751,20 +1751,20 @@ class TransaccionesAPIController extends Controller
 
 
 
-                        $pedidosShopifyRutaLink = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $order->id)->delete();
-                        $pedidosDhopifyTransportadoraLink = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $order->id)->delete();
-                        $pedidosDhopifySubrutaLink = PedidosShopifiesSubRutaLink::where('pedidos_shopify_id', $order->id)->delete();
-                        $pedidosDhopifyOperadoreLink = PedidosShopifiesOperadoreLink::where('pedidos_shopify_id', $order->id)->delete();
+                        // $pedidosShopifyRutaLink = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $order->id)->delete();
+                        // $pedidosDhopifyTransportadoraLink = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $order->id)->delete();
+                        // $pedidosDhopifySubrutaLink = PedidosShopifiesSubRutaLink::where('pedidos_shopify_id', $order->id)->delete();
+                        // $pedidosDhopifyOperadoreLink = PedidosShopifiesOperadoreLink::where('pedidos_shopify_id', $order->id)->delete();
 
 
-                        if (
-                            $pedidosShopifyRutaLink > 0 &&
-                            $pedidosDhopifyTransportadoraLink > 0 &&
-                            $pedidosDhopifySubrutaLink > 0 &&
-                            $pedidosDhopifyOperadoreLink > 0
-                        ) {
-                            error_log("ok! er");
-                        }
+                        // if (
+                        //     $pedidosShopifyRutaLink > 0 &&
+                        //     $pedidosDhopifyTransportadoraLink > 0 &&
+                        //     $pedidosDhopifySubrutaLink > 0 &&
+                        //     $pedidosDhopifyOperadoreLink > 0
+                        // ) {
+                        //     error_log("ok! er");
+                        // }
 
 
                         array_push($reqTrans, $transaction);
@@ -1953,6 +1953,96 @@ class TransaccionesAPIController extends Controller
         }
     }
 
+    public function pedidoProgramado(Request $request)
+    {
+        DB::beginTransaction();
+
+
+        $data = $request->json()->all();
+        // $generated_by = $data['generated_by'];
+
+        // $ids = $data['ids'];
+        $idOrigen = $data["id_origen"];
+        $comentario = $data["comentario"];
+        $reqTrans = [];
+        $reqPedidos = [];
+
+        // if (!empty($ids)) {
+        // $firstIdTransaction = $ids[0];
+
+        // if (!empty($firstIdTransaction)) {
+
+        //     $transactionFounded = Transaccion::where("id", $firstIdTransaction)->first();
+        //     $idTransFounded = $transactionFounded->id_origen;
+
+        //     // $providerTransaction = ProviderTransaction::where("origin_id", $idTransFounded)->first();
+        //     $providerTransactions = ProviderTransaction::where("origin_id", $idTransFounded)->get();
+        //     // $totalIds = count($ids);
+        //     error_log("-> pt -> $providerTransactions");
+        // }
+        // // ! ↓ esto se usa
+        // // $shouldProcessProviderTransaction = $providerTransaction != null && $providerTransaction->state == 1;
+        // // ! deberia dejarle pasar 
+
+        try {
+            //code...
+            $transaction = null;
+
+            // if (empty($firstIdTransaction)) {
+                $order = PedidosShopify::find($idOrigen);
+                if ($order->status != "PEDIDO PROGRAMADO") {
+
+                    $order->status = "PEDIDO PROGRAMADO";
+                    $order->estado_devolucion = "PENDIENTE";
+                    $order->estado_interno = "PENDIENTE";
+                    $order->estado_logistico = "PENDIENTE";
+                    $order->comentario = $comentario;
+
+                    $order->costo_devolucion = null;
+                    $order->costo_envio = null; //5.5
+                    $order->costo_transportadora = null; //2.75
+                    $order->value_product_warehouse = null;
+                    $order->value_referer = null;
+
+
+                    $order->confirmed_at = null;
+                    
+                    $order->save();
+
+                }
+
+                $pedidosShopifyRutaLink = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $order->id)->delete();
+                $pedidosDhopifyTransportadoraLink = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $order->id)->delete();
+                $pedidosDhopifySubrutaLink = PedidosShopifiesSubRutaLink::where('pedidos_shopify_id', $order->id)->delete();
+                $pedidosDhopifyOperadoreLink = PedidosShopifiesOperadoreLink::where('pedidos_shopify_id', $order->id)->delete();
+
+
+                if (
+                    $pedidosShopifyRutaLink > 0 &&
+                    $pedidosDhopifyTransportadoraLink > 0 &&
+                    $pedidosDhopifySubrutaLink > 0 &&
+                    $pedidosDhopifyOperadoreLink > 0
+                ) {
+                    error_log("ok! er");
+                }
+
+
+            $pedidos = !empty($ids) ? $ids[0] : null;
+
+            DB::commit();
+            return response()->json([
+                "transacciones" => $transaction,
+                "pedidos" => $pedidos
+            ]);
+        } catch (\Exception $e) {
+            DB::rollback();
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage(),
+                "req" => $reqTrans
+            ], 500);
+        }
+
+    }
 
     public function debitWithdrawal(Request $request, $id)
     {
