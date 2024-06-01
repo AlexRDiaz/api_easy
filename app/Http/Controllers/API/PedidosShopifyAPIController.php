@@ -2893,6 +2893,11 @@ class PedidosShopifyAPIController extends Controller
                 $pedido->printed_at = $currentDateTime;
                 $pedido->printed_by = $idUser;
             }
+            if ($value == "PENDIENTE") {  //from log,sell
+                $pedido->estado_logistico = $value;
+                // $pedido->printed_at = $currentDateTime;
+                // $pedido->printed_by = $idUser;
+            }
             if ($value == "ENVIADO") {  //from log,sell
                 $pedido->estado_logistico = $value;
                 $pedido->sent_at = $currentDateTime;

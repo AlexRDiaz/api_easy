@@ -1963,6 +1963,7 @@ class TransaccionesAPIController extends Controller
 
         // $ids = $data['ids'];
         $idOrigen = $data["id_origen"];
+        $comentario = $data["comentario"];
         $reqTrans = [];
         $reqPedidos = [];
 
@@ -1995,6 +1996,7 @@ class TransaccionesAPIController extends Controller
                     $order->estado_devolucion = "PENDIENTE";
                     $order->estado_interno = "PENDIENTE";
                     $order->estado_logistico = "PENDIENTE";
+                    $order->comentario = $comentario;
 
                     $order->costo_devolucion = null;
                     $order->costo_envio = null; //5.5
@@ -2002,6 +2004,9 @@ class TransaccionesAPIController extends Controller
                     $order->value_product_warehouse = null;
                     $order->value_referer = null;
 
+
+                    $order->confirmed_at = null;
+                    
                     $order->save();
 
                 }
@@ -2021,43 +2026,6 @@ class TransaccionesAPIController extends Controller
                     error_log("ok! er");
                 }
 
-            // } else {
-            //     // foreach ($ids as $id) {
-            //             $order = PedidosShopify::find($id);
-            //             if ($order->status != "PEDIDO PROGRAMADO") {
-
-            //                 $order->status = "PEDIDO PROGRAMADO";
-            //                 $order->estado_devolucion = "PENDIENTE";
-            //                 $order->estado_interno = "PENDIENTE";
-            //                 $order->estado_logistico = "PENDIENTE";
-
-            //                 $order->costo_devolucion = null;
-            //                 $order->costo_envio = null; //5.5
-            //                 $order->costo_transportadora = null; //2.75
-            //                 $order->value_product_warehouse = null;
-            //                 $order->value_referer = null;
-
-            //                 $order->save();
-
-            //             }
-            //             $pedidosShopifyRutaLink = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $order->id)->delete();
-            //             $pedidosDhopifyTransportadoraLink = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $order->id)->delete();
-            //             $pedidosDhopifySubrutaLink = PedidosShopifiesSubRutaLink::where('pedidos_shopify_id', $order->id)->delete();
-            //             $pedidosDhopifyOperadoreLink = PedidosShopifiesOperadoreLink::where('pedidos_shopify_id', $order->id)->delete();
-
-
-            //             if (
-            //                 $pedidosShopifyRutaLink > 0 &&
-            //                 $pedidosDhopifyTransportadoraLink > 0 &&
-            //                 $pedidosDhopifySubrutaLink > 0 &&
-            //                 $pedidosDhopifyOperadoreLink > 0
-            //             ) {
-            //                 error_log("ok! er");
-            //             }
-
-
-            //         }
-                // }
 
             $pedidos = !empty($ids) ? $ids[0] : null;
 
