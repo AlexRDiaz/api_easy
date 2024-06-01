@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Models\UpUser;
 use App\Models\UpUsersWarehouseLink;
 use Illuminate\Http\Request;
 
@@ -53,8 +54,29 @@ class UpUsersWarehouseLinkAPIController extends Controller
      */
     public function show(string $id)
     {
-        //
+        try {
+
+            $upUser = UpUser::with(['warehouses' => function ($query) {
+                $query->select('warehouses.warehouse_id', 'warehouses.branch_name');
+            }])->find($id);
+
+            if (!$upUser) {
+                return response()->json(['error' => 'User not found'], 404);
+            }
+
+            $warehouses = $upUser->warehouses->map(function ($warehouse) {
+                return $warehouse->warehouse_id . '|' . $warehouse->branch_name;
+            });
+
+            return response()->json($warehouses, 200);
+        } catch (\Exception $e) {
+            error_log("ERROR: $e");
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
+        }
     }
+
 
     /**
      * Show the form for editing the specified resource.
