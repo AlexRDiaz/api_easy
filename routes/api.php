@@ -27,8 +27,9 @@ use App\Http\Controllers\API\WarehouseAPIController;
 use App\Http\Controllers\API\ShopifyWebhookAPIController;
 use App\Http\Controllers\API\TransaccionesAPIController;
 use App\Http\Controllers\API\TransportadorasAPIController;
+use App\Http\Controllers\API\UpUsersWarehouseLinkAPIController;
 use App\Models\Reserve;
-
+use App\Models\UpUsersWarehouseLink;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -606,6 +607,7 @@ Route::middleware(['cors'])->group(function () {
     Route::delete('rutatransp/delete/{id}', [PedidosShopifyAPIController::class, 'rutaTranspDestroy']); //*
 
     Route::post('checkstock', [ProductAPIController::class, 'getProductVariantStock']);
+    Route::get('subprov/warehouses/{id}', [UpUsersWarehouseLinkAPIController::class, 'show']);
 
 
 });
