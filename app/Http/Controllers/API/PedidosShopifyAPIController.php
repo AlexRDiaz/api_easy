@@ -1603,10 +1603,35 @@ class PedidosShopifyAPIController extends Controller
 
         $query = PedidosShopify::query()
             ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta'])
-            ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate]);
+            ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])  ->where((function ($pedidos) use ($Map) {
+                foreach ($Map as $condition) {
+                    foreach ($condition as $key => $valor) {
+                        if (strpos($key, '.') !== false) {
+                            $relacion = substr($key, 0, strpos($key, '.'));
+                            $propiedad = substr($key, strpos($key, '.') + 1);
+                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                        } else {
+                            $pedidos->where($key, '=', $valor);
+                        }
+                    }
+                }
+            }))->where((function ($pedidos) use ($not) {
+                foreach ($not as $condition) {
+                    foreach ($condition as $key => $valor) {
+                        if (strpos($key, '.') !== false) {
+                            $relacion = substr($key, 0, strpos($key, '.'));
+                            $propiedad = substr($key, strpos($key, '.') + 1);
+                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                        } else {
+                            $pedidos->where($key, '!=', $valor);
+                        }
+                    }
+                }
+            }));
+        //     ;
 
-        $this->applyConditions($query, $Map);
-        $this->applyConditions($query, $not, true);
+        // $this->applyConditions($query, $Map);
+        // $this->applyConditions($query, $not, true);
 
 
         $query1 = clone $query;
