@@ -1040,7 +1040,7 @@ class ProductAPIController extends Controller
         $idComercial = $data['id_comercial'];
         $idOrder = $data['id'];
         $code = $data['code'];
-        // error_log("$idOrder");
+        error_log("editStock-$idOrder");
 
         $responses = [];
 
