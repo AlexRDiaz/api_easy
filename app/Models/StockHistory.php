@@ -41,7 +41,8 @@ class StockHistory extends Model
 		'last_stock' => 'int',
 		'current_stock' => 'int',
 		'last_stock_reserve' => 'int',
-		'current_stock_reserve' => 'int'
+		'current_stock_reserve' => 'int',
+		'pedidos_shopify_id' => 'int',
 	];
 
 	protected $fillable = [
@@ -55,6 +56,7 @@ class StockHistory extends Model
 		'description',
 		'last_stock_reserve',
 		'current_stock_reserve',
+		'pedidos_shopify_id',
 	];
 
 	public function product()

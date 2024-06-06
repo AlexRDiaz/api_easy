@@ -413,78 +413,101 @@ class IntegrationAPIController extends Controller
 
                                     $idComercial = $orderData['id_comercial'];
                                     $responses = [];
-                                    if ($variants != null) {
-                                        foreach ($variants as $variant) {
-                                            $quantity = $variant['quantity'];
-                                            $skuProduct = $variant['sku'];
-                                            $type = 0;
-                                            $productapi = new ProductAPIController();
 
-                                            $result = $productapi->splitSku($skuProduct);
+                                    $allow = true;
 
-                                            $onlySku = $result['sku'];
-                                            $productIdFromSKU = $result['id'];
-                                            $reserveController = new ReserveAPIController();
+                                    $historyOrder = StockHistory::where('pedidos_shopify_id', $order->id)
+                                        ->latest('id')
+                                        ->first();
 
-                                            $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
-                                            $searchResult = json_decode($response->getContent());
+                                    // error_log("historyOrder: $historyOrder");
+                                    if ($historyOrder) {
+                                        // El registro más reciente existe
+                                        if ($historyOrder->type == 0) {
+                                            $allow = false;
+                                            error_log("$order->id $historyOrder->type YA existe");
+                                        } else {
+                                            $allow = true;
+                                        }
+                                    }
 
-                                            if ($searchResult && $searchResult->response) {
-                                                $reserve = $searchResult->reserve;
-                                                $previous_stock = $reserve->stock;
-                                                if ($type == 0 && $quantity > $reserve->stock) {
-                                                    $responses[] = ['message' => 'No Dispone de Stock en la Reserva'];
-                                                    continue;
-                                                }
+                                    if ($allow) {
 
-                                                // Actualizar el stock
-                                                $reserve->stock -= $quantity;
+                                        if ($variants != null) {
+                                            foreach ($variants as $variant) {
+                                                $quantity = $variant['quantity'];
+                                                $skuProduct = $variant['sku'];
+                                                $type = 0;
+                                                $productapi = new ProductAPIController();
 
-                                                // Assuming you have a 'Reserve' model that you want to save after updating
-                                                $reserveModel = Reserve::find($reserve->id);
-                                                if ($reserveModel) {
-                                                    $reserveModel->stock = $reserve->stock;
-                                                    $reserveModel->save();
-                                                }
+                                                $result = $productapi->splitSku($skuProduct);
 
-                                                $createHistory = new StockHistory();
-                                                $createHistory->product_id = $productIdFromSKU;
-                                                $createHistory->variant_sku = $onlySku;
-                                                $createHistory->type = 0;
-                                                $createHistory->date = $currentDateTime;
-                                                $createHistory->units = $quantity;
-                                                $createHistory->last_stock_reserve = $previous_stock;
-                                                $createHistory->current_stock_reserve = $reserve->stock;
-                                                $createHistory->description = "Reducción de stock Reserva Pedido ENVIADO $codigo_order";
-                                                $createHistory->save();
+                                                $onlySku = $result['sku'];
+                                                $productIdFromSKU = $result['id'];
+                                                $reserveController = new ReserveAPIController();
 
-                                                $responses[] = ['message' => 'Stock actualizado con éxito', 'reserve' => $reserveModel];
-                                            } else {
-                                                // Encuentra el producto por su SKU.
-                                                $product = Product::find($productIdFromSKU);
+                                                $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
+                                                $searchResult = json_decode($response->getContent());
 
-                                                if ($product === null) {
-                                                    return null;
-                                                }
+                                                if ($searchResult && $searchResult->response) {
+                                                    $reserve = $searchResult->reserve;
+                                                    $previous_stock = $reserve->stock;
+                                                    if ($type == 0 && $quantity > $reserve->stock) {
+                                                        $responses[] = ['message' => 'No Dispone de Stock en la Reserva'];
+                                                        continue;
+                                                    }
 
-                                                if ($product) {
-                                                    $result = $product->changeStockGen($productIdFromSKU, $onlySku, $quantity, $type);
-                                                    $currentDateTime = date('Y-m-d H:i:s');
+                                                    // Actualizar el stock
+                                                    $reserve->stock -= $quantity;
+
+                                                    // Assuming you have a 'Reserve' model that you want to save after updating
+                                                    $reserveModel = Reserve::find($reserve->id);
+                                                    if ($reserveModel) {
+                                                        $reserveModel->stock = $reserve->stock;
+                                                        $reserveModel->save();
+                                                    }
 
                                                     $createHistory = new StockHistory();
                                                     $createHistory->product_id = $productIdFromSKU;
                                                     $createHistory->variant_sku = $onlySku;
-                                                    $createHistory->type = $type;
+                                                    $createHistory->type = 0;
                                                     $createHistory->date = $currentDateTime;
                                                     $createHistory->units = $quantity;
-                                                    $createHistory->last_stock = $product->stock + $quantity;
-                                                    $createHistory->current_stock = $product->stock;
-                                                    $createHistory->description = "Reducción de stock General Pedido ENVIADO $codigo_order";
-
+                                                    $createHistory->last_stock_reserve = $previous_stock;
+                                                    $createHistory->current_stock_reserve = $reserve->stock;
+                                                    $createHistory->pedidos_shopify_id = $order->id;
+                                                    $createHistory->description = "Reducción de stock Reserva Pedido ENVIADO $codigo_order";
                                                     $createHistory->save();
+
+                                                    $responses[] = ['message' => 'Stock actualizado con éxito', 'reserve' => $reserveModel];
                                                 } else {
-                                                    $responses[] = ['message' => 'Product not found'];
-                                                    continue;
+                                                    // Encuentra el producto por su SKU.
+                                                    $product = Product::find($productIdFromSKU);
+
+                                                    if ($product === null) {
+                                                        return null;
+                                                    }
+
+                                                    if ($product) {
+                                                        $result = $product->changeStockGen($productIdFromSKU, $onlySku, $quantity, $type);
+                                                        $currentDateTime = date('Y-m-d H:i:s');
+
+                                                        $createHistory = new StockHistory();
+                                                        $createHistory->product_id = $productIdFromSKU;
+                                                        $createHistory->variant_sku = $onlySku;
+                                                        $createHistory->type = $type;
+                                                        $createHistory->date = $currentDateTime;
+                                                        $createHistory->units = $quantity;
+                                                        $createHistory->last_stock = $product->stock + $quantity;
+                                                        $createHistory->current_stock = $product->stock;
+                                                        $createHistory->pedidos_shopify_id = $order->id;
+                                                        $createHistory->description = "Reducción de stock General Pedido ENVIADO $codigo_order";
+
+                                                        $createHistory->save();
+                                                    } else {
+                                                        $responses[] = ['message' => 'Product not found'];
+                                                        continue;
+                                                    }
                                                 }
                                             }
                                         }
@@ -581,7 +604,7 @@ class IntegrationAPIController extends Controller
                                     $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
                                     $deliveryPriceSeller = round($deliveryPriceSeller, 2);
 
-                                    
+
                                     error_log("costo entrega after recaudo: $deliveryPrice");
                                     error_log("costo deliveryPriceSeller: $deliveryPriceSeller");
                                     $order->costo_transportadora = strval($deliveryPrice);
@@ -589,7 +612,7 @@ class IntegrationAPIController extends Controller
 
                                     $variants = json_decode($orderData['variant_details'], true);
 
-                                    
+
                                     error_log("Transaccion nueva");
                                     //transactions
                                     $SellerCreditFinalValue = $this->updateProductAndProviderBalanceInt(
@@ -704,7 +727,7 @@ class IntegrationAPIController extends Controller
                                         $vendedorencontrado->saldo = $nuevoSaldo;
                                         $vendedorencontrado->save();
                                     }
-                                    
+
                                     //
                                 } else if ($name_local == "NOVEDAD") {
                                     //
@@ -738,6 +761,130 @@ class IntegrationAPIController extends Controller
                                         $order->dl = $name_local;
                                         $order->marca_t_d_t = $currentDateTimeText;
                                         // $order->received_by = $idUser;
+
+                                        //update stock de producto
+                                        //caso de producto con dueño externo vuelve a reserva
+                                        $seller_owned = $order['product']['seller_owned'];
+                                        error_log("$seller_owned");
+
+                                        $historyOrder = StockHistory::where('pedidos_shopify_id', $order->id)
+                                            ->latest('id')
+                                            ->first();
+                                        $allow = true;
+
+                                        // error_log("$historyOrder: $historyOrder");
+                                        if ($historyOrder) {
+                                            // El registro más reciente existe
+                                            if ($historyOrder->type == 1) {
+                                                $allow = false;
+                                                error_log("$order->id $historyOrder->type YA existe");
+                                            } else {
+                                                $allow = true;
+                                            }
+                                        }
+
+                                        if ($allow) {
+                                            if ($seller_owned != 0 || $seller_owned != null) {
+                                                error_log("IS seller_owned: $seller_owned");
+
+                                                //reduccion del stock
+                                                $variants = json_decode($orderData['variant_details'], true);
+
+                                                $idComercial = $orderData['id_comercial'];
+                                                $responses = [];
+                                                if ($variants != null) {
+                                                    foreach ($variants as $variant) {
+                                                        $quantity = $variant['quantity'];
+                                                        $skuProduct = $variant['sku'];
+                                                        $type = 1;
+                                                        $productapi = new ProductAPIController();
+
+                                                        $result = $productapi->splitSku($skuProduct);
+
+                                                        $onlySku = $result['sku'];
+                                                        $productIdFromSKU = $result['id'];
+
+                                                        $reserveController = new ReserveAPIController();
+
+                                                        $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
+                                                        $searchResult = json_decode($response->getContent());
+
+                                                        if ($searchResult && $searchResult->response) {
+                                                            $reserve = $searchResult->reserve;
+                                                            $previous_stock = $reserve->stock;
+                                                            if ($type == 0 && $quantity > $reserve->stock) {
+                                                                $responses[] = ['message' => 'No Dispone de Stock en la Reserva'];
+                                                                continue;
+                                                            }
+
+                                                            // Actualizar el stock
+                                                            $reserve->stock += $quantity;
+
+                                                            // Assuming you have a 'Reserve' model that you want to save after updating
+                                                            $reserveModel = Reserve::find($reserve->id);
+                                                            if ($reserveModel) {
+                                                                $reserveModel->stock = $reserve->stock;
+                                                                $reserveModel->save();
+                                                            }
+
+                                                            $createHistory = new StockHistory();
+                                                            $createHistory->product_id = $productIdFromSKU;
+                                                            $createHistory->variant_sku = $onlySku;
+                                                            $createHistory->type = 1;
+                                                            $createHistory->date = $currentDateTime;
+                                                            $createHistory->units = $quantity;
+                                                            $createHistory->last_stock_reserve = $previous_stock;
+                                                            $createHistory->current_stock_reserve = $reserve->stock;
+                                                            $createHistory->pedidos_shopify_id = $order->id;
+                                                            $createHistory->description = "Incremento de stock Reserva Pedido EN BODEGA $codigo_order";
+                                                            $createHistory->save();
+
+                                                            $responses[] = ['message' => 'Stock actualizado con éxito', 'reserve' => $reserveModel];
+                                                        } else {
+                                                            error_log("No found producto: $productIdFromSKU-$onlySku");
+                                                        }
+                                                    }
+                                                }
+                                            } else {
+                                                //producto normal: reducir stock general
+                                                error_log("stock general");
+                                                $variants = json_decode($orderData['variant_details'], true);
+
+
+                                                if ($variants != null) {
+                                                    foreach ($variants as $variant) {
+                                                        $quantity = $variant['quantity'];
+                                                        $skuProduct = $variant['sku'];
+                                                        $type = 1;
+
+                                                        $productapi = new ProductAPIController();
+
+                                                        $result = $productapi->splitSku($skuProduct);
+
+                                                        $onlySku = $result['sku'];
+                                                        $productIdFromSKU = $result['id'];
+
+                                                        $product = Product::find($productIdFromSKU);
+
+                                                        $result = $product->changeStockGen($productIdFromSKU, $onlySku, $quantity, $type);
+
+
+                                                        $createHistory = new StockHistory();
+                                                        $createHistory->product_id = $productIdFromSKU;
+                                                        $createHistory->variant_sku = $onlySku;
+                                                        $createHistory->type = $type;
+                                                        $createHistory->date = $currentDateTime;
+                                                        $createHistory->units = $quantity;
+                                                        $createHistory->last_stock = $product->stock - $quantity;
+                                                        $createHistory->current_stock = $product->stock;
+                                                        $createHistory->pedidos_shopify_id = $order->id;
+                                                        $createHistory->description = "Incremento de stock General Pedido EN BODEGA $codigo_order";
+
+                                                        $createHistory->save();
+                                                    }
+                                                }
+                                            }
+                                        }
                                     } else if ($name_local == "ENTREGADO EN OFICINA") {
                                         $order->estado_devolucion = $name_local;
                                         $order->dt = $name_local;
@@ -806,71 +953,6 @@ class IntegrationAPIController extends Controller
                                     $pedidoCarrier = PedidosShopifiesCarrierExternalLink::where('pedidos_shopify_id', $orderid)->first();
                                     $pedidoCarrier->cost_refound_external = round(((float)$refound_transp), 2);
                                     $pedidoCarrier->save();
-                                    //update stock de producto
-                                    //caso de producto con dueño externo vuelve a reserva
-                                    $seller_owned = $order['product']['seller_owned'];
-                                    if ($seller_owned != 0 || $seller_owned == null) {
-                                        error_log("IS seller_owned: $seller_owned");
-
-                                        //reduccion del stock
-                                        $variants = json_decode($orderData['variant_details'], true);
-
-                                        $idComercial = $orderData['id_comercial'];
-                                        $responses = [];
-                                        if ($variants != null) {
-                                            foreach ($variants as $variant) {
-                                                $quantity = $variant['quantity'];
-                                                $skuProduct = $variant['sku'];
-                                                $type = 1;
-                                                $productapi = new ProductAPIController();
-
-                                                $result = $productapi->splitSku($skuProduct);
-
-                                                $onlySku = $result['sku'];
-                                                $productIdFromSKU = $result['id'];
-                                                $reserveController = new ReserveAPIController();
-
-                                                $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
-                                                $searchResult = json_decode($response->getContent());
-
-                                                if ($searchResult && $searchResult->response) {
-                                                    $reserve = $searchResult->reserve;
-                                                    $previous_stock = $reserve->stock;
-                                                    if ($type == 0 && $quantity > $reserve->stock) {
-                                                        $responses[] = ['message' => 'No Dispone de Stock en la Reserva'];
-                                                        continue;
-                                                    }
-
-                                                    // Actualizar el stock
-                                                    $reserve->stock += $quantity;
-
-                                                    // Assuming you have a 'Reserve' model that you want to save after updating
-                                                    $reserveModel = Reserve::find($reserve->id);
-                                                    if ($reserveModel) {
-                                                        $reserveModel->stock = $reserve->stock;
-                                                        $reserveModel->save();
-                                                    }
-
-                                                    $createHistory = new StockHistory();
-                                                    $createHistory->product_id = $productIdFromSKU;
-                                                    $createHistory->variant_sku = $onlySku;
-                                                    $createHistory->type = 1;
-                                                    $createHistory->date = $currentDateTime;
-                                                    $createHistory->units = $quantity;
-                                                    $createHistory->last_stock_reserve = $previous_stock;
-                                                    $createHistory->current_stock_reserve = $reserve->stock;
-                                                    $createHistory->description = "Incremento de stock Reserva Pedido EN BODEGA $codigo_order";
-                                                    $createHistory->save();
-
-                                                    $responses[] = ['message' => 'Stock actualizado con éxito', 'reserve' => $reserveModel];
-                                                } else {
-                                                    error_log("No found producto: $productIdFromSKU-$onlySku");
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        //producto normal: reducir stock general
-                                    }
                                 } else {
                                     return response()->json(['message' => "Error, Order must be in NOVEDAD."], 400);
                                 }

@@ -1012,7 +1012,7 @@ class TransaccionesAPIController extends Controller
             $order->received_by = $data['generated_by'];
 
             $nombreComercial = $order->users[0]->vendedores[0]->nombre_comercial;
-            $codigo_order = $nombreComercial . "-" . $order->id;
+            $codigo_order = $nombreComercial . "-" . $order->numero_orden;
             // ! suma stock  cuando pedido ya se encuentra "EN BODEGA" JP
             $productController = new ProductAPIController();
 
@@ -1028,6 +1028,7 @@ class TransaccionesAPIController extends Controller
                     $order->variant_details,
                     1,
                     $order->id_comercial,
+                    $order->id,
                     $codigo_order,
                 );
             }
