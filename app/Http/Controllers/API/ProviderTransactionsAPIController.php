@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\ProviderTransaction;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -65,7 +66,7 @@ class ProviderTransactionsAPIController extends Controller
         //
     }
 
-    public function getByProvider(Request $request, string $idProvider)
+    public function getAll(Request $request)
     {
         //
         $data = $request->json()->all();
@@ -74,6 +75,10 @@ class ProviderTransactionsAPIController extends Controller
         $pageNumber = $data['page_number'];
         $searchTerm = $data['search'];
         $populate = $data['populate'];
+
+        $startDate = Carbon::parse($data['start'] . " 00:00:00");
+        $endDate = Carbon::parse($data['end'] . " 23:59:59");
+
         if ($searchTerm != "") {
             $filteFields = $data['or'];
         } else {
@@ -82,32 +87,39 @@ class ProviderTransactionsAPIController extends Controller
 
         $andMap = $data['and'];
 
-        $products = ProviderTransaction::with($populate)
-            ->where(function ($products) use ($searchTerm, $filteFields) {
+        $provTransactions = ProviderTransaction::with($populate)
+            ->whereRaw("timestamp BETWEEN ? AND ?", [$startDate, $endDate])
+            ->where(function ($provTransactions) use ($searchTerm, $filteFields) {
                 foreach ($filteFields as $field) {
                     if (strpos($field, '.') !== false) {
                         $relacion = substr($field, 0, strpos($field, '.'));
                         $propiedad = substr($field, strpos($field, '.') + 1);
-                        $this->recursiveWhereHas($products, $relacion, $propiedad, $searchTerm);
+                        $this->recursiveWhereHas($provTransactions, $relacion, $propiedad, $searchTerm);
                     } else {
-                        $products->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                        $provTransactions->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
                     }
                 }
             })
-            ->where((function ($products) use ($andMap) {
+            ->where((function ($provTransactions) use ($andMap) {
                 foreach ($andMap as $condition) {
                     foreach ($condition as $key => $valor) {
-                        if (strpos($key, '.') !== false) {
-                            $relacion = substr($key, 0, strpos($key, '.'));
-                            $propiedad = substr($key, strpos($key, '.') + 1);
-                            $this->recursiveWhereHas($products, $relacion, $propiedad, $valor);
+                        $parts = explode("/", $key);
+                        $type = $parts[0];
+                        $filter = $parts[1];
+                        if (strpos($filter, '.') !== false) {
+                            $relacion = substr($filter, 0, strpos($filter, '.'));
+                            $propiedad = substr($filter, strpos($filter, '.') + 1);
+                            $this->recursiveWhereHas($provTransactions, $relacion, $propiedad, $valor);
                         } else {
-                            $products->where($key, '=', $valor);
+                            if ($type == "equals") {
+                                $provTransactions->where($filter, '=', $valor);
+                            } else {
+                                $provTransactions->where($filter, 'LIKE', '%' . $valor . '%');
+                            }
                         }
                     }
                 }
-            }))
-            ->where('provider_id', $idProvider); //los No delete
+            }));
 
         // ! sort
         $orderByText = null;
@@ -140,12 +152,36 @@ class ProviderTransactionsAPIController extends Controller
         }
 
         if ($orderByText !== null) {
-            $products->orderBy(key($orderByText), reset($orderByText));
+            $provTransactions->orderBy(key($orderByText), reset($orderByText));
         } else {
-            $products->orderBy(DB::raw("STR_TO_DATE(" . key($orderByDate) . ", '%e/%c/%Y')"), reset($orderByDate));
+            $provTransactions->orderBy(DB::raw("STR_TO_DATE(" . key($orderByDate) . ", '%e/%c/%Y')"), reset($orderByDate));
         }
         // ! **************************************************
-        $products = $products->paginate($pageSize, ['*'], 'page', $pageNumber);
-        return response()->json($products);
+        $provTransactions = $provTransactions->paginate($pageSize, ['*'], 'page', $pageNumber);
+        return response()->json($provTransactions);
+    }
+
+    public function getTotalRetiros($id)
+    {
+        // error_log(" getTotalRetiros from $id");
+
+        try {
+            $totalAmount = 0.0;
+            $provRetiros = ProviderTransaction::where("provider_id", $id)
+                ->where("transaction_type", "Retiro")
+                ->whereIn("status", ["APROBADO", "REALIZADO"])
+                ->get();
+
+            foreach ($provRetiros as $retiro) {
+                $totalAmount += floatval($retiro->amount);
+            }
+
+            return response()->json(['total_amount' => $totalAmount], 200);
+        } catch (\Exception $e) {
+            error_log("error: $e");
+            return response()->json([
+                'error' => "There was an error processing your request. " . $e->getMessage()
+            ], 500);
+        }
     }
 }

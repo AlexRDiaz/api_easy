@@ -25,15 +25,11 @@ class ProviderTransaction extends Model
         'description',
         'sku_product_reference'
 
-        
-    ];
-    protected $casts = [
-        
-    ];
 
-    public static array $rules = [
-        
     ];
+    protected $casts = [];
+
+    public static array $rules = [];
 
     public function pedido()
     {
@@ -49,11 +45,14 @@ class ProviderTransaction extends Model
             // Si el código de origen contiene 'Retiro-', devolver null
             // return null;
             return $this->belongsTo(OrdenesRetiro::class, 'origin_id', 'id');
-
         } else {
             // Si el código de origen no contiene 'Retiro-', devolver la relación con el pedido
             return $this->belongsTo(OrdenesRetiro::class, 'origin_id', 'id');
         }
     }
 
+    public function provider()
+    {
+        return $this->belongsTo(Provider::class, 'provider_id', 'id');
+    }
 }

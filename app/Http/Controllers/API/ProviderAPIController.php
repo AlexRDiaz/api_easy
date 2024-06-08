@@ -45,7 +45,7 @@ class ProviderAPIController extends Controller
     public function index()
     {
         //
-        $providers = Provider::with('warehouses')->where('active', 1)->get();
+        $providers = Provider::with('warehouses')->get();
         return response()->json(['providers' => $providers]);
     }
 
@@ -73,18 +73,28 @@ class ProviderAPIController extends Controller
         // Respuesta de éxito
         return response()->json(['message' => 'Registro actualizado con éxito', "res" => $provider], 200);
     }
+
     public function getSaldoP($id)
     {
-        $provider = Provider::where("user_id",$id)->first();
-        $saldo = $provider->saldo;
+        // error_log("getSaldoP from $id");
 
-        // whereHas('user', function ($query) use ($id) {
-            // $query->where('user.user_id', $id);
-        // })->first();
-        if (!$saldo) {
-            return response()->json(['message' => 'Provider not found'], Response::HTTP_NOT_FOUND);
+        try {
+
+            $provider = Provider::where("user_id", $id)->first();
+
+            if (!$provider) {
+                error_log("!saldo");
+                return response()->json(['message' => 'Provider not found'], 404);
+            }
+
+            $saldo = $provider->saldo;
+            return response()->json(['saldo' => $saldo], 200);
+        } catch (\Exception $e) {
+            error_log("error: $e");
+            return response()->json([
+                'error' => "There was an error processing your request. " . $e->getMessage()
+            ], 500);
         }
-        return response()->json(['saldo' => $saldo], Response::HTTP_OK);
-        // return response()->json(['saldo' => $saldo], Response::HTTP_OK);
     }
+
 }

@@ -529,7 +529,9 @@ Route::middleware(['cors'])->group(function () {
 
     //  *
     Route::prefix('providertransaction')->group(function () {
-        Route::post('provider/{id}', [ProviderTransactionsAPIController::class, 'getByProvider']);
+        Route::post('provider', [ProviderTransactionsAPIController::class, 'getAll']);
+        Route::get('retiros/{id}', [ProviderTransactionsAPIController::class, 'getTotalRetiros']);
+
     });
 
     //  * test email
