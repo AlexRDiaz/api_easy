@@ -572,6 +572,7 @@ class ProductAPIController extends Controller
     public function store(Request $request)
     {
         //
+        error_log("storeProduct");
         try {
             $data = $request->json()->all();
             // return response()->json($data, 200);
@@ -665,6 +666,7 @@ class ProductAPIController extends Controller
                 return response()->json(['message' => 'Error al crear producto'], 404);
             }
         } catch (\Exception $e) {
+            error_log("Error storeProduct: $e");
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
