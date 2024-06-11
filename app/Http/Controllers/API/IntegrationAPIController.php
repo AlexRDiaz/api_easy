@@ -175,7 +175,7 @@ class IntegrationAPIController extends Controller
         // Verificar el estado de la respuesta
         if ($response->successful()) {
             // La solicitud fue exitosa
-            error_log("La solicitud fue exitosa");
+            error_log("La solicitud fue exitosa $response");
             return $response->json(); // Devolver la respuesta JSON de la API externa
         } else {
             // La solicitud falló
