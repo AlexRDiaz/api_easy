@@ -475,6 +475,7 @@ Route::middleware(['cors'])->group(function () {
     Route::put('pedidos-shopify/updatesubrouteoperator/{id}', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'updateOrderSubRouteAndOperator']);
     //  *
     Route::post('pedidos-shopify/filterall', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getByDateRangeAll']);
+    Route::post('pedidos-shopify/filterall/external', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getByDateRangeAllExternal']);
     Route::post('pedidos-shopify/update-payment-cost-delivery', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'updateVerifyPaymentCostDelivery']);
     Route::put('pedidos-shopify/update-payment-cost-delivery/ind/{id}', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'updateVerifyPaymentCostDeliveryInd']);
     //  *  delete   
