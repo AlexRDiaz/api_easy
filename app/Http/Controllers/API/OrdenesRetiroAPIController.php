@@ -77,31 +77,40 @@ class OrdenesRetiroAPIController extends Controller
 
     public function withdrawalProvider(Request $request, $id)
     {
-        $data = $request->validate([
-            'monto' => 'required',
-            'email' => 'required|email',
-            'id_vendedor' => 'required'
-        ]);
-        $monto = $request->input('monto');
-        $email = $request->input('email');
-        $idVendedor  = $request->input('id_vendedor');
+        try {
+            $data = $request->validate([
+                'monto' => 'required',
+                'email' => 'required|email',
+                'id_vendedor' => 'required'
+            ]);
+            $monto = $request->input('monto');
+            $email = $request->input('email');
+            $idVendedor  = $request->input('id_vendedor');
 
-        //     // Generar código único
-        $numerosUtilizados = [];
-        while (count($numerosUtilizados) < 10000000) {
-            $numeroAleatorio = str_pad(mt_rand(1, 99999999), 8, '0', STR_PAD_LEFT);
-            if (!in_array($numeroAleatorio, $numerosUtilizados)) {
-                $numerosUtilizados[] = $numeroAleatorio;
-                break;
+            //     // Generar código único
+            $numerosUtilizados = [];
+            while (count($numerosUtilizados) < 10000000) {
+                $numeroAleatorio = str_pad(mt_rand(1, 99999999), 8, '0', STR_PAD_LEFT);
+                if (!in_array($numeroAleatorio, $numerosUtilizados)) {
+                    $numerosUtilizados[] = $numeroAleatorio;
+                    break;
+                }
             }
+            $resultCode = $numeroAleatorio;
+
+
+            Mail::to($email)->send(new ValidationCode($resultCode, $monto));
+
+
+            return response()->json(["response" => "code generated succesfully", "code" => $resultCode], Response::HTTP_OK);
+        } catch (\Exception $e) {
+            error_log("Error withdrawalProvider: " . $e);
+
+            return response()->json([
+                "response" => "Error",
+                "error" => $e->getMessage()
+            ], Response::HTTP_BAD_REQUEST);
         }
-        $resultCode = $numeroAleatorio;
-
-
-        Mail::to($email)->send(new ValidationCode($resultCode, $monto));
-
-
-        return response()->json(["response" => "code generated succesfully", "code" => $resultCode], Response::HTTP_OK);
     }
 
     public function postWhitdrawalProviderAproved(Request $request, $id)
@@ -271,11 +280,9 @@ class OrdenesRetiroAPIController extends Controller
                 'suma_monto' => $sumaMontoRealizados,
             ],
         ]);
-
-
     }
 
-    
+
     // new-old
     public function postWithdrawalProvider(Request $request)
     {
@@ -333,45 +340,32 @@ class OrdenesRetiroAPIController extends Controller
     public function sendEmail(Request $request)
     {
         try {
-            //code...
-
             $data = $request->validate([
-                'monto' => 'required',
+                'message' => 'required',
                 'email' => 'required|email',
-
             ]);
 
+            $email = $data['email'];
+            $messageContent = $data['message'];
 
-            $monto = $request->input('monto');
-            $email = "info@easyecomerce.com";
-            $user_id = $request->input('user_id');
-            $user = UpUser::where("id", $user_id)->with('vendedores')->first();
-
-            //     // Generar código único
-            $numerosUtilizados = [];
-            while (count($numerosUtilizados) < 10000000) {
-                $numeroAleatorio = str_pad(mt_rand(1, 99999999), 8, '0', STR_PAD_LEFT);
-                if (!in_array($numeroAleatorio, $numerosUtilizados)) {
-                    $numerosUtilizados[] = $numeroAleatorio;
-                    break;
-                }
-            }
-            $resultCode = $numeroAleatorio;
-
-            $to = 'easyecommercetest@gmail.com';
+            $to = $email;
             $subject = 'Test send email';
-            $message = 'El codigo es: ' . $resultCode . ' para el monto ' . $monto . '.';
-            // return $message;
 
-            Mail::raw($message, function ($mail) use ($to, $subject) {
+            Mail::raw($messageContent, function ($mail) use ($to, $subject) {
                 $mail->to($to)->subject($subject);
             });
 
-            return response()->json(["response" => "code generated succesfully", "code" => $resultCode], Response::HTTP_OK);
+            return response()->json([
+                "response" => "Email sent successfully",
+                "code" => Response::HTTP_OK
+            ], Response::HTTP_OK);
         } catch (\Exception $e) {
-            error_log("*********** error al generar el codigo/email: $e**********");
+            error_log("Error al enviar email: " . $e);
 
-            return response()->json(["response" => "error al generar el codigo", "error" => $e], Response::HTTP_BAD_REQUEST);
+            return response()->json([
+                "response" => "Error al enviar email",
+                "error" => $e->getMessage()
+            ], Response::HTTP_BAD_REQUEST);
         }
     }
 
@@ -496,10 +490,8 @@ class OrdenesRetiroAPIController extends Controller
             $withdrawal->save();
 
             return response()->json(["response" => "edited succesfully"], Response::HTTP_OK);
-
         } catch (\Exception $e) {
             return response()->json(["response" => "edidted failed", "error" => $e], Response::HTTP_BAD_REQUEST);
-
         }
     }
 
@@ -545,12 +537,11 @@ class OrdenesRetiroAPIController extends Controller
                         $userSesion,
                         $monto,
                         $idOrdenRetiro,
-                        "reembolso-". $idOrdenRetiro,
+                        "reembolso-" . $idOrdenRetiro,
                         "reembolso proveedor",
                         $userSesion
                     );
                 }
-
             }
 
             DB::commit(); // Confirma la transacción si todas las operaciones tienen éxito
@@ -560,8 +551,6 @@ class OrdenesRetiroAPIController extends Controller
             DB::rollback(); // En caso de error, revierte todos los cambios realizados en la transacción
 
             return response()->json(["response" => "edidted failed", "error" => $e], Response::HTTP_BAD_REQUEST);
-
         }
     }
-
 }

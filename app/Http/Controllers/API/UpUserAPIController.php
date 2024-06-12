@@ -605,6 +605,7 @@ class UpUserAPIController extends Controller
 
             return response()->json(['message' => 'User modified successfully', $currentPaymentInformation], Response::HTTP_OK);
         } catch (\Exception $e) {
+            error_log("Error updatePaymentInformation: $e");
             return response()->json(['error' => 'User modify failed', $e], Response::HTTP_BAD_REQUEST);
         }
     }
@@ -671,9 +672,11 @@ class UpUserAPIController extends Controller
                 return response()->json(['message' => 'Empty', 'data' => []], Response::HTTP_OK);
             }
         } catch (\Exception $e) {
+            error_log("Error getPaymentInformation: $e");
             return response()->json(['error' => 'Get failed', $e], Response::HTTP_BAD_REQUEST);
         }
     }
+
     public function getPaymentInformationLocal($id)
     {
         try {
