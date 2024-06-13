@@ -124,6 +124,7 @@ class OrdenesRetiroAPIController extends Controller
         $withdrawal->estado = 'APROBADO';
         $withdrawal->id_vendedor =  $data["id_vendedor"];
         $withdrawal->account_id = encrypt($data["account_id"]);
+        $withdrawal->rol_id = 5;
 
         $withdrawal->save();
 
