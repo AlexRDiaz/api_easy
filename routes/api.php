@@ -532,7 +532,6 @@ Route::middleware(['cors'])->group(function () {
     Route::prefix('providertransaction')->group(function () {
         Route::post('provider', [ProviderTransactionsAPIController::class, 'getAll']);
         Route::get('retiros/{id}', [ProviderTransactionsAPIController::class, 'getTotalRetiros']);
-
     });
 
     //  * test email
@@ -606,7 +605,6 @@ Route::middleware(['cors'])->group(function () {
         Route::put('byorder/{id}', [PedidosShopifiesCarrierExternalLinkAPIController::class, 'updateByOrder']);
         Route::delete('/{id}', [PedidosShopifiesCarrierExternalLinkAPIController::class, 'destroy']); //not yet
         Route::get('/{id}', [PedidosShopifiesCarrierExternalLinkAPIController::class, 'show']);
-
     });
 
     //  *
@@ -615,8 +613,7 @@ Route::middleware(['cors'])->group(function () {
 
     Route::post('checkstock', [ProductAPIController::class, 'getProductVariantStock']);
     Route::get('subprov/warehouses/{id}', [UpUsersWarehouseLinkAPIController::class, 'show']);
-
-
+    Route::post('productsbyids', [ProductAPIController::class, 'getData']);
 });
 
 
