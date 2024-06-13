@@ -1323,4 +1323,26 @@ class ProductAPIController extends Controller
             ], 500);
         }
     }
+
+    public function getData(Request $request)
+    {
+        //
+        $data = $request->json()->all();
+        $ids = $data['ids'];
+        $populate = $data['populate'];
+
+        try {
+
+            $products = Product::with($populate)
+                ->whereIn('product_id', $ids)
+                ->get();
+
+            return response()->json($products);
+        } catch (\Exception $e) {
+            error_log("Error: $e");
+            return response()->json([
+                'error' => "There was an error processing your request. " . $e->getMessage()
+            ], 500);
+        }
+    }
 }
