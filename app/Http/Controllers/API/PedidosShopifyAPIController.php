@@ -301,7 +301,7 @@ class PedidosShopifyAPIController extends Controller
         $pageNumber = $data['page_number'];
         $searchTerm = $data['search'];
         $dateFilter = $data["date_filter"];
-        $populate = $data['populate'];
+
 
         $selectedFilter = "fecha_entrega";
         if ($dateFilter != "FECHA ENTREGA") {
@@ -332,8 +332,7 @@ class PedidosShopifyAPIController extends Controller
         }
 
         // ! *************************************
-        // $pedidos = PedidosShopify::with(['operadore.up_users', 'novedades', 'confirmedBy', 'statusLastModifiedBy', 'transportadora', 'users.vendedores', 'pedidoCarrier'])
-        $pedidos =  PedidosShopify::with($populate)
+        $pedidos = PedidosShopify::with(['operadore.up_users', 'novedades', 'confirmedBy', 'statusLastModifiedBy', 'transportadora', 'users.vendedores'])
             ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
             ->where(function ($pedidos) use ($searchTerm, $filteFields) {
                 foreach ($filteFields as $field) {
@@ -406,7 +405,6 @@ class PedidosShopifyAPIController extends Controller
 
         $Map = $data['and'];
         $not = $data['not'];
-        $populate = $data['populate'];
 
         $orderBy = null;
         if (isset($data['sort'])) {
@@ -419,15 +417,14 @@ class PedidosShopifyAPIController extends Controller
             }
         }
 
-        // $pedidos = PedidosShopify::with(['operadore.up_users'])
-        //     ->with('transportadora')
-        //     ->with('users.vendedores')
-        //     ->with('novedades')
-        //     ->with('pedidoFecha')
-        //     ->with('ruta')
-        //     ->with('subRuta')
-        //     ->with('confirmedBy')
-        $pedidos =  PedidosShopify::with($populate)
+        $pedidos = PedidosShopify::with(['operadore.up_users'])
+            ->with('transportadora')
+            ->with('users.vendedores')
+            ->with('novedades')
+            ->with('pedidoFecha')
+            ->with('ruta')
+            ->with('subRuta')
+            ->with('confirmedBy')
             ->whereRaw("STR_TO_DATE(fecha_entrega, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
             ->where(function ($pedidos) use ($searchTerm, $filteFields) {
                 foreach ($filteFields as $field) {
@@ -810,128 +807,123 @@ class PedidosShopifyAPIController extends Controller
 
     public function getByDateRange(Request $request)
     {
-        try {
-            $data = $request->json()->all();
-            $startDate = $data['start'];
-            $endDate = $data['end'];
-            $startDateFormatted = Carbon::createFromFormat('j/n/Y', $startDate)->format('Y-m-d');
-            $endDateFormatted = Carbon::createFromFormat('j/n/Y', $endDate)->format('Y-m-d');
+        $data = $request->json()->all();
+        $startDate = $data['start'];
+        $endDate = $data['end'];
+        $startDateFormatted = Carbon::createFromFormat('j/n/Y', $startDate)->format('Y-m-d');
+        $endDateFormatted = Carbon::createFromFormat('j/n/Y', $endDate)->format('Y-m-d');
 
-            $populate = $data['populate'];
-            $pageSize = $data['page_size'];
-            $pageNumber = $data['page_number'];
-            $searchTerm = $data['search'];
-            $dateFilter = $data["date_filter"];
-
+        $populate = $data['populate'];
+        $pageSize = $data['page_size'];
+        $pageNumber = $data['page_number'];
+        $searchTerm = $data['search'];
+        $dateFilter = $data["date_filter"];
 
 
-            // $selectedFilter = "fecha_entrega";
-            // if ($dateFilter != "FECHA ENTREGA "
-            // //   $dateFilter != "FECHA DEVOLUCION"
-            //  ) {
-            //     $selectedFilter = "marca_tiempo_envio";
-            // }
-            // //  else if($dateFilter == "FECHA DEVOLUCION"){
-            //     // $selectedFilter = "marca_t_d_t";
-            // // }
 
-            $selectedFilter = "fecha_entrega";
-            if ($dateFilter != "FECHA ENTREGA") {
-                $selectedFilter = "marca_tiempo_envio";
-            }
+        // $selectedFilter = "fecha_entrega";
+        // if ($dateFilter != "FECHA ENTREGA "
+        // //   $dateFilter != "FECHA DEVOLUCION"
+        //  ) {
+        //     $selectedFilter = "marca_tiempo_envio";
+        // }
+        // //  else if($dateFilter == "FECHA DEVOLUCION"){
+        //     // $selectedFilter = "marca_t_d_t";
+        // // }
 
-            if ($searchTerm != "") {
-                $filteFields = $data['or']; // && SOLO QUITO  ((||)&&())
-            } else {
-                $filteFields = [];
-            }
-
-            // ! *************************************
-            $Map = $data['and'];
-            $not = $data['not'];
-            // ! *************************************
-
-            $pedidos = PedidosShopify::with($populate)
-                ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
-                ->where(function ($pedidos) use ($searchTerm, $filteFields) {
-                    foreach ($filteFields as $field) {
-                        if (strpos($field, '.') !== false) {
-                            $relacion = substr($field, 0, strpos($field, '.'));
-                            $propiedad = substr($field, strpos($field, '.') + 1);
-                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $searchTerm);
-                        } else {
-                            $pedidos->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
-                        }
-                    }
-                })
-                ->where((function ($pedidos) use ($Map) {
-                    foreach ($Map as $condition) {
-                        foreach ($condition as $key => $valor) {
-                            if (strpos($key, '.') !== false) {
-                                $relacion = substr($key, 0, strpos($key, '.'));
-                                $propiedad = substr($key, strpos($key, '.') + 1);
-                                $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
-                            } else {
-                                $pedidos->where($key, '=', $valor);
-                            }
-                        }
-                    }
-                }))->where((function ($pedidos) use ($not) {
-                    foreach ($not as $condition) {
-                        foreach ($condition as $key => $valor) {
-                            if (strpos($key, '.') !== false) {
-                                $relacion = substr($key, 0, strpos($key, '.'));
-                                $propiedad = substr($key, strpos($key, '.') + 1);
-                                $this->recursiveWhereHasNeg($pedidos, $relacion, $propiedad, $valor);
-                            } else {
-                                $pedidos->where($key, '!=', $valor);
-                            }
-                        }
-                    }
-                }));
-            // ! Ordenamiento ********************************** 
-            $orderByText = null;
-            $orderByDate = null;
-            $sort = $data['sort'];
-            $sortParts = explode(':', $sort);
-
-            $pt1 = $sortParts[0];
-
-            $type = (stripos($pt1, 'fecha') !== false || stripos($pt1, 'marca') !== false) ? 'date' : 'text';
-
-            $dataSort = [
-                [
-                    'field' => $sortParts[0],
-                    'type' => $type,
-                    'direction' => $sortParts[1],
-                ],
-            ];
-
-            foreach ($dataSort as $value) {
-                $field = $value['field'];
-                $direction = $value['direction'];
-                $type = $value['type'];
-
-                if ($type === "text") {
-                    $orderByText = [$field => $direction];
-                } else {
-                    $orderByDate = [$field => $direction];
-                }
-            }
-
-            if ($orderByText !== null) {
-                $pedidos->orderBy(key($orderByText), reset($orderByText));
-            } else {
-                $pedidos->orderBy(DB::raw("STR_TO_DATE(" . key($orderByDate) . ", '%e/%c/%Y')"), reset($orderByDate));
-            }
-            // ! **************************************************
-            $pedidos = $pedidos->paginate($pageSize, ['*'], 'page', $pageNumber);
-
-            return response()->json($pedidos);
-        } catch (\Exception $e) {
-            error_log("$e");
-            return ["total" => null, "valor_producto" => null, "value_product_warehouse" => null, "error" => $e->getMessage()];
+        $selectedFilter = "fecha_entrega";
+        if ($dateFilter != "FECHA ENTREGA") {
+            $selectedFilter = "marca_tiempo_envio";
         }
+
+        if ($searchTerm != "") {
+            $filteFields = $data['or']; // && SOLO QUITO  ((||)&&())
+        } else {
+            $filteFields = [];
+        }
+
+        // ! *************************************
+        $Map = $data['and'];
+        $not = $data['not'];
+        // ! *************************************
+
+        $pedidos = PedidosShopify::with($populate)
+            ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
+            ->where(function ($pedidos) use ($searchTerm, $filteFields) {
+                foreach ($filteFields as $field) {
+                    if (strpos($field, '.') !== false) {
+                        $relacion = substr($field, 0, strpos($field, '.'));
+                        $propiedad = substr($field, strpos($field, '.') + 1);
+                        $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $searchTerm);
+                    } else {
+                        $pedidos->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                    }
+                }
+            })
+            ->where((function ($pedidos) use ($Map) {
+                foreach ($Map as $condition) {
+                    foreach ($condition as $key => $valor) {
+                        if (strpos($key, '.') !== false) {
+                            $relacion = substr($key, 0, strpos($key, '.'));
+                            $propiedad = substr($key, strpos($key, '.') + 1);
+                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                        } else {
+                            $pedidos->where($key, '=', $valor);
+                        }
+                    }
+                }
+            }))->where((function ($pedidos) use ($not) {
+                foreach ($not as $condition) {
+                    foreach ($condition as $key => $valor) {
+                        if (strpos($key, '.') !== false) {
+                            $relacion = substr($key, 0, strpos($key, '.'));
+                            $propiedad = substr($key, strpos($key, '.') + 1);
+                            $this->recursiveWhereHasNeg($pedidos, $relacion, $propiedad, $valor);
+                        } else {
+                            $pedidos->where($key, '!=', $valor);
+                        }
+                    }
+                }
+            }));
+        // ! Ordenamiento ********************************** 
+        $orderByText = null;
+        $orderByDate = null;
+        $sort = $data['sort'];
+        $sortParts = explode(':', $sort);
+
+        $pt1 = $sortParts[0];
+
+        $type = (stripos($pt1, 'fecha') !== false || stripos($pt1, 'marca') !== false) ? 'date' : 'text';
+
+        $dataSort = [
+            [
+                'field' => $sortParts[0],
+                'type' => $type,
+                'direction' => $sortParts[1],
+            ],
+        ];
+
+        foreach ($dataSort as $value) {
+            $field = $value['field'];
+            $direction = $value['direction'];
+            $type = $value['type'];
+
+            if ($type === "text") {
+                $orderByText = [$field => $direction];
+            } else {
+                $orderByDate = [$field => $direction];
+            }
+        }
+
+        if ($orderByText !== null) {
+            $pedidos->orderBy(key($orderByText), reset($orderByText));
+        } else {
+            $pedidos->orderBy(DB::raw("STR_TO_DATE(" . key($orderByDate) . ", '%e/%c/%Y')"), reset($orderByDate));
+        }
+        // ! **************************************************
+        $pedidos = $pedidos->paginate($pageSize, ['*'], 'page', $pageNumber);
+
+        return response()->json($pedidos);
     }
 
     public function getOrderbyId(Request $req, $id)
@@ -1214,119 +1206,113 @@ class PedidosShopifyAPIController extends Controller
 
     public function getReturnSellers(Request $request)
     {
-        error_log("getReturnSellers");
-        try {
-            $data = $request->json()->all();
-            // $startDate = $data['start'];
-            // $endDate = $data['end'];
-            // $startDateFormatted = Carbon::createFromFormat('j/n/Y', $startDate)->format('Y-m-d');
-            // $endDateFormatted = Carbon::createFromFormat('j/n/Y', $endDate)->format('Y-m-d');
+        $data = $request->json()->all();
+        // $startDate = $data['start'];
+        // $endDate = $data['end'];
+        // $startDateFormatted = Carbon::createFromFormat('j/n/Y', $startDate)->format('Y-m-d');
+        // $endDateFormatted = Carbon::createFromFormat('j/n/Y', $endDate)->format('Y-m-d');
 
-            $populate = $data['populate'];
-            $pageSize = $data['page_size'];
-            $pageNumber = $data['page_number'];
-            $searchTerm = $data['search'];
+        $populate = $data['populate'];
+        $pageSize = $data['page_size'];
+        $pageNumber = $data['page_number'];
+        $searchTerm = $data['search'];
 
-            if ($searchTerm != "") {
-                $filteFields = $data['or'];
-            } else {
-                $filteFields = [];
-            }
-
-            // ! *************
-            $orConditions = $data['or_multiple'];
-            $Map = $data['and'];
-            $not = $data['not'];
-            // ! *************
-
-            $pedidos = PedidosShopify::with($populate)
-                ->where((function ($pedidos) use ($orConditions) {
-                    foreach ($orConditions as $condition) {
-                        foreach ($condition as $field => $values) {
-                            $pedidos->whereIn($field, $values);
-                        }
-                    }
-                }))
-                ->where(function ($pedidos) use ($searchTerm, $filteFields) {
-                    foreach ($filteFields as $field) {
-                        if (strpos($field, '.') !== false) {
-                            $relacion = substr($field, 0, strpos($field, '.'));
-                            $propiedad = substr($field, strpos($field, '.') + 1);
-                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $searchTerm);
-                        } else {
-                            $pedidos->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
-                        }
-                    }
-                })
-                //->whereRaw("STR_TO_DATE(fecha_entrega, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
-                ->where((function ($pedidos) use ($Map) {
-                    foreach ($Map as $condition) {
-                        foreach ($condition as $key => $valor) {
-                            if (strpos($key, '.') !== false) {
-                                $relacion = substr($key, 0, strpos($key, '.'));
-                                $propiedad = substr($key, strpos($key, '.') + 1);
-                                $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
-                            } else {
-                                $pedidos->where($key, '=', $valor);
-                            }
-                        }
-                    }
-                }))->where((function ($pedidos) use ($not) {
-                    foreach ($not as $condition) {
-                        foreach ($condition as $key => $valor) {
-                            if (strpos($key, '.') !== false) {
-                                $relacion = substr($key, 0, strpos($key, '.'));
-                                $propiedad = substr($key, strpos($key, '.') + 1);
-                                $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
-                            } else {
-                                $pedidos->where($key, '!=', $valor);
-                            }
-                        }
-                    }
-                }));
-
-            // ! Ordena
-            $orderByText = null;
-            $orderByDate = null;
-            $sort = $data['sort'];
-            $sortParts = explode(':', $sort);
-
-            $pt1 = $sortParts[0];
-
-            $type = (stripos($pt1, 'fecha') !== false || stripos($pt1, 'marca') !== false) ? 'date' : 'text';
-
-            $dataSort = [
-                [
-                    'field' => $sortParts[0],
-                    'type' => $type,
-                    'direction' => $sortParts[1],
-                ],
-            ];
-
-            foreach ($dataSort as $value) {
-                $field = $value['field'];
-                $direction = $value['direction'];
-                $type = $value['type'];
-
-                if ($type === "text") {
-                    $orderByText = [$field => $direction];
-                } else {
-                    $orderByDate = [$field => $direction];
-                }
-            }
-
-            if ($orderByText !== null) {
-                $pedidos->orderBy(key($orderByText), reset($orderByText));
-            } else {
-                $pedidos->orderBy(DB::raw("STR_TO_DATE(" . key($orderByDate) . ", '%e/%c/%Y')"), reset($orderByDate));
-            }
-            // ! ******************
-            $pedidos = $pedidos->paginate($pageSize, ['*'], 'page', $pageNumber);
-            return response()->json($pedidos);
-        } catch (\Exception $e) {
-            error_log("error getReturnSellers: $e");
-            return response()->json(['error' => $e->getMessage()], 500);
+        if ($searchTerm != "") {
+            $filteFields = $data['or'];
+        } else {
+            $filteFields = [];
         }
+
+        // ! *************
+        $orConditions = $data['or_multiple'];
+        $Map = $data['and'];
+        $not = $data['not'];
+        // ! *************
+
+        $pedidos = PedidosShopify::with($populate)
+            ->where((function ($pedidos) use ($orConditions) {
+                foreach ($orConditions as $condition) {
+                    foreach ($condition as $field => $values) {
+                        $pedidos->whereIn($field, $values);
+                    }
+                }
+            }))
+            ->where(function ($pedidos) use ($searchTerm, $filteFields) {
+                foreach ($filteFields as $field) {
+                    if (strpos($field, '.') !== false) {
+                        $relacion = substr($field, 0, strpos($field, '.'));
+                        $propiedad = substr($field, strpos($field, '.') + 1);
+                        $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $searchTerm);
+                    } else {
+                        $pedidos->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                    }
+                }
+            })
+            //->whereRaw("STR_TO_DATE(fecha_entrega, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
+            ->where((function ($pedidos) use ($Map) {
+                foreach ($Map as $condition) {
+                    foreach ($condition as $key => $valor) {
+                        if (strpos($key, '.') !== false) {
+                            $relacion = substr($key, 0, strpos($key, '.'));
+                            $propiedad = substr($key, strpos($key, '.') + 1);
+                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                        } else {
+                            $pedidos->where($key, '=', $valor);
+                        }
+                    }
+                }
+            }))->where((function ($pedidos) use ($not) {
+                foreach ($not as $condition) {
+                    foreach ($condition as $key => $valor) {
+                        if (strpos($key, '.') !== false) {
+                            $relacion = substr($key, 0, strpos($key, '.'));
+                            $propiedad = substr($key, strpos($key, '.') + 1);
+                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                        } else {
+                            $pedidos->where($key, '!=', $valor);
+                        }
+                    }
+                }
+            }));
+
+        // ! Ordena
+        $orderByText = null;
+        $orderByDate = null;
+        $sort = $data['sort'];
+        $sortParts = explode(':', $sort);
+
+        $pt1 = $sortParts[0];
+
+        $type = (stripos($pt1, 'fecha') !== false || stripos($pt1, 'marca') !== false) ? 'date' : 'text';
+
+        $dataSort = [
+            [
+                'field' => $sortParts[0],
+                'type' => $type,
+                'direction' => $sortParts[1],
+            ],
+        ];
+
+        foreach ($dataSort as $value) {
+            $field = $value['field'];
+            $direction = $value['direction'];
+            $type = $value['type'];
+
+            if ($type === "text") {
+                $orderByText = [$field => $direction];
+            } else {
+                $orderByDate = [$field => $direction];
+            }
+        }
+
+        if ($orderByText !== null) {
+            $pedidos->orderBy(key($orderByText), reset($orderByText));
+        } else {
+            $pedidos->orderBy(DB::raw("STR_TO_DATE(" . key($orderByDate) . ", '%e/%c/%Y')"), reset($orderByDate));
+        }
+        // ! ******************
+        $pedidos = $pedidos->paginate($pageSize, ['*'], 'page', $pageNumber);
+        return response()->json($pedidos);
     }
 
     private function recursiveWhereHas($query, $relation, $property, $searchTerm)
@@ -1481,7 +1467,7 @@ class PedidosShopifyAPIController extends Controller
         }
 
 
-        $countProductWarehouseNotNull  = PedidosShopify::with(['operadore.up_users', 'pedidoCarrier'])
+        $countProductWarehouseNotNull  = PedidosShopify::with(['operadore.up_users','pedidoCarrier'])
             ->with('subRuta')
             ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
             ->whereNotNull('value_product_warehouse')
@@ -2019,7 +2005,7 @@ class PedidosShopifyAPIController extends Controller
         }
 
         $query = PedidosShopify::query()
-            ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider', 'carrierExternal', 'pedidoCarrier'])
+            ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider', 'carrierExternal','pedidoCarrier'])
             // ->where('carrier_external_id', $idUser)  // ! <---- se pretende usar el id de la transportadora externa que seleccione
             // ->where('carrier_external_id',1)
             ->whereHas('pedidoCarrier', function ($query) use ($idUser) {
@@ -2028,33 +2014,33 @@ class PedidosShopifyAPIController extends Controller
             ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
 
 
-            // $this->applyConditionsAnd($query, $Map);
-            // $this->applyConditions($query, $not, true);
-            ->where((function ($pedidos) use ($Map) {
-                foreach ($Map as $condition) {
-                    foreach ($condition as $key => $valor) {
-                        if (strpos($key, '.') !== false) {
-                            $relacion = substr($key, 0, strpos($key, '.'));
-                            $propiedad = substr($key, strpos($key, '.') + 1);
-                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
-                        } else {
-                            $pedidos->where($key, '=', $valor);
-                        }
+        // $this->applyConditionsAnd($query, $Map);
+        // $this->applyConditions($query, $not, true);
+        ->where((function ($pedidos) use ($Map) {
+            foreach ($Map as $condition) {
+                foreach ($condition as $key => $valor) {
+                    if (strpos($key, '.') !== false) {
+                        $relacion = substr($key, 0, strpos($key, '.'));
+                        $propiedad = substr($key, strpos($key, '.') + 1);
+                        $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                    } else {
+                        $pedidos->where($key, '=', $valor);
                     }
                 }
-            }))->where((function ($pedidos) use ($not) {
-                foreach ($not as $condition) {
-                    foreach ($condition as $key => $valor) {
-                        if (strpos($key, '.') !== false) {
-                            $relacion = substr($key, 0, strpos($key, '.'));
-                            $propiedad = substr($key, strpos($key, '.') + 1);
-                            $this->recursiveWhereHasNeg($pedidos, $relacion, $propiedad, $valor);
-                        } else {
-                            $pedidos->where($key, '!=', $valor);
-                        }
+            }
+        }))->where((function ($pedidos) use ($not) {
+            foreach ($not as $condition) {
+                foreach ($condition as $key => $valor) {
+                    if (strpos($key, '.') !== false) {
+                        $relacion = substr($key, 0, strpos($key, '.'));
+                        $propiedad = substr($key, strpos($key, '.') + 1);
+                        $this->recursiveWhereHasNeg($pedidos, $relacion, $propiedad, $valor);
+                    } else {
+                        $pedidos->where($key, '!=', $valor);
                     }
                 }
-            }));
+            }
+        }));
 
         $query1 = clone $query;
         $query2 = clone $query;
@@ -2687,20 +2673,9 @@ class PedidosShopifyAPIController extends Controller
         $status = $data['status'];
         $internal = $data['internal'];
 
-        $populate = $data['populate'];
-        $dateFilter = $data["date_filter"];
-        $selectedFilter = "fecha_entrega";
-        if ($dateFilter != "FECHA ENTREGA") {
-            $selectedFilter = "marca_tiempo_envio";
-        }
-
-
-        // $pedidos = PedidosShopify::with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider'])
-        //select('marca_t_i', 'fecha_entrega', DB::raw('concat(tienda_temporal, "-", numero_orden) as codigo'), 'nombre_shipping', 'ciudad_shipping', 'direccion_shipping', 'telefono_shipping', 'cantidad_total', 'producto_p', 'producto_extra', 'precio_total', 'comentario', 'estado_interno', 'status', 'estado_logistico', 'estado_devolucion', 'costo_envio', 'costo_devolucion')
-        // ->whereRaw("STR_TO_DATE(marca_t_i, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
-        $pedidos = PedidosShopify::with($populate)
-            ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
-            ->where((function ($pedidos) use ($and) {
+        $pedidos = PedidosShopify::with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider'])
+            //select('marca_t_i', 'fecha_entrega', DB::raw('concat(tienda_temporal, "-", numero_orden) as codigo'), 'nombre_shipping', 'ciudad_shipping', 'direccion_shipping', 'telefono_shipping', 'cantidad_total', 'producto_p', 'producto_extra', 'precio_total', 'comentario', 'estado_interno', 'status', 'estado_logistico', 'estado_devolucion', 'costo_envio', 'costo_devolucion')
+            ->whereRaw("STR_TO_DATE(marca_t_i, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])->where((function ($pedidos) use ($and) {
                 foreach ($and as $condition) {
                     foreach ($condition as $key => $valor) {
                         if (strpos($key, '.') !== false) {
@@ -2741,7 +2716,7 @@ class PedidosShopifyAPIController extends Controller
         $status = $data['status'];
         $internal = $data['internal'];
 
-        $pedidos = PedidosShopify::with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider', 'pedidoCarrier'])
+        $pedidos = PedidosShopify::with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider','pedidoCarrier'])
             //select('marca_t_i', 'fecha_entrega', DB::raw('concat(tienda_temporal, "-", numero_orden) as codigo'), 'nombre_shipping', 'ciudad_shipping', 'direccion_shipping', 'telefono_shipping', 'cantidad_total', 'producto_p', 'producto_extra', 'precio_total', 'comentario', 'estado_interno', 'status', 'estado_logistico', 'estado_devolucion', 'costo_envio', 'costo_devolucion')
             ->whereRaw("STR_TO_DATE(marca_t_i, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
             ->where((function ($pedidos) use ($and) {
