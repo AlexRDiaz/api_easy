@@ -388,7 +388,7 @@ class IntegrationAPIController extends Controller
 
                             // error_log("Estado: $key, Nombre Local: $name_local, ID Ref: $id_ref, Nombre: $name, ID: $id");
                             $iva = 0.15; //15%
-                            $costo_easy = 2;
+                            $costo_easy = 2.3;
 
                             if ($key == "estado_interno") {
                                 // $order->estado_devolucion = "";
@@ -619,7 +619,7 @@ class IntegrationAPIController extends Controller
 
                                     $deliveryPrice = round($deliveryPrice, 2);
                                     $deliveryPriceSeller = $deliveryPrice + $costo_easy;
-                                    $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
+                                    // $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
                                     $deliveryPriceSeller = round($deliveryPriceSeller, 2);
 
 
@@ -630,7 +630,7 @@ class IntegrationAPIController extends Controller
 
                                     $variants = json_decode($orderData['variant_details'], true);
 
-
+                                    // /*
                                     error_log("Transaccion nueva");
                                     //transactions
                                     $SellerCreditFinalValue = $this->updateProductAndProviderBalanceInt(
@@ -745,7 +745,7 @@ class IntegrationAPIController extends Controller
                                         $vendedorencontrado->saldo = $nuevoSaldo;
                                         $vendedorencontrado->save();
                                     }
-
+                                    // */
                                     //
                                 } else if ($name_local == "NOVEDAD") {
                                     //
@@ -951,7 +951,7 @@ class IntegrationAPIController extends Controller
                                     $deliveryPrice += $costo_recaudo;
                                     $deliveryPrice = round($deliveryPrice, 2);
                                     $deliveryPriceSeller = $deliveryPrice + $costo_easy;
-                                    $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
+                                    // $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
                                     $deliveryPriceSeller = round($deliveryPriceSeller, 2);
 
 
