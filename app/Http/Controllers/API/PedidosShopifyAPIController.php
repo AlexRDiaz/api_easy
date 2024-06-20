@@ -332,7 +332,15 @@ class PedidosShopifyAPIController extends Controller
         }
 
         // ! *************************************
-        $pedidos = PedidosShopify::with(['operadore.up_users', 'novedades', 'confirmedBy', 'statusLastModifiedBy', 'transportadora', 'users.vendedores'])
+        $pedidos = PedidosShopify::with([
+            'operadore.up_users',
+            'novedades',
+            'confirmedBy',
+            'statusLastModifiedBy',
+            'transportadora',
+            'users.vendedores',
+            'pedidoCarrier'
+        ])
             ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
             ->where(function ($pedidos) use ($searchTerm, $filteFields) {
                 foreach ($filteFields as $field) {
@@ -425,6 +433,7 @@ class PedidosShopifyAPIController extends Controller
             ->with('ruta')
             ->with('subRuta')
             ->with('confirmedBy')
+            ->with('pedidoCarrier')
             ->whereRaw("STR_TO_DATE(fecha_entrega, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
             ->where(function ($pedidos) use ($searchTerm, $filteFields) {
                 foreach ($filteFields as $field) {
@@ -1467,7 +1476,7 @@ class PedidosShopifyAPIController extends Controller
         }
 
 
-        $countProductWarehouseNotNull  = PedidosShopify::with(['operadore.up_users','pedidoCarrier'])
+        $countProductWarehouseNotNull  = PedidosShopify::with(['operadore.up_users', 'pedidoCarrier'])
             ->with('subRuta')
             ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
             ->whereNotNull('value_product_warehouse')
@@ -2005,7 +2014,7 @@ class PedidosShopifyAPIController extends Controller
         }
 
         $query = PedidosShopify::query()
-            ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider', 'carrierExternal','pedidoCarrier'])
+            ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider', 'carrierExternal', 'pedidoCarrier'])
             // ->where('carrier_external_id', $idUser)  // ! <---- se pretende usar el id de la transportadora externa que seleccione
             // ->where('carrier_external_id',1)
             ->whereHas('pedidoCarrier', function ($query) use ($idUser) {
@@ -2014,33 +2023,33 @@ class PedidosShopifyAPIController extends Controller
             ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
 
 
-        // $this->applyConditionsAnd($query, $Map);
-        // $this->applyConditions($query, $not, true);
-        ->where((function ($pedidos) use ($Map) {
-            foreach ($Map as $condition) {
-                foreach ($condition as $key => $valor) {
-                    if (strpos($key, '.') !== false) {
-                        $relacion = substr($key, 0, strpos($key, '.'));
-                        $propiedad = substr($key, strpos($key, '.') + 1);
-                        $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
-                    } else {
-                        $pedidos->where($key, '=', $valor);
+            // $this->applyConditionsAnd($query, $Map);
+            // $this->applyConditions($query, $not, true);
+            ->where((function ($pedidos) use ($Map) {
+                foreach ($Map as $condition) {
+                    foreach ($condition as $key => $valor) {
+                        if (strpos($key, '.') !== false) {
+                            $relacion = substr($key, 0, strpos($key, '.'));
+                            $propiedad = substr($key, strpos($key, '.') + 1);
+                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                        } else {
+                            $pedidos->where($key, '=', $valor);
+                        }
                     }
                 }
-            }
-        }))->where((function ($pedidos) use ($not) {
-            foreach ($not as $condition) {
-                foreach ($condition as $key => $valor) {
-                    if (strpos($key, '.') !== false) {
-                        $relacion = substr($key, 0, strpos($key, '.'));
-                        $propiedad = substr($key, strpos($key, '.') + 1);
-                        $this->recursiveWhereHasNeg($pedidos, $relacion, $propiedad, $valor);
-                    } else {
-                        $pedidos->where($key, '!=', $valor);
+            }))->where((function ($pedidos) use ($not) {
+                foreach ($not as $condition) {
+                    foreach ($condition as $key => $valor) {
+                        if (strpos($key, '.') !== false) {
+                            $relacion = substr($key, 0, strpos($key, '.'));
+                            $propiedad = substr($key, strpos($key, '.') + 1);
+                            $this->recursiveWhereHasNeg($pedidos, $relacion, $propiedad, $valor);
+                        } else {
+                            $pedidos->where($key, '!=', $valor);
+                        }
                     }
                 }
-            }
-        }));
+            }));
 
         $query1 = clone $query;
         $query2 = clone $query;
@@ -2716,7 +2725,7 @@ class PedidosShopifyAPIController extends Controller
         $status = $data['status'];
         $internal = $data['internal'];
 
-        $pedidos = PedidosShopify::with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider','pedidoCarrier'])
+        $pedidos = PedidosShopify::with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider', 'pedidoCarrier'])
             //select('marca_t_i', 'fecha_entrega', DB::raw('concat(tienda_temporal, "-", numero_orden) as codigo'), 'nombre_shipping', 'ciudad_shipping', 'direccion_shipping', 'telefono_shipping', 'cantidad_total', 'producto_p', 'producto_extra', 'precio_total', 'comentario', 'estado_interno', 'status', 'estado_logistico', 'estado_devolucion', 'costo_envio', 'costo_devolucion')
             ->whereRaw("STR_TO_DATE(marca_t_i, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
             ->where((function ($pedidos) use ($and) {
