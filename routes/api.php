@@ -18,6 +18,7 @@ use App\Http\Controllers\API\StockHistoryAPIController;
 use App\Http\Controllers\API\SubRutaAPIController;
 use App\Http\Controllers\API\OperadoreAPIController;
 use App\Http\Controllers\API\PedidosShopifiesCarrierExternalLinkAPIController;
+use App\Http\Controllers\API\ProductWarehouseLinkAPIController;
 use App\Http\Controllers\API\TransaccionPedidoTransportadoraAPIController;
 use App\Http\Controllers\API\TransportadorasShippingCostAPIController;
 use App\Http\Controllers\API\UpUserAPIController;
@@ -28,6 +29,7 @@ use App\Http\Controllers\API\ShopifyWebhookAPIController;
 use App\Http\Controllers\API\TransaccionesAPIController;
 use App\Http\Controllers\API\TransportadorasAPIController;
 use App\Http\Controllers\API\UpUsersWarehouseLinkAPIController;
+use App\Models\ProductWarehouseLink;
 use App\Models\Reserve;
 use App\Models\UpUsersWarehouseLink;
 use Illuminate\Http\Request;
@@ -614,6 +616,9 @@ Route::middleware(['cors'])->group(function () {
     Route::post('checkstock', [ProductAPIController::class, 'getProductVariantStock']);
     Route::get('subprov/warehouses/{id}', [UpUsersWarehouseLinkAPIController::class, 'show']);
     Route::post('productsbyids', [ProductAPIController::class, 'getData']);
+    Route::get('productwarehouses', [ProductWarehouseLinkAPIController::class, 'getData']);
+
+
 });
 
 

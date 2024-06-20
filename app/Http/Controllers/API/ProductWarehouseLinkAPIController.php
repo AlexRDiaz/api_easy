@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use App\Models\ProductWarehouseLink;
 use Illuminate\Http\Request;
 
@@ -120,5 +121,41 @@ class ProductWarehouseLinkAPIController extends Controller
     public function destroy(string $id)
     {
         //
+    }
+
+
+    public function getData()
+    {
+        //
+        try {
+            $products = Product::select('product_id', 'product_name', 'isvariable', 'approved', 'active', 'warehouse_id', 'created_at')
+                ->with(['warehouses_simple' => function ($query) {
+                    $query->orderBy('id', 'asc');
+                }])
+                ->has('warehouses_simple', '>', 1)
+                ->get();
+
+            $filteredProducts = $products->filter(function ($product) {
+                $firstWarehouseId = $product->warehouses_simple->first()->warehouse_id ?? null;
+                return $product->warehouse_id != $firstWarehouseId;
+            });
+
+            // Actualizar los productos filtrados
+            // $filteredProducts->each(function ($product) {
+            //     $firstWarehouseId = $product->warehouses_simple->first()->warehouse_id ?? null;
+            //     $product->warehouse_id = $firstWarehouseId;
+            //     $product->save();
+            // });
+
+            return response()->json([
+                'data' => $filteredProducts,
+                'total' => $filteredProducts->count(),
+            ], 200);
+        } catch (\Exception $e) {
+            error_log("ERROR: $e");
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

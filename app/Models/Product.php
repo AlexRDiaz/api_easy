@@ -73,6 +73,13 @@ class Product extends Model
 			->with('up_users');
 	}
 
+	public function warehouses_simple()
+	{
+	
+		return $this->belongsToMany(Warehouse::class, 'product_warehouse_link', 'id_product', 'id_warehouse')
+			->select('warehouse_id', 'branch_name', 'id_provincia', 'city', 'address', 'customer_service_phone', 'provider_id');
+	}
+
 	public function productseller(): \Illuminate\Database\Eloquent\Relations\HasMany
 	{
 		return $this->hasMany(\App\Models\ProductsSellerLink::class, 'product_id');
