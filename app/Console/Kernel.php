@@ -15,12 +15,15 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         // $schedule->command('app:your-custom-command')->everyMinute(); // Cambia 'your:custom-command' al nombre de tu comando personalizado
-        $schedule->command('app:generate-dbbackup')->dailyAt('18:15');
+        // ! ↓ toca descomentar
+        // $schedule->command('app:generate-dbbackup')->dailyAt('18:15');
         // date_default_timezone_set('Etc/GMT+5');
         // $schedule->command('app:your-custom-command')->everyThirtySeconds();
         // $schedule->command('app:your-custom-command')->daily();
-
-        $schedule->command('app:your-custom-command')->dailyAt('23:59');
+        
+        // ! ↓ toca descomentar
+        // $schedule->command('app:your-custom-command')->dailyAt('23:59');
+        $schedule->command('app:your-custom-command')->dailyAt('16:57');
 
 
         // monthly cutoff

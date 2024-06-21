@@ -200,7 +200,7 @@ class TransportadorasShippingCostAPIController extends Controller
 
         $transportadoras = CarriersExternal::all();
         // $transportadoraId = 19;
-        // $transportadoraId = 1;
+        $transportadoraId = 1;
         // $transportadora = Transportadora::find($transportadoraId);
 
         $shipping_total = 0;
@@ -208,8 +208,8 @@ class TransportadorasShippingCostAPIController extends Controller
         $total_proceeds = 0;
         $total_day = 0;
 
-        $currentDate = now()->format('j/n/Y');
-        // $currentDate = '12/10/2023';
+        // $currentDate = now()->format('j/n/Y');
+        $currentDate = '1/6/2024';
         // $currentDate =  Carbon::createFromFormat('j/n/Y', $currentDate)->format('j/n/Y');
 
         $currentDateTime = date('Y-m-d H:i:s');
@@ -225,8 +225,11 @@ class TransportadorasShippingCostAPIController extends Controller
             $transportadoraId = $transportadora->id;
 
             // ! sacar carrier external cost de los pedidos
-            $pedidosAux = PedidosShopify::where('carrier_external_id', $transportadoraId)
+            $pedidosAux = PedidosShopify::with(['pedidoCarrier'])
                 ->where('fecha_entrega', $currentDate)
+                ->whereHas('pedidoCarrier', function ($query) use ($transportadoraId) {
+                    $query->where('carrier_id', $transportadoraId);
+                })
                 ->get();
 
             // foreach ($pedidosAux as $pedido) {

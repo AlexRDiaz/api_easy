@@ -192,7 +192,7 @@ class TransaccionPedidoTransportadoraAPIController extends Controller
         $dateFormatted = Carbon::createFromFormat('Y-m-d', $deliveredDate)->format('j/n/Y');
         // $orders = TransaccionPedidoTransportadora::with('pedidos_shopify', 'transportadora', 'operadore.up_users')
         $orders = TransaccionPedidoTransportadora::with($populate)
-            ->where('id_transportadora', $idTransportadora)
+            ->where('id_carrierexternal', $idTransportadora)
             ->where('fecha_entrega', $dateFormatted)
             ->where((function ($pedidos) use ($andCondition) {
                 foreach ($andCondition as $condition) {
