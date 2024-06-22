@@ -534,6 +534,9 @@ Route::middleware(['cors'])->group(function () {
     Route::prefix('providertransaction')->group(function () {
         Route::post('provider', [ProviderTransactionsAPIController::class, 'getAll']);
         Route::get('retiros/{id}', [ProviderTransactionsAPIController::class, 'getTotalRetiros']);
+        Route::post("credit", [ProviderTransactionsAPIController::class, 'CreditProvider']);
+        Route::post("debit", [ProviderTransactionsAPIController::class, 'DebitProvider']);
+        Route::get("recalculatesaldos", [ProviderTransactionsAPIController::class, 'recalculateSaldos']);
     });
 
     //  * test email

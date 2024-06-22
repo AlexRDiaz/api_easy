@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Models\Provider;
 use App\Models\ProviderTransaction;
+use App\Models\UpUser;
 use Carbon\Carbon;
+use DateTime;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -183,5 +186,150 @@ class ProviderTransactionsAPIController extends Controller
                 'error' => "There was an error processing your request. " . $e->getMessage()
             ], 500);
         }
+    }
+
+    public function CreditProvider(Request $request)
+    {
+        //
+        error_log("CreditProvider");
+        $data = $request->json()->all();
+
+        $providerUserId = $data['user_id'];
+        error_log("$providerUserId");
+
+        $transaction_type = $data['transaction_type'];
+        $amount = $data['amount'];
+        $originId = $data['origin_id'];
+        $originCode = $data['origin_code'];
+        $comment = $data['comment'];
+        $generated_by = $data['generated_by'];
+        $status = $data['status'];
+        $description = $data['description'];
+        $sku_product_reference = $data['sku_product_reference'];
+
+
+        $startDateFormatted = new DateTime();
+        $user = UpUser::where("id", $providerUserId)->with('providers')->first();
+        $provider = $user['providers'][0];
+        $saldo = $provider->saldo;
+
+        $nuevoSaldo = $saldo + $amount;
+        // $provider->saldo = $nuevoSaldo;
+
+
+        // $newTrans = new Transaccion();
+        $newTrans = new ProviderTransaction();
+
+        $newTrans->transaction_type = $transaction_type;
+        $newTrans->amount = $amount;
+        $newTrans->previous_value = $saldo;
+        $newTrans->current_value = $nuevoSaldo;
+        $newTrans->timestamp = now();
+        $newTrans->origin_id = $originId;
+        $newTrans->origin_code = $originCode;
+        $newTrans->provider_id = $user['providers'][0]['id'];
+        $newTrans->comment = $comment;
+        $newTrans->generated_by = $generated_by;
+        $newTrans->status = $status;
+        $newTrans->description = $description;
+        $newTrans->sku_product_reference = $sku_product_reference;
+        $newTrans->save();
+
+        $providerencontrado = Provider::findOrFail($user['providers'][0]['id']);
+        $providerencontrado->saldo = $nuevoSaldo;
+        $providerencontrado->save();
+
+        return response()->json("Monto acreditado");
+    }
+
+    public function DebitProvider(Request $request)
+    {
+        //
+        $data = $request->json()->all();
+
+        $providerUserId = $data['user_id'];
+        $transaction_type = $data['transaction_type'];
+        $amount = $data['amount'];
+        $originId = $data['origin_id'];
+        $originCode = $data['origin_code'];
+        $comment = $data['comment'];
+        $generated_by = $data['generated_by'];
+        $status = $data['status'];
+        $description = $data['description'];
+        $sku_product_reference = $data['sku_product_reference'];
+
+        $startDateFormatted = new DateTime();
+        $user = UpUser::where("id", $providerUserId)->with('providers')->first();
+
+        $provider = $user['providers'][0];
+        $saldo = $provider->saldo;
+        $nuevoSaldo = $saldo - $amount;
+        // $user->saldo = $nuevoSaldo;
+
+        $newTrans = new ProviderTransaction();
+        $newTrans->transaction_type = $transaction_type;
+        $newTrans->amount = $amount;
+        $newTrans->previous_value = $saldo;
+        $newTrans->current_value = $nuevoSaldo;
+        $newTrans->timestamp = now();
+        $newTrans->origin_id = $originId;
+        $newTrans->origin_code = $originCode;
+        $newTrans->provider_id = $user['providers'][0]['id'];
+        $newTrans->comment = $comment;
+        $newTrans->generated_by = $generated_by;
+        $newTrans->status = $status;
+        $newTrans->description = $description;
+        $newTrans->description = $description;
+        $newTrans->sku_product_reference = $sku_product_reference;
+        $newTrans->save();
+
+        $providerencontrado = Provider::findOrFail($user['providers'][0]['id']);
+        $providerencontrado->saldo = $nuevoSaldo;
+        $providerencontrado->save();
+
+        return response()->json("Monto debitado");
+    }
+
+    public function recalculateSaldos(Request $request)
+    {
+        //
+        error_log("recalculateSaldos");
+        $providers = Provider::where('active', 1)->get();
+
+        $providers->each(function ($provider) {
+            $provId = $provider->id;
+            $provName = $provider->name;
+            // error_log("$provId: $provName ");
+            $transactions = ProviderTransaction::where('provider_id', $provId)->get();
+            if ($transactions->isNotEmpty()) {
+                error_log("$provId: $provName ");
+
+                // Sumar "Pago Producto" con state 1
+                $totalPagoProducto = $transactions->where('transaction_type', 'Pago Producto')
+                    ->where('state', 1)
+                    ->sum('amount');
+
+                // Sumar "Pago Producto" con state 0 //rollbacks
+                $totalPagoProductoRoll = $transactions->where('transaction_type', 'Pago Producto')
+                    ->where('state', 0)
+                    ->sum('amount');
+
+                // Sumar "Retiro"
+                $totalRetiro = $transactions->where('transaction_type', 'Retiro')
+                    ->sum('amount');
+
+                error_log("totalPagoProducto: $totalPagoProducto");
+                error_log("totalPagoProductoRoll: $totalPagoProductoRoll");
+                error_log("totalRetiro: $totalRetiro");
+
+                $saldoActual = $totalPagoProducto - ($totalRetiro + $totalPagoProductoRoll);
+                error_log("saldo: $saldoActual");
+
+                $providerFound = Provider::findOrFail($provId);
+                $providerFound->saldo = $saldoActual;
+                $providerFound->save();
+            }
+            error_log("*********************");
+        });
     }
 }
