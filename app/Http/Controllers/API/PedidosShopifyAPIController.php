@@ -2290,6 +2290,7 @@ class PedidosShopifyAPIController extends Controller
                 //  'id_product' => $id_product
             ], 200);
         } else {
+            error_log("Esta orden ya existe: $order_number-$id");
             return response()->json([
                 'error' => 'Esta orden ya existe',
                 'orden_a_ingresar' => [
