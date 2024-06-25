@@ -2109,6 +2109,11 @@ class PedidosShopifyAPIController extends Controller
         // ID DATE ORDER FOR RELATION
         $dateOrder = "";
 
+        $input = $request->getContent();
+        error_log('Request Body: ');
+        error_log($input);
+
+
         //VARIABLES FOR ENTITY
         $listOfProducts = [];
         $order_number = $request->input('order_number');
