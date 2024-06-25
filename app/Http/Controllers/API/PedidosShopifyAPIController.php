@@ -2109,9 +2109,9 @@ class PedidosShopifyAPIController extends Controller
         // ID DATE ORDER FOR RELATION
         $dateOrder = "";
 
-        // $input = $request->getContent();
-        // error_log('Request Body: ');
-        // error_log($input);
+        $input = $request->getContent();
+        error_log('Request Body: ');
+        error_log($input);
 
 
         //VARIABLES FOR ENTITY
@@ -2147,6 +2147,8 @@ class PedidosShopifyAPIController extends Controller
             'numero_orden' => $order_number,
             'tienda_temporal' => $productos[0]['vendor'],
             'id_comercial' => $id,
+            // 'nombre_shipping' => $name,
+            // 'ciudad_shipping' => $city,
         ])->get();
 
         //
