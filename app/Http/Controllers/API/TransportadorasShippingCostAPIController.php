@@ -235,7 +235,7 @@ class TransportadorasShippingCostAPIController extends Controller
             // foreach ($pedidosAux as $pedido) {
             //     // if (($pedido["estado_interno"] == "CONFIRMADO" && $pedido["estado_logistico"] == "ENVIADO") && ($pedido["status"] == "ENTREGADO" || $pedido["status"] == "NO  ENTREGADO")) {
             //     // if ($pedido["status"] == "ENTREGADO" || $pedido["status"] == "NO  ENTREGADO") {
-            //         $costo_transportadora += floatval($pedido["carrierexternal_cost"]);
+            //         $costo_transportadora += floatval($pedido["costo_transportadora"]);
             //     // }
                 
             // }
@@ -258,6 +258,7 @@ class TransportadorasShippingCostAPIController extends Controller
                 $total_proceeds = 0;
                 foreach ($pedidosAux as $pedido) {
                     if ($pedido["status"] == "ENTREGADO") {
+                        $costo_transportadora += floatval($pedido["costo_transportadora"]);
                         $precioTotal = floatval($pedido["precio_total"]);
                         $total_proceeds += $precioTotal;
                     }
@@ -266,7 +267,7 @@ class TransportadorasShippingCostAPIController extends Controller
                 $total_proceeds = round($total_proceeds, 2);
                 // $count_orders =  $pedidos->flatten()->count();
                     // $shipping_total = $costo_transportadora * $count_orders;
-                    $total_day = $total_proceeds - $shipping_total;
+                    $total_day = $total_proceeds - $costo_transportadora;
 
                 $newTransportadoraShippingCost = new TransportadorasShippingCost();
                 $newTransportadoraShippingCost->status = 'PENDIENTE';
