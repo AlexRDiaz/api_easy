@@ -2148,8 +2148,9 @@ class PedidosShopifyAPIController extends Controller
         }
 
         $ahora = now();
-        error_log("********now_laravel: $ahora***");
+        error_log("********now_laravel: $ahora******");
 
+        /*
         if ($ahora) {
             $search = PedidosShopify::where([
                 'id_shopify' => $id_shopify,
@@ -2158,12 +2159,13 @@ class PedidosShopifyAPIController extends Controller
                 'id_comercial' => $id,
             ])->get();
         } else {
+            */
             $search = PedidosShopify::where([
                 'numero_orden' => $order_number,
                 'tienda_temporal' => $productos[0]['vendor'],
                 'id_comercial' => $id,
             ])->get();
-        }
+        // }
 
 
         //
