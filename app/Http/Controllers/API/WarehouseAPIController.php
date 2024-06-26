@@ -76,7 +76,7 @@ class WarehouseAPIController extends Controller
             'url_image' => 'nullable|string|max:150',
             'city' => 'nullable|string|max:80',
             'collection' => 'nullable|json',
-            'provider_id' => 'nullable|integer',
+            'id_provincia' => 'nullable|integer',
             'active' => 'nullable|integer',
             'approved' => 'nullable|integer',
             'provider_id' => 'nullable|integer',

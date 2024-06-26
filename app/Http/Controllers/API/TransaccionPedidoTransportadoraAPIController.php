@@ -140,6 +140,58 @@ class TransaccionPedidoTransportadoraAPIController extends Controller
 
         return response()->json(['data' => $transacciones, "total" => $totalShippingCost], 200);
     }
+    // ! nueva funcion para descargar reporte
+    public function getByTransportadoraDatesExternal(Request $request)
+    {
+        //for excel
+        $data = $request->json()->all();
+        $idTransportadora = $data['id_transportadora'];
+        $fechasEntrega = $data['fechas_entrega'];
+        $datesFormatted = [];
+
+        foreach ($fechasEntrega as $fecha) {
+            $dateFormatted = Carbon::createFromFormat('Y-m-d', $fecha)->format('j/n/Y');
+            $datesFormatted[] = $dateFormatted;
+        }
+
+        // $query = PedidosShopify::query()
+        // ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider', 'carrierExternal','pedidoCarrier'])
+        // // ->where('carrier_external_id', $idUser)  // ! <---- se pretende usar el id de la transportadora externa que seleccione
+        // // ->where('carrier_external_id',1)
+        // ->whereHas('pedidoCarrier', function ($query) use ($idUser) {
+        //     $query->where('carrier_id', $idUser);
+        // })
+        // ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
+
+        $transacciones = PedidosShopify::with(['transportadora', 'operadore.up_users','pedidoCarrier','users.vendedores'])
+            ->whereHas('pedidoCarrier', function ($query) use ($idTransportadora) {
+                $query->where('carrier_id', $idTransportadora);
+            })
+            ->whereIn('fecha_entrega', $datesFormatted)
+            ->where('status', "ENTREGADO")
+            ->where('estado_interno', "CONFIRMADO")
+            ->where('estado_logistico', "ENVIADO")
+            ->orderByRaw("STR_TO_DATE(fecha_entrega, '%e/%c/%Y')")
+            ->get();
+
+        if ($transacciones->isEmpty()) {
+            // return response()->json(["message" => "No existen datos en este mes-año"], 200);
+            return response()->json([], 204);
+        }
+
+        $costo_transportadora = $transacciones->first()->costo_transportadora;
+        $count_orders =  $transacciones->flatten()->count();
+        $totalShippingCost = $costo_transportadora * $count_orders;
+
+        // $totalCost = TransportadorasShippingCost::where('id_transportadora', $idTransportadora)
+        //     // ->selectRaw('daily_total')
+        //     ->selectRaw('daily_shipping_cost')
+        //     ->whereIn(DB::raw('DATE(time_stamp)'), $fechasEntrega)
+        //     ->get();
+        // $totalShippingCost = $totalCost->sum('daily_shipping_cost');
+
+        return response()->json(['data' => $transacciones, "total" => $totalShippingCost], 200);
+    }
 
     public function getByDate(Request $request)
     {
@@ -192,7 +244,7 @@ class TransaccionPedidoTransportadoraAPIController extends Controller
         $dateFormatted = Carbon::createFromFormat('Y-m-d', $deliveredDate)->format('j/n/Y');
         // $orders = TransaccionPedidoTransportadora::with('pedidos_shopify', 'transportadora', 'operadore.up_users')
         $orders = TransaccionPedidoTransportadora::with($populate)
-            ->where('id_transportadora', $idTransportadora)
+            ->where('id_carrierexternal', $idTransportadora)
             ->where('fecha_entrega', $dateFormatted)
             ->where((function ($pedidos) use ($andCondition) {
                 foreach ($andCondition as $condition) {

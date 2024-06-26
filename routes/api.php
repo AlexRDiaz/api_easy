@@ -498,11 +498,12 @@ Route::middleware(['cors'])->group(function () {
         Route::get('/', [TransaccionPedidoTransportadoraAPIController::class, 'index']);
         Route::post('/getByDate', [TransaccionPedidoTransportadoraAPIController::class, 'getByDate']);
         Route::post('/', [TransaccionPedidoTransportadoraAPIController::class, 'store']);
-        Route::put('/{id}', [TransaccionPedidoTransportadoraAPIController::class, 'update']);
+        Route::put('/{id}', [TransaccionPedidoTransportadoraAPIController::class, 'upd ate']);
         Route::post('/bydates', [TransaccionPedidoTransportadoraAPIController::class, 'getByTransportadoraDates']);
+        Route::post('/bydates-external', [TransaccionPedidoTransportadoraAPIController::class, 'getByTransportadoraDatesExternal']);
         Route::delete('/{id}', [TransaccionPedidoTransportadoraAPIController::class, 'destroy']);
         Route::post('/ordersperday', [TransaccionPedidoTransportadoraAPIController::class, 'getOrdersPerDay']);
-        Route::post('/ordersperdayexternal', [TransportadorasShippingCostAPIController::class, 'getOrdersPerDayExternal']);
+        // Route::post('/ordersperdayexternal', [TransportadorasShippingCostAPIController::class, 'getOrdersPerDayExternal']);
         // ! para testear la cronometrizada de las transportadoaras externas
         // Route::post('/ordersperdayexternal', [TransportadorasShippingCostAPIController::class, 'getShippingCostCarrierExternalPerDay']);
     });
@@ -510,7 +511,8 @@ Route::middleware(['cors'])->group(function () {
     Route::prefix('providers')->group(function () {
 
         Route::get('/all/{search?}', [ProviderAPIController::class, 'getProviders']);
-        Route::get('/nofilter', [ProviderAPIController::class, 'index']);
+        Route::get('/nofilter', [ProviderAPIController::class, 'index']); 
+
         Route::put('/update/{id}', [ProviderAPIController::class, 'updateRequest']);
     });
 

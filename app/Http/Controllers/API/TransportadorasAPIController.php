@@ -146,13 +146,13 @@ class TransportadorasAPIController extends Controller
         }
 
         // Opcional: Verificar si el modelo es uno de los permitidos
-        $allowedModels = ['Transportadora', 'UpUser', 'Vendedore', 'UpUsersVendedoresLink', 'UpUsersRolesFrontLink', 'OrdenesRetiro', 'PedidosShopify', 'Provider', 'TransaccionPedidoTransportadora'];
+        $allowedModels = ['Transportadora', 'UpUser', 'Vendedore', 'UpUsersVendedoresLink', 'UpUsersRolesFrontLink', 'OrdenesRetiro', 'PedidosShopify', 'Provider', 'TransaccionPedidoTransportadora',"pedidoCarrier"];
 
         if (!in_array($modelName, $allowedModels)) {
             return response()->json(['error' => 'Acceso al modelo no permitido'], 403);
         }
 
-        if (isset($data['data_filter'])) {
+        if (isset($data['date_filter'])) {
             $dateFilter = $data["date_filter"];
             $selectedFilter = "fecha_entrega";
             if ($dateFilter != "FECHA ENTREGA") {
@@ -238,7 +238,9 @@ class TransportadorasAPIController extends Controller
                 foreach ($not as $condition) {
                     foreach ($condition as $key => $valor) {
                         if ($valor === '') {
-                            $databackend->whereRaw("$key <> ''");
+                            // $databackend->whereRaw("$key <> ''");
+                            $this->recursiveWhereHasNeg($databackend, $relacion, $propiedad, $valor);
+
                         } else {
                             if ($valor === null) {
                                 $databackend->whereNotNull($key);

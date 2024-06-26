@@ -19,8 +19,9 @@ class Kernel extends ConsoleKernel
         // date_default_timezone_set('Etc/GMT+5');
         // $schedule->command('app:your-custom-command')->everyThirtySeconds();
         // $schedule->command('app:your-custom-command')->daily();
-
+        
         $schedule->command('app:your-custom-command')->dailyAt('23:59');
+        // $schedule->command('app:your-custom-command')->dailyAt('00:00');
 
 
         // monthly cutoff

@@ -25,7 +25,7 @@ use Illuminate\Database\Eloquent\Model;
  * 
  * @property Transportadora $transportadora
  *
- * @package App\Models
+ * @package App\Maodels
  */
 class TransportadorasShippingCost extends Model
 {
