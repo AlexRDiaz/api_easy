@@ -2117,9 +2117,10 @@ class PedidosShopifyAPIController extends Controller
         //VARIABLES FOR ENTITY
         $listOfProducts = [];
         $id_shopify = $request->input('id');
-
         $order_number = $request->input('order_number');
         error_log("********dataID: $id-$id_shopify-$order_number");
+        $created_at_shopify = $request->input('created_at');
+        error_log("********created_at_shopify: $created_at_shopify***");
 
         $name = $request->input('shipping_address.name');
         $address1 = $request->input('shipping_address.address1');
@@ -2146,13 +2147,24 @@ class PedidosShopifyAPIController extends Controller
             ];
         }
 
-        $search = PedidosShopify::where([
-            'numero_orden' => $order_number,
-            'tienda_temporal' => $productos[0]['vendor'],
-            'id_comercial' => $id,
-            // 'nombre_shipping' => $name,
-            // 'ciudad_shipping' => $city,
-        ])->get();
+        $ahora = now();
+        error_log("********now_laravel: $ahora***");
+
+        if ($ahora) {
+            $search = PedidosShopify::where([
+                'id_shopify' => $id_shopify,
+                'numero_orden' => $order_number,
+                'tienda_temporal' => $productos[0]['vendor'],
+                'id_comercial' => $id,
+            ])->get();
+        } else {
+            $search = PedidosShopify::where([
+                'numero_orden' => $order_number,
+                'tienda_temporal' => $productos[0]['vendor'],
+                'id_comercial' => $id,
+            ])->get();
+        }
+
 
         //
         // IF ORDER NOT EXIST CREATE ORDER
@@ -2177,7 +2189,6 @@ class PedidosShopifyAPIController extends Controller
 
 
             // Obtener la fecha y hora actual
-            $ahora = now();
             $dia = $ahora->day;
             $mes = $ahora->month;
             $anio = $ahora->year;
