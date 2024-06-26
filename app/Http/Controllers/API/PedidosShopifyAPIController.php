@@ -2149,7 +2149,7 @@ class PedidosShopifyAPIController extends Controller
 
         $ahora = now();
         error_log("********now_laravel: $ahora******");
-        error_log("********vendor: ".$productos[0]['vendor']);
+        error_log("********vendor: $id-$order_number--".$productos[0]['vendor']);
 
         /*
         if ($ahora) {
