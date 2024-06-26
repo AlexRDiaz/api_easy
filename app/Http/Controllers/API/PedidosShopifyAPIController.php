@@ -2152,6 +2152,7 @@ class PedidosShopifyAPIController extends Controller
         $fechaLimite = Carbon::createFromFormat('Y-m-d', '2024-06-26');
 
         // Verificar si createdAtShopify es menor que 26/06/2024
+        /*
         if ($created_at_shopify->lessThan($fechaLimite)) {
             error_log("createdAtShopify es menor que el 26 de junio de 2024.");
             // $search = PedidosShopify::where([
@@ -2167,6 +2168,7 @@ class PedidosShopifyAPIController extends Controller
             //     'id_comercial' => $id,
             // ])->get();
         }
+        */
 
         $search = PedidosShopify::where([
             'numero_orden' => $order_number,
