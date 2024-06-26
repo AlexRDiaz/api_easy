@@ -2148,25 +2148,31 @@ class PedidosShopifyAPIController extends Controller
         }
 
         $ahora = now();
-        error_log("********now_laravel: $ahora******");
-        error_log("********vendor: $id-$order_number--".$productos[0]['vendor']);
 
-        /*
-        if ($ahora) {
-            $search = PedidosShopify::where([
-                'id_shopify' => $id_shopify,
-                'numero_orden' => $order_number,
-                'tienda_temporal' => $productos[0]['vendor'],
-                'id_comercial' => $id,
-            ])->get();
+        $fechaLimite = Carbon::createFromFormat('Y-m-d', '2024-06-26');
+
+        // Verificar si createdAtShopify es menor que 26/06/2024
+        if ($created_at_shopify->lessThan($fechaLimite)) {
+            error_log("createdAtShopify es menor que el 26 de junio de 2024.");
+            // $search = PedidosShopify::where([
+            //     'numero_orden' => $order_number,
+            //     'tienda_temporal' => $productos[0]['vendor'],
+            //     'id_comercial' => $id,
+            // ])->get();
         } else {
-            */
-            $search = PedidosShopify::where([
-                'numero_orden' => $order_number,
-                'tienda_temporal' => $productos[0]['vendor'],
-                'id_comercial' => $id,
-            ])->get();
-        // }
+            error_log("createdAtShopify no es menor que el 26 de junio de 2024.");
+            // $search = PedidosShopify::where([
+            //     'numero_orden' => $order_number,
+            //     'tienda_temporal' => $productos[0]['vendor'],
+            //     'id_comercial' => $id,
+            // ])->get();
+        }
+
+        $search = PedidosShopify::where([
+            'numero_orden' => $order_number,
+            'tienda_temporal' => $productos[0]['vendor'],
+            'id_comercial' => $id,
+        ])->get();
 
 
         //
