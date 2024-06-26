@@ -34,8 +34,7 @@ class YourCustomCommand extends Command
     // ]);
         // app(PedidosShopifyAPIController::class)->generateTransportCosts();
 
-        // ! ↓ toca descomentar
-        // app(TransportadorasShippingCostAPIController::class)->getShippingCostPerDay();
+        app(TransportadorasShippingCostAPIController::class)->getShippingCostPerDay();
         
         app(TransportadorasShippingCostAPIController::class)->getShippingCostCarrierExternalPerDay();
         

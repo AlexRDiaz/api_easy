@@ -200,7 +200,7 @@ class TransportadorasShippingCostAPIController extends Controller
 
         $transportadoras = CarriersExternal::all();
         // $transportadoraId = 19;
-        $transportadoraId = 1;
+        // $transportadoraId = 1;
         // $transportadora = Transportadora::find($transportadoraId);
 
         $shipping_total = 0;
@@ -208,8 +208,8 @@ class TransportadorasShippingCostAPIController extends Controller
         $total_proceeds = 0;
         $total_day = 0;
 
-        // $currentDate = now()->format('j/n/Y');
-        $currentDate = '1/6/2024';
+        $currentDate = now()->format('j/n/Y');
+        // $currentDate = '8/6/2024';
         // $currentDate =  Carbon::createFromFormat('j/n/Y', $currentDate)->format('j/n/Y');
 
         $currentDateTime = date('Y-m-d H:i:s');
@@ -219,7 +219,7 @@ class TransportadorasShippingCostAPIController extends Controller
 
 
 
-
+ 
         foreach ($transportadoras as $transportadora) {
 
             $transportadoraId = $transportadora->id;
