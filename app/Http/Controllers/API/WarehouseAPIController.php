@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\Warehouse;
 use App\Models\Transportadora;
+use App\Models\UpUser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 
@@ -188,8 +189,38 @@ class WarehouseAPIController extends Controller
             ->where('active', 1)
             ->where('approved', 1)
             // ->get();
-            ->get(['branch_name', 'warehouse_id','city','provider_id']);
+            ->get(['branch_name', 'warehouse_id', 'city', 'provider_id']);
 
         return response()->json(['warehouses' => $warehouses]);
+    }
+
+    public function bySubprov(string $idSubProv)
+    {
+        //
+        error_log("bySubprov");
+        try {
+            $user = UpUser::with('warehouses')
+                ->where('id', $idSubProv)
+                ->first();
+
+            if ($user) {
+                $warehouses = $user->warehouses->map(function ($warehouse) {
+                    return [
+                        'warehouse_id' => $warehouse->warehouse_id,
+                        'branch_name' => $warehouse->branch_name,
+                        'provider_id' => $warehouse->provider_id
+                    ];
+                });
+
+                return response()->json($warehouses);
+            } else {
+                return response()->json(['error' => 'User not found'], 404);
+            }
+        } catch (\Exception $e) {
+            error_log("error: $e");
+            return response()->json([
+                'error' => "There was an error processing your request. " . $e->getMessage()
+            ], 500);
+        }
     }
 }

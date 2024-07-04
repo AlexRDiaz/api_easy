@@ -511,7 +511,7 @@ Route::middleware(['cors'])->group(function () {
     Route::prefix('providers')->group(function () {
 
         Route::get('/all/{search?}', [ProviderAPIController::class, 'getProviders']);
-        Route::get('/nofilter', [ProviderAPIController::class, 'index']); 
+        Route::get('/nofilter', [ProviderAPIController::class, 'index']);
 
         Route::put('/update/{id}', [ProviderAPIController::class, 'updateRequest']);
     });
@@ -616,6 +616,11 @@ Route::middleware(['cors'])->group(function () {
     Route::post('checkstock', [ProductAPIController::class, 'getProductVariantStock']);
     Route::get('subprov/warehouses/{id}', [UpUsersWarehouseLinkAPIController::class, 'show']);
     Route::post('productsbyids', [ProductAPIController::class, 'getData']);
+    Route::get('owners/{id}', [ProductAPIController::class, 'getOwners']);
+    Route::get('prodwarehouses/{id}', [ProductAPIController::class, 'getWarehouses']);
+    Route::get('warehousessubprov/{idSub}', [WarehouseAPIController::class, 'bySubprov']);
+
+
 });
 
 

@@ -697,104 +697,163 @@ class ProductAPIController extends Controller
     {
         //
         error_log("getBySubProvider");
-        $data = $request->json()->all();
+        try {
+            //code...
 
-        $pageSize = $data['page_size'];
-        $pageNumber = $data['page_number'];
-        $searchTerm = $data['search'];
-        $populate = $data['populate'];
-        if ($searchTerm != "") {
-            $filteFields = $data['or'];
-        } else {
-            $filteFields = [];
-        }
+            $data = $request->json()->all();
 
-        $andMap = $data['and'];
+            // $pageSize = $data['page_size'];
+            $pageSize = $data['page_size'];
+
+            $pageNumber = $data['page_number'];
+            $searchTerm = $data['search'];
+            $populate = $data['populate'];
+            $orConditions = $data['multifilter'];
+
+            if ($searchTerm != "") {
+                $filteFields = $data['or'];
+            } else {
+                $filteFields = [];
+            }
+
+            $andMap = $data['and'];
+            $not = $data['not'];
+            $paginate = isset($data['paginate']) ? $data['paginate'] : true;
 
 
-        $products = Product::with($populate)
-            ->where(function ($products) use ($searchTerm, $filteFields) {
-                foreach ($filteFields as $field) {
-                    if (strpos($field, '.') !== false) {
-                        $segments = explode('.', $field);
-                        $lastSegment = array_pop($segments);
-                        $relation = implode('.', $segments);
+            $products = Product::with($populate)
+                ->where(function ($products) use ($searchTerm, $filteFields) {
+                    foreach ($filteFields as $field) {
+                        if (strpos($field, '.') !== false) {
+                            $segments = explode('.', $field);
+                            $lastSegment = array_pop($segments);
+                            $relation = implode('.', $segments);
 
-                        $products->orWhereHas($relation, function ($query) use ($lastSegment, $searchTerm) {
-                            $query->where($lastSegment, 'LIKE', '%' . $searchTerm . '%');
-                        });
-                    } else {
-                        $products->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
-                    }
-                }
-            })
-            ->where((function ($products) use ($andMap) {
-                foreach ($andMap as $condition) {
-                    foreach ($condition as $key => $valor) {
-                        $parts = explode("/", $key);
-                        $type = $parts[0];
-                        $filter = $parts[1];
-                        if ($valor === null) {
-                            $products->whereNull($filter);
+                            $products->orWhereHas($relation, function ($query) use ($lastSegment, $searchTerm) {
+                                $query->where($lastSegment, 'LIKE', '%' . $searchTerm . '%');
+                            });
                         } else {
-                            if (strpos($filter, '.') !== false) {
-                                $relacion = substr($filter, 0, strpos($filter, '.'));
-                                $propiedad = substr($filter, strpos($filter, '.') + 1);
-                                $this->recursiveWhereHas($products, $relacion, $propiedad, $valor);
-                            } else {
-                                if ($type == "equals") {
-                                    $products->where($filter, '=', $valor);
+                            $products->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                        }
+                    }
+                })
+                ->orWhere(function ($products) use ($orConditions) {
+                    // condiciones multifilter
+                    foreach ($orConditions as $condition) {
+                        $products->orWhere(function ($subquery) use ($condition) {
+                            foreach ($condition as $field => $value) {
+                                if (strpos($field, '.') !== false) {
+                                    $segments = explode('.', $field);
+                                    $lastSegment = array_pop($segments);
+                                    $relation = implode('.', $segments);
+                                    $subquery->orWhereHas($relation, function ($query) use ($lastSegment, $value) {
+                                        $query->where($lastSegment, $value);
+                                    });
                                 } else {
-                                    $products->where($filter, 'LIKE', '%' . $valor . '%');
+                                    $subquery->orWhere($field, $value);
+                                }
+                            }
+                        });
+                    }
+                })
+                ->where((function ($products) use ($andMap) {
+                    foreach ($andMap as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            $parts = explode("/", $key);
+                            $type = $parts[0];
+                            $filter = $parts[1];
+                            if ($valor === null) {
+                                $products->whereNull($filter);
+                            } else {
+                                if (strpos($filter, '.') !== false) {
+                                    $relacion = substr($filter, 0, strpos($filter, '.'));
+                                    $propiedad = substr($filter, strpos($filter, '.') + 1);
+                                    $this->recursiveWhereHas($products, $relacion, $propiedad, $valor);
+                                } else {
+                                    if ($type == "equals") {
+                                        $products->where($filter, '=', $valor);
+                                    } else {
+                                        $products->where($filter, 'LIKE', '%' . $valor . '%');
+                                    }
                                 }
                             }
                         }
                     }
+                }))
+                ->where((function ($databackend) use ($not) {
+                    foreach ($not as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            if ($valor === '') {
+                                $databackend->whereRaw("$key <> ''");
+                            } else {
+                                if ($valor === null) {
+                                    $databackend->whereNotNull($key);
+                                } else {
+                                    if (strpos($key, '.') !== false) {
+                                        $relacion = substr($key, 0, strpos($key, '.'));
+                                        $propiedad = substr($key, strpos($key, '.') + 1);
+                                        $this->recursiveWhereHas($databackend, $relacion, $propiedad, $valor);
+                                    } else {
+                                        // $databackend->where($key, '!=', $valor);
+                                        $databackend->whereRaw("$key <> ''");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }))
+                ->whereHas('warehouses.provider', function ($query) {
+                    $query->where('active', 1)->where('approved', 1)->take(1); //primera bodega, primer proveedor
+                })
+                ->where('active', 1);
+            // ! sort
+            $orderByText = null;
+            $orderByDate = null;
+            $sort = $data['sort'];
+            $sortParts = explode(':', $sort);
+
+            $pt1 = $sortParts[0];
+
+            $type = (stripos($pt1, 'fecha') !== false || stripos($pt1, 'marca') !== false) ? 'date' : 'text';
+
+            $dataSort = [
+                [
+                    'field' => $sortParts[0],
+                    'type' => $type,
+                    'direction' => $sortParts[1],
+                ],
+            ];
+
+            foreach ($dataSort as $value) {
+                $field = $value['field'];
+                $direction = $value['direction'];
+                $type = $value['type'];
+
+                if ($type === "text") {
+                    $orderByText = [$field => $direction];
+                } else {
+                    $orderByDate = [$field => $direction];
                 }
-            }))
-            ->whereHas('warehouses.provider', function ($query) {
-                $query->where('active', 1)->where('approved', 1)->take(1); //primera bodega, primer proveedor
-            })
-            ->where('active', 1);
-        // ! sort
-        $orderByText = null;
-        $orderByDate = null;
-        $sort = $data['sort'];
-        $sortParts = explode(':', $sort);
-
-        $pt1 = $sortParts[0];
-
-        $type = (stripos($pt1, 'fecha') !== false || stripos($pt1, 'marca') !== false) ? 'date' : 'text';
-
-        $dataSort = [
-            [
-                'field' => $sortParts[0],
-                'type' => $type,
-                'direction' => $sortParts[1],
-            ],
-        ];
-
-        foreach ($dataSort as $value) {
-            $field = $value['field'];
-            $direction = $value['direction'];
-            $type = $value['type'];
-
-            if ($type === "text") {
-                $orderByText = [$field => $direction];
-            } else {
-                $orderByDate = [$field => $direction];
             }
-        }
 
-        if ($orderByText !== null) {
-            $products->orderBy(key($orderByText), reset($orderByText));
-        } else {
-            $products->orderBy(DB::raw("STR_TO_DATE(" . key($orderByDate) . ", '%e/%c/%Y')"), reset($orderByDate));
-        }
-        $products = $products->paginate($pageSize, ['*'], 'page', $pageNumber);
+            if ($orderByText !== null) {
+                $products->orderBy(key($orderByText), reset($orderByText));
+            } else {
+                $products->orderBy(DB::raw("STR_TO_DATE(" . key($orderByDate) . ", '%e/%c/%Y')"), reset($orderByDate));
+            }
+
+            if ($pageSize == null) {
+                error_log("NO paginate");
+                $products = $products->get();
+            } else {
+                error_log("is paginate");
+                $products = $products->paginate($pageSize, ['*'], 'page', $pageNumber);
+            }
 
 
-        /*
+
+
+            /*
         $products = UpUser::with('warehouses')->where(function ($coverages) use ($andMap) {
             foreach ($andMap as $condition) {
                 foreach ($condition as $key => $valor) {
@@ -817,7 +876,13 @@ class ProductAPIController extends Controller
         })
         ->get();
         */
-        return response()->json($products);
+            return response()->json($products);
+        } catch (\Exception $e) {
+            error_log("error: $e");
+            return response()->json([
+                'error' => "There was an error processing your request. " . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -1342,6 +1407,101 @@ class ProductAPIController extends Controller
             error_log("Error: $e");
             return response()->json([
                 'error' => "There was an error processing your request. " . $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+    public function getOwners(string $idProv)
+    {
+        //
+        error_log("getOwners");
+        try {
+
+            $products = Product::with('owner')
+                ->whereHas('warehouse', function ($query) use ($idProv) {
+                    $query->where('provider_id', $idProv);
+                })
+                ->where('active', 1)
+                ->get();
+
+            $ownersWithWarehouse = $products->map(function ($product) {
+                if ($product->owner) {
+                    return [
+                        'warehouse_id' => $product->warehouse_id,
+                        'owner' => $product->owner
+                    ];
+                }
+            })->filter()->unique('owner.id')->values();
+
+            return response()->json($ownersWithWarehouse);
+        } catch (\Exception $e) {
+            error_log("error: $e");
+            return response()->json([
+                'error' => "There was an error processing your request. " . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getWarehouses(string $idProv)
+    {
+        //
+        error_log("getWarehouses");
+        try {
+            // Obtener los almacenes del proveedor
+            $warehouses = Warehouse::where('provider_id', $idProv)
+                ->select('warehouse_id', 'branch_name')
+                ->get();
+
+            // Obtener los productos del proveedor con sus almacenes
+            $products = Product::select('product_id', 'product_name')
+                ->whereHas('warehouses', function ($query) use ($idProv) {
+                    $query->where('provider_id', $idProv);
+                })
+
+                ->has('warehouses', '>', 1)
+                ->where('active', 1)
+                ->get();
+
+            // Recorrer cada producto y sus almacenes
+            foreach ($products as $product) {
+                $foundMatch = false;
+
+                // Verificar si al menos un warehouse_id coincide
+                foreach ($product->warehouses as $productWarehouse) {
+                    foreach ($warehouses as $warehouse) {
+                        if ($productWarehouse->warehouse_id == $warehouse->warehouse_id) {
+                            $foundMatch = true;
+                            break 2;
+                        }
+                    }
+                }
+
+                // Si se encontró una coincidencia, almacenar todos los datos de los almacenes de este producto
+                if ($foundMatch) {
+                    foreach ($product->warehouses as $productWarehouse) {
+                        $matchingWarehouses[] = [
+                            'warehouse_id' => $productWarehouse->warehouse_id,
+                            'branch_name' => $productWarehouse->branch_name,
+                            'up_users' => $productWarehouse->up_users
+                        ];
+                    }
+                }
+            }
+
+            $matchingWarehouses = collect($matchingWarehouses)->unique('warehouse_id')->values()->all();
+
+            // return response()->json([
+            //     'data' => $products,
+            //     'total' => $products->count(),
+            // ], 200);
+
+
+            return response()->json($matchingWarehouses, 200);
+        } catch (\Exception $e) {
+            error_log("ERROR: $e");
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
             ], 500);
         }
     }
