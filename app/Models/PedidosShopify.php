@@ -115,6 +115,7 @@ class PedidosShopify extends Model
 		'payment_cost_delivery' => 'int',
 		'cost_refound_external' => 'float',
 		'id_shopify' => 'int',
+		'costo_operador' => 'float',
 	];
 
 	protected $fillable = [
@@ -183,6 +184,7 @@ class PedidosShopify extends Model
 		'payment_cost_delivery',
 		'cost_refound_external',
 		'id_shopify',
+		'costo_operador',
 	];
 
 	public function admin_user()

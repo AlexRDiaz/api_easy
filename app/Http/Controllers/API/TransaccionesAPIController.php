@@ -626,6 +626,11 @@ class TransaccionesAPIController extends Controller
                 }
             }
 
+            if ($pedido['operadore']->isNotEmpty()) {
+                $operCost = $pedido['operadore'][0]['costo_operador'];
+                error_log("operadore_cost d: " . $operCost);
+                $pedido->costo_operador = $operCost;
+            }
             $pedido->save();
 
 
@@ -789,6 +794,11 @@ class TransaccionesAPIController extends Controller
             }
             $costoTransportadora = $pedido['transportadora'][0]['costo_transportadora'];
             $pedido->costo_transportadora = $costoTransportadora;
+            if ($pedido['operadore']->isNotEmpty()) {
+                $operCost = $pedido['operadore'][0]['costo_operador'];
+                error_log("operadore_cost nd: " . $operCost);
+                $pedido->costo_operador = $operCost;
+            }
             $pedido->save();
 
             // error_log("NO ENTREGADO add en tpt");
@@ -1692,9 +1702,9 @@ class TransaccionesAPIController extends Controller
                     $order->costo_transportadora = null; //2.75
                     $order->value_product_warehouse = null;
                     $order->value_referer = null;
+                    $order->costo_operador = null;
 
                     $order->save();
-
                 }
 
                 // $pedidosShopifyRutaLink = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $order->id)->delete();
@@ -1745,9 +1755,9 @@ class TransaccionesAPIController extends Controller
                             $order->costo_transportadora = null; //2.75
                             $order->value_product_warehouse = null;
                             $order->value_referer = null;
+                            $order->costo_operador = null;
 
                             $order->save();
-
                         }
 
 
@@ -1990,42 +2000,42 @@ class TransaccionesAPIController extends Controller
             $transaction = null;
 
             // if (empty($firstIdTransaction)) {
-                $order = PedidosShopify::find($idOrigen);
-                if ($order->status != "PEDIDO PROGRAMADO") {
+            $order = PedidosShopify::find($idOrigen);
+            if ($order->status != "PEDIDO PROGRAMADO") {
 
-                    $order->status = "PEDIDO PROGRAMADO";
-                    $order->estado_devolucion = "PENDIENTE";
-                    $order->estado_interno = "PENDIENTE";
-                    $order->estado_logistico = "PENDIENTE";
-                    $order->comentario = $comentario;
+                $order->status = "PEDIDO PROGRAMADO";
+                $order->estado_devolucion = "PENDIENTE";
+                $order->estado_interno = "PENDIENTE";
+                $order->estado_logistico = "PENDIENTE";
+                $order->comentario = $comentario;
 
-                    $order->costo_devolucion = null;
-                    $order->costo_envio = null; //5.5
-                    $order->costo_transportadora = null; //2.75
-                    $order->value_product_warehouse = null;
-                    $order->value_referer = null;
-
-
-                    $order->confirmed_at = null;
-                    
-                    $order->save();
-
-                }
-
-                $pedidosShopifyRutaLink = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $order->id)->delete();
-                $pedidosDhopifyTransportadoraLink = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $order->id)->delete();
-                $pedidosDhopifySubrutaLink = PedidosShopifiesSubRutaLink::where('pedidos_shopify_id', $order->id)->delete();
-                $pedidosDhopifyOperadoreLink = PedidosShopifiesOperadoreLink::where('pedidos_shopify_id', $order->id)->delete();
+                $order->costo_devolucion = null;
+                $order->costo_envio = null; //5.5
+                $order->costo_transportadora = null; //2.75
+                $order->value_product_warehouse = null;
+                $order->value_referer = null;
+                $order->costo_operador = null;
 
 
-                if (
-                    $pedidosShopifyRutaLink > 0 &&
-                    $pedidosDhopifyTransportadoraLink > 0 &&
-                    $pedidosDhopifySubrutaLink > 0 &&
-                    $pedidosDhopifyOperadoreLink > 0
-                ) {
-                    error_log("ok! er");
-                }
+                $order->confirmed_at = null;
+
+                $order->save();
+            }
+
+            $pedidosShopifyRutaLink = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $order->id)->delete();
+            $pedidosDhopifyTransportadoraLink = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $order->id)->delete();
+            $pedidosDhopifySubrutaLink = PedidosShopifiesSubRutaLink::where('pedidos_shopify_id', $order->id)->delete();
+            $pedidosDhopifyOperadoreLink = PedidosShopifiesOperadoreLink::where('pedidos_shopify_id', $order->id)->delete();
+
+
+            if (
+                $pedidosShopifyRutaLink > 0 &&
+                $pedidosDhopifyTransportadoraLink > 0 &&
+                $pedidosDhopifySubrutaLink > 0 &&
+                $pedidosDhopifyOperadoreLink > 0
+            ) {
+                error_log("ok! er");
+            }
 
 
             $pedidos = !empty($ids) ? $ids[0] : null;
@@ -2042,7 +2052,6 @@ class TransaccionesAPIController extends Controller
                 "req" => $reqTrans
             ], 500);
         }
-
     }
 
     public function debitWithdrawal(Request $request, $id)
