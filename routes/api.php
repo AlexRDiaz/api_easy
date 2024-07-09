@@ -147,6 +147,13 @@ Route::middleware(['cors'])->group(function () {
 
     Route::post('pedidos-shopify/update-gestioned-novelty/{id}', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'updateGestionedNovelty']);
 
+    Route::post('pedidos-shopify/update-gestioned-payment-cost-delivery', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'updateGestionedPaymentCostDelivery']);
+
+    Route::post('pedidos-shopify/update-gestioned-payment-cost-delivery-unique/{id}', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'updateGestionedPaymentCostDeliveryU']);
+
+
+    
+
     Route::post('pedidos-shopify/update-prop-gestioned-novelty/{id}', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'updateOrCreatePropertyGestionedNovelty']);
 
 

@@ -106,8 +106,17 @@ class PedidosShopifyAPIController extends Controller
         error_log("show");
 
         $pedido = PedidosShopify::with([
-            'operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta',
-            "statusLastModifiedBy", "carrierExternal", "ciudadExternal", "pedidoCarrier"
+            'operadore.up_users',
+            'transportadora',
+            'users.vendedores',
+            'novedades',
+            'pedidoFecha',
+            'ruta',
+            'subRuta',
+            "statusLastModifiedBy",
+            "carrierExternal",
+            "ciudadExternal",
+            "pedidoCarrier"
         ])
             ->findOrFail($id);
 
@@ -581,8 +590,17 @@ class PedidosShopifyAPIController extends Controller
 
         // $pedidos = PedidosShopify::with(['transportadora', 'users', 'users.vendedores', 'pedidoFecha', 'ruta', 'printedBy', 'sentBy', 'product.warehouse.provider'])
         $pedidos = PedidosShopify::with([
-            'transportadora', 'users', 'users.vendedores', 'pedidoFecha', 'ruta', 'printedBy', 'sentBy',
-            'product_s.warehouses.provider', 'carrierExternal', 'ciudadExternal', 'pedidoCarrier'
+            'transportadora',
+            'users',
+            'users.vendedores',
+            'pedidoFecha',
+            'ruta',
+            'printedBy',
+            'sentBy',
+            'product_s.warehouses.provider',
+            'carrierExternal',
+            'ciudadExternal',
+            'pedidoCarrier'
         ])
             ->where(function ($pedidos) use ($searchTerm, $filteFields) {
                 foreach ($filteFields as $field) {
@@ -877,7 +895,12 @@ class PedidosShopifyAPIController extends Controller
                             $propiedad = substr($key, strpos($key, '.') + 1);
                             $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
                         } else {
-                            $pedidos->where($key, '=', $valor);
+                            if ($key === 'gestioned_payment_cost_delivery') {
+                                $pedidos->whereJsonContains('gestioned_payment_cost_delivery->state', $valor);
+                            }else {
+                                $pedidos->where($key, '=', $valor);
+                            }
+                            // $pedidos->where($key, '=', $valor);
                         }
                     }
                 }
@@ -939,8 +962,16 @@ class PedidosShopifyAPIController extends Controller
     {
         error_log("getOrderbyId");
         $pedido = PedidosShopify::with([
-            'operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta',
-            'carrierExternal', 'ciudadExternal', "pedidoCarrier"
+            'operadore.up_users',
+            'transportadora',
+            'users.vendedores',
+            'novedades',
+            'pedidoFecha',
+            'ruta',
+            'subRuta',
+            'carrierExternal',
+            'ciudadExternal',
+            "pedidoCarrier"
         ])
             ->where('id', $id)
             ->first();
@@ -1476,7 +1507,7 @@ class PedidosShopifyAPIController extends Controller
         }
 
 
-        $countProductWarehouseNotNull  = PedidosShopify::with(['operadore.up_users', 'pedidoCarrier'])
+        $countProductWarehouseNotNull = PedidosShopify::with(['operadore.up_users', 'pedidoCarrier'])
             ->with('subRuta')
             ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
             ->whereNotNull('value_product_warehouse')
@@ -2033,7 +2064,11 @@ class PedidosShopifyAPIController extends Controller
                             $propiedad = substr($key, strpos($key, '.') + 1);
                             $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
                         } else {
-                            $pedidos->where($key, '=', $valor);
+                            if ($key === 'gestioned_payment_cost_delivery') {
+                                $pedidos->whereJsonContains('gestioned_payment_cost_delivery->state', $valor);
+                            }else {
+                                $pedidos->where($key, '=', $valor);
+                            }
                         }
                     }
                 }
@@ -2053,7 +2088,7 @@ class PedidosShopifyAPIController extends Controller
 
         $query1 = clone $query;
         $query2 = clone $query;
-        // $query3 = clone $query;
+        $query3 = clone $query;
         // $saldoProvider = Provider::where('user_id', $idUser)->first();
         $summary = [
             // "ped"=>$query3->get(),
@@ -2078,21 +2113,29 @@ class PedidosShopifyAPIController extends Controller
                 ->where('estado_interno', "CONFIRMADO")
                 ->where('estado_logistico', "ENVIADO")
                 ->whereNotIn('estado_devolucion', ['PENDIENTE'])
-                ->sum(DB::raw('REPLACE(costo_transportadora, ",", "") + COALESCE(REPLACE(cost_refound_external, ",", ""), 0)'))
-                +
-                $query1
-                ->where('estado_interno', "CONFIRMADO")
-                ->where('estado_logistico', "ENVIADO")
-                ->where(function ($query) {
-                    $query->where('status', 'NOVEDAD')
-                        ->orWhere('status', 'NO ENTREGADO');
+                ->with('pedidoCarrier') // Incluimos la relación pedidoCarrier
+                ->get()
+                ->sum(function ($item) {
+                    $costo_transportadora = floatval(str_replace(',', '', $item->costo_transportadora));
+                    $cost_refound_external = isset($item->pedidoCarrier->cost_refound_external)
+                        ? floatval(str_replace(',', '', $item->pedidoCarrier->cost_refound_external))
+                        : 0;
+                    return $costo_transportadora + $cost_refound_external;
                 })
-                ->sum(DB::raw('REPLACE(costo_transportadora, ",", "")'))
+                +
+                $query3
+                    ->where('estado_interno', "CONFIRMADO")
+                    ->where('estado_logistico', "ENVIADO")
+                    ->where(function ($query) {
+                        $query->where('status', 'NOVEDAD')
+                            ->orWhere('status', 'NO ENTREGADO');
+                    })
+                    ->sum(DB::raw('REPLACE(costo_transportadora, ",", "")'))
 
             // *************************************************************************************
 
         ];
-
+        $summary['totalResultadoFinal'] = $summary['totalValoresRecibidos'] - $summary['totalCostoEntrega'] - $summary['totalCostoDevolucion'];
         return response()->json([
             'data' => $summary,
         ]);
@@ -3331,7 +3374,7 @@ class PedidosShopifyAPIController extends Controller
                 'Costo_Entrega' => $sumatoriaCostoEntrega,
                 'Costo_Devolución' => $sumatoriaCostoDevolucion,
                 'Filtro_Existente' => $presentVendedor,
-                'Estado_Pedidos' =>   $estadoPedidos,
+                'Estado_Pedidos' => $estadoPedidos,
                 // 'Cantidad_Total_Pedidos' => $pedidos->count()
             ]);
         } catch (\Exception $e) {
@@ -3986,7 +4029,7 @@ class PedidosShopifyAPIController extends Controller
             $edited_novelty = !empty($order["gestioned_novelty"]) ? json_decode($order["gestioned_novelty"], true) : [];
 
             // Actualizar o crear la propiedad
-            $edited_novelty[$propertyName] = $propertyValue;
+             $edited_novelty[$propertyName] = $propertyValue;
 
             // Guardar los cambios en el modelo
             $order->gestioned_novelty = json_encode($edited_novelty);
@@ -4071,6 +4114,102 @@ class PedidosShopifyAPIController extends Controller
         }
     }
 
+    public function updateGestionedPaymentCostDelivery(Request $request)
+    {
+        try {
+            $data = $request->json()->all();
+            $noveltyState = $data['payment_state'];
+            $startDate = $data['start'];
+            $ids = $data['ids'];
+            error_log($startDate);
+            $startDateFormatted = Carbon::createFromFormat('j/n/Y H:i:s', $startDate)->format('Y-m-d H:i:s');
+            $id_user = $data['id_user'];
+
+            $editedPayments = [];
+
+            foreach ($ids as $id) {
+                $order = PedidosShopify::find($id);
+                if ($order) {
+                    $edited_payment = $order["gestioned_payment_cost_delivery"] != null
+                        ? json_decode($order["gestioned_payment_cost_delivery"], true)
+                        : [];
+
+                    if ($noveltyState == 1) {
+                        $edited_payment["state"] =       1;
+                        $edited_payment["id_user"] = $id_user;
+                        $edited_payment["m_t_g"] = $startDateFormatted;
+                    }
+                    // else if ($noveltyState == 0) {
+                    //     $edited_payment["state"] = 0;
+                    //     $edited_payment["id_user"] = $id_user;
+                    //     $edited_payment["m_t_g"] = $startDateFormatted;
+                    // }
+
+                    $order["gestioned_payment_cost_delivery"] = json_encode($edited_payment);
+                    $order->save();
+
+                    $editedPayments[] = $edited_payment;
+                }
+            }
+
+            return response()->json([
+                "response" => "Payment updated successfully",
+                "edited_novelty" => $editedPayments
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "response" => "Failed to update Payment (-_-)/ ",
+                "error" => $th->getMessage() // Include error message for debugging
+            ], Response::HTTP_NOT_FOUND);
+        }
+    }
+    public function updateGestionedPaymentCostDeliveryU(Request $request,$id)
+    {
+        try {
+            $data = $request->json()->all();
+            $noveltyState = $data['payment_state'];
+            $startDate = $data['start'];
+            error_log($startDate);
+            $startDateFormatted = Carbon::createFromFormat('j/n/Y H:i:s', $startDate)->format('Y-m-d H:i:s');
+            $id_user = $data['id_user'];
+
+            $editedPayments = [];
+
+                $order = PedidosShopify::find($id);
+                if ($order) {
+                    $edited_payment = $order["gestioned_payment_cost_delivery"] != null
+                        ? json_decode($order["gestioned_payment_cost_delivery"], true)
+                        : [];
+
+                    if ($noveltyState == 0) {
+                        $edited_payment["state"] = 0;
+                        $edited_payment["id_user"] = $id_user;
+                        $edited_payment["m_t_g"] = $startDateFormatted;
+                    }
+                    // else if ($noveltyState == 0) {
+                    //     $edited_payment["state"] = 0;
+                    //     $edited_payment["id_user"] = $id_user;
+                    //     $edited_payment["m_t_g"] = $startDateFormatted;
+                    // }
+
+                    $order["gestioned_payment_cost_delivery"] = json_encode($edited_payment);
+                    $order->save();
+
+                    $editedPayments[] = $edited_payment;
+                }
+
+            return response()->json([
+                "response" => "Payment updated successfully",
+                "edited_novelty" => $editedPayments
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            return response()->json([
+                "response" => "Failed to update Payment (-_-)/ ",
+                "error" => $th->getMessage() // Include error message for debugging
+            ], Response::HTTP_NOT_FOUND);
+        }
+    }
+
     //  *
     public function shopifyPedidosProducto(Request $request)
     {
@@ -4098,17 +4237,17 @@ class PedidosShopifyAPIController extends Controller
             $product = $data['ProductoP'];
             $productE = $data['ProductoExtra'];
             $cantidadTotal = $data['Cantidad_Total'];
-            $PrecioTotal =  $data['PrecioTotal'];
+            $PrecioTotal = $data['PrecioTotal'];
             $formattedPrice = str_replace(",", ".", str_replace(["$", " "], "", $PrecioTotal));
             if ($data['Observacion'] != null) {
-                $Observacion =  $data['Observacion'];
+                $Observacion = $data['Observacion'];
             } else {
                 $Observacion = "";
             }
             // $sku = $request->input('sku');
             $recaudo = $data['recaudo'];
-            $productId =  $data['product_id'];
-            $variant_details =  $data['variant_details'];
+            $productId = $data['product_id'];
+            $variant_details = $data['variant_details'];
             //transp
             $newrouteId = $data['ruta'];
             $newtransportadoraId = $data['transportadora'];
@@ -4172,7 +4311,7 @@ class PedidosShopifyAPIController extends Controller
                 $createOrder->observacion = $Observacion;
                 $createOrder->ciudad_shipping = $city;
                 $createOrder->id_comercial = $IdComercial;
-                $createOrder->producto_p =  $product;
+                $createOrder->producto_p = $product;
                 $createOrder->producto_extra = $productE;
                 $createOrder->cantidad_total = $cantidadTotal;
                 $createOrder->name_comercial = $Name_Comercial;
@@ -4296,7 +4435,7 @@ class PedidosShopifyAPIController extends Controller
             $pedidoRuta = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $id)->first();
             $pedidoTransportadora = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $id)->first();
 
-            if (!$pedidoRuta  || !$pedidoTransportadora) {
+            if (!$pedidoRuta || !$pedidoTransportadora) {
                 return response()->json(['message' => 'No se encontraro pedidoRuta o pedidoTransportadora con el ID especificado'], 404);
             }
 
