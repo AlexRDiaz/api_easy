@@ -15,7 +15,10 @@ class WarehouseAPIController extends Controller
     public function index()
     {
         //
-        $warehouses = Warehouse::all();
+        // $warehouses = Warehouse::all();
+        $warehouses = Warehouse::with('provider')
+            ->select('warehouse_id', 'branch_name', 'address', 'city', 'active', 'approved', 'customer_service_phone', 'provider_id',)
+            ->get();
 
         return response()->json(['warehouses' => $warehouses]);
     }
