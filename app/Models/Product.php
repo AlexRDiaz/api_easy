@@ -41,7 +41,8 @@ class Product extends Model
 		'approved' => 'int',
 		'active' => 'int',
 		'warehouse_id' => 'int',
-		'seller_owned' => 'int'
+		'seller_owned' => 'int',
+		'updated_by' => 'int',
 	];
 
 	protected $fillable = [
@@ -54,7 +55,8 @@ class Product extends Model
 		'approved',
 		'active',
 		'warehouse_id',
-		'seller_owned'
+		'seller_owned',
+		'updated_by',
 	];
 
 	public function warehouse()

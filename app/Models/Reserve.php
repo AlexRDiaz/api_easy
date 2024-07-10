@@ -13,7 +13,8 @@ class Reserve extends Model
         'sku',
         'stock',
         'id_comercial',
-        'warehouse_price'
+        'warehouse_price',
+        'updated_by',
     ];
 
     protected $casts = [

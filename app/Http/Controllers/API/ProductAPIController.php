@@ -586,6 +586,7 @@ class ProductAPIController extends Controller
             $features = $data['features'];
             $warehouse_id = $data['warehouse_id'];
             $seller_owned = $data['seller_owned'];
+            $updated_by = $data['generatedBy'];
 
             $warehouse = Warehouse::find($warehouse_id); // Encuentra al usuario por su ID
 
@@ -599,6 +600,7 @@ class ProductAPIController extends Controller
             $newProduct->warehouse_id = $warehouse_id;
             $newProduct->seller_owned = $seller_owned;
             // $newProduct->approved = 2;//Pendiente
+            $newProduct->updated_by = $updated_by;
             $newProduct->save();
 
             $currentDateTime = date('Y-m-d H:i:s');
@@ -617,6 +619,7 @@ class ProductAPIController extends Controller
                 $createHistory->last_stock = 0;
                 $createHistory->current_stock = $stock;
                 $createHistory->description = "Registro de Nuevo Producto";
+                $createHistory->updated_by = $updated_by;
                 $createHistory->save();
 
                 error_log("created History for type simple");
@@ -641,6 +644,7 @@ class ProductAPIController extends Controller
                     $createHistory->last_stock = 0;
                     $createHistory->current_stock = $inventory_quantity;
                     $createHistory->description = "Registro de Nuevo Producto";
+                    $createHistory->updated_by = $updated_by;
                     $createHistory->save();
                 }
                 error_log("created History for each variant");
@@ -650,6 +654,7 @@ class ProductAPIController extends Controller
             $providerWarehouse = new ProductWarehouseLink();
             $providerWarehouse->id_product = $newProduct->product_id;
             $providerWarehouse->id_warehouse = $warehouse_id;
+            $providerWarehouse->updated_by = $updated_by;
             $providerWarehouse->save();
 
 

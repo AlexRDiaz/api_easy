@@ -38,42 +38,92 @@ class StockHistoryAPIController extends Controller
     public function store(Request $request)
     {
         //
-        $data = $request->json()->all();
+        error_log("StockHistoryAPI store");
+        try {
+
+            $data = $request->json()->all();
 
 
-        $product_id = $data['product_id'];
-        $skuProduct = $data['sku_product'];
-        $units = $data['units'];
-        $description = $data['description'];
-        $type = $data['type'];
+            $product_id = $data['product_id'];
+            $skuProduct = $data['sku_product'];
+            $units = $data['units'];
+            $description = $data['description'];
+            $type = $data['type'];
+            $updated_by = $data['generatedBy'];
 
-        $currentDateTime = date('Y-m-d H:i:s');
+            $currentDateTime = date('Y-m-d H:i:s');
 
-        $product = Product::find($product_id);
+            $product = Product::find($product_id);
 
-        if ($product === null) {
-            return response()->json(['message' => 'Product not found'], 404);
+            if ($product === null) {
+                return response()->json(['message' => 'Product not found'], 404);
+            }
+
+
+            $last_stock = $product->stock;
+            $features1 = json_decode($product->features, true);
+            $variants = $features1['variants'];
+            $result = $product->changeStockGen($product_id, $skuProduct, $units, $type);
+            $product2 = Product::find($product_id);
+            $current_stock = $product2->stock;
+
+            if ($product2->isvariable == 0) {
+                $createHistory = new StockHistory();
+                $createHistory->product_id = $product_id;
+                $createHistory->variant_sku = $skuProduct;
+                $createHistory->type = $type;
+                $createHistory->date = $currentDateTime;
+                $createHistory->units = $units;
+                $createHistory->last_stock = $last_stock;
+                $createHistory->current_stock = $current_stock;
+                $createHistory->description = $description;
+                $createHistory->updated_by = $updated_by;
+
+                $createHistory->save();
+                error_log("created reserve-History for simple");
+
+            } else {
+                $features2 = json_decode($product2->features, true);
+                $variants2 = $features2['variants'];
+                $variantLastStock = 0;
+                $variantCurrentStock = 0;
+
+                foreach ($variants as $variant) {
+                    if ($variant['sku'] ===  $skuProduct) {
+                        $variantLastStock = $variant['inventory_quantity'];
+                        break;
+                    }
+                }
+
+                foreach ($variants2 as $variant2) {
+                    if ($variant2['sku'] ===  $skuProduct) {
+                        $variantCurrentStock = $variant2['inventory_quantity'];
+                        break;
+                    }
+                }
+
+                $createHistory = new StockHistory();
+                $createHistory->product_id = $product_id;
+                $createHistory->variant_sku = $skuProduct;
+                $createHistory->type = $type;
+                $createHistory->date = $currentDateTime;
+                $createHistory->units = $units;
+                $createHistory->last_stock = $variantLastStock;
+                $createHistory->current_stock = $variantCurrentStock;
+                $createHistory->description = $description;
+                $createHistory->updated_by = $updated_by;
+                $createHistory->save();
+                error_log("created reserve-History for variant");
+            }
+
+
+            return $product;
+        } catch (\Exception $e) {
+            error_log("$e");
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
         }
-
-
-        $last_stock = $product->stock;
-        $result = $product->changeStockGen($product_id, $skuProduct, $units, $type);
-        $product2 = Product::find($product_id);
-        $current_stock = $product2->stock;
-
-        $createHistory = new StockHistory();
-        $createHistory->product_id = $product_id;
-        $createHistory->variant_sku = $skuProduct;
-        $createHistory->type = $type;
-        $createHistory->date = $currentDateTime;
-        $createHistory->units = $units;
-        $createHistory->last_stock = $last_stock;
-        $createHistory->current_stock = $current_stock;
-        $createHistory->description = $description;
-
-        $createHistory->save();
-
-        return $product;
     }
 
 
@@ -180,6 +230,4 @@ class StockHistoryAPIController extends Controller
 
         return response()->json($history);
     }
-
 }
-

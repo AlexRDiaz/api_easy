@@ -95,12 +95,14 @@ class ProductWarehouseLinkAPIController extends Controller
             $id_product = $data['idProduct'];
             $id_warehouse_old = $data['idWarehouse_old'];
             $id_warehouse_new = $data['idWarehouse_new'];
+            $updated_by = $data['generatedBy'];
 
             $exists = ProductWarehouseLink::where('id_product', $id_product)->where('id_warehouse', $id_warehouse_old)->first();
 
             if ($exists != null) {
                 $exists->id_product = $id_product;
                 $exists->id_warehouse = $id_warehouse_new;
+                $exists->updated_by = $updated_by;
                 $exists->save();
                 return response()->json(['message' => 'ProductWarehouseLink actualizado'], 204);
             } else {

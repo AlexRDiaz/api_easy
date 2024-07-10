@@ -57,6 +57,7 @@ class ReserveAPIController extends Controller
             $stock = $data['stock'];
             $id_comercial = $data['id_comercial'];
             $warehouse_price = $data['warehouse_price'];
+            $updated_by = $data['generatedBy'];
 
             $user = UpUser::find($id_comercial);
 
@@ -66,6 +67,7 @@ class ReserveAPIController extends Controller
             $createReserve->stock = $stock;
             $createReserve->id_comercial = $id_comercial;
             $createReserve->warehouse_price = $warehouse_price;
+            $createReserve->updated_by = $updated_by;
             $createReserve->save();
 
             $description = "Reserva por " . $user->email;
@@ -96,6 +98,7 @@ class ReserveAPIController extends Controller
                 $createHistory->last_stock = $last_stock;
                 $createHistory->current_stock = $current_stock;
                 $createHistory->description = $description;
+                $createHistory->updated_by = $updated_by;
                 $createHistory->save();
                 error_log("created reserve-History for type simple");
             } else {
@@ -131,6 +134,7 @@ class ReserveAPIController extends Controller
                 $createHistory->last_stock = $variantLastStock;
                 $createHistory->current_stock = $variantCurrentStock;
                 $createHistory->description = $description;
+                $createHistory->updated_by = $updated_by;
                 $createHistory->save();
                 error_log("created reserve-History for variant");
             }
@@ -234,6 +238,7 @@ class ReserveAPIController extends Controller
             $seller_owned = $data['seller_owned'];
             $description = $data['description'];
             $type = $data['type'];
+            $updated_by = $data['generatedBy'];
 
 
             $reserveController = new ReserveAPIController();
@@ -260,6 +265,7 @@ class ReserveAPIController extends Controller
                 $reserveModel = Reserve::find($reserve->id);
                 if ($reserveModel) {
                     $reserveModel->stock = $reserve->stock;
+                    $reserveModel->updated_by = $updated_by;
                     $reserveModel->save();
                 }
 
@@ -272,6 +278,7 @@ class ReserveAPIController extends Controller
                 $createHistory->last_stock_reserve = $previous_stock;
                 $createHistory->current_stock_reserve = $reserve->stock;
                 $createHistory->description = "Reserva - " . $description;
+                $createHistory->updated_by = $updated_by;
                 $createHistory->save();
 
                 $responses[] = ['message' => 'Reserva/Stock actualizado con éxito', 'reserve' => $reserveModel];

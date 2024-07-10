@@ -29,12 +29,14 @@ class ProductWarehouseLink extends Model
 
 	protected $casts = [
 		'id_product' => 'int',
-		'id_warehouse' => 'int'
+		'id_warehouse' => 'int',
+		'updated_by' => 'int',
 	];
 
 	protected $fillable = [
 		'id_product',
-		'id_warehouse'
+		'id_warehouse',
+		'updated_by',
 	];
 
 	public function product()
