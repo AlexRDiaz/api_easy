@@ -30,6 +30,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Validator;
 use Ramsey\Uuid\Uuid;
 use Tymon\JWTAuth\Exceptions\JWTException;
 use Tymon\JWTAuth\Facades\JWTAuth;
@@ -1633,6 +1634,147 @@ class UpUserAPIController extends Controller
         } catch (\Throwable $th) {
             //throw $th;
             return response()->json([], 404);
+        }
+    }
+
+    public function storeSellerWP(Request $request)
+    {
+        //store from 
+        error_log("storeSeller-wp");
+
+        if (!isset($_SERVER['PHP_AUTH_USER']) || !isset($_SERVER['PHP_AUTH_PW'])) {
+            error_log("Unauthorized-No credentials provided. Please provide your username and password.");
+            return response()->json(['status' => 'Unauthorized', "message" => "No credentials provided. Please provide your username and password."], 401);
+        }
+
+        // Verificar las credenciales de autenticación
+        $user = $_SERVER['PHP_AUTH_USER'];
+        $password = $_SERVER['PHP_AUTH_PW'];
+
+        $access = true;
+
+        if ($user !== 'easywp' || $password !== '$2y$10$d48FVm5dgJPhBOkRFOrDdeOo3fMcBH8fshiRp8GsGEcqDODIE5mXe') {
+            error_log("Credenciales de autenticación inválidas.");
+            return response()->json(['status' => 'Unauthorized', "message" => "Invalid credentials provided. Please try again."], 401);
+        }
+
+        DB::beginTransaction();
+        try {
+
+            $messages = [
+                'username.required' => 'El nombre de usuario es obligatorio.',
+                'email.required' => 'El correo electrónico es obligatorio.',
+                'email.email' => 'El correo electrónico debe ser válido.',
+                'email.unique' => 'El correo electrónico ya está registrado en nuestro sistema.',
+            ];
+
+            $validator = Validator::make($request->all(), [
+                'username' => 'required|string|max:255',
+                'email' => 'required|email|unique:up_users',
+            ], $messages);
+
+            if ($validator->fails()) {
+                return response()->json(['error' => $validator->errors()->all()], 422);
+            }
+
+            // $request->validate([
+            //     'username' => 'required|string|max:255',
+            //     'email' => 'required|email|unique:up_users',
+            // ]);
+
+            $numerosUtilizados = [];
+            while (count($numerosUtilizados) < 10000000) {
+                $numeroAleatorio = str_pad(mt_rand(1, 99999999), 8, '0', STR_PAD_LEFT);
+                if (!in_array($numeroAleatorio, $numerosUtilizados)) {
+                    $numerosUtilizados[] = $numeroAleatorio;
+                    break;
+                }
+            }
+            $resultCode = $numeroAleatorio;
+
+            $rol = RolesFront::where("titulo", "=", "VENDEDOR")->first();
+
+            $activeViewsNames = [];
+
+            if ($rol) {
+                $accesos = json_decode($rol->accesos, true);
+                // Filtrar los que tienen active = true y obtener solo los view_name
+                foreach ($accesos as $acceso) {
+                    if (isset($acceso['active']) && $acceso['active'] === true) {
+                        $activeViewsNames[] = $acceso['view_name'];
+                    }
+                }
+            }
+
+            $permisosCadena = json_encode($activeViewsNames);
+            error_log("$permisosCadena");
+
+            //  creación del usuario
+            $user = new UpUser();
+            $user->username = $request->input('username');
+            $user->email = $request->input('email');
+            $user->codigo_generado = $resultCode;
+            $user->password = bcrypt($request->input('password'));
+            $user->confirmed = true;
+            $user->estado = "NO VALIDADO";
+            $user->provider = "local";
+            $user->blocked = "0";
+            $user->confirmed = 1;
+            $user->fecha_alta = date("d/m/Y");
+            $user->permisos = $permisosCadena;
+            $user->save();
+
+            $newUpUsersRoleLink = new UpUsersRoleLink();
+            $newUpUsersRoleLink->user_id = $user->id;
+            $newUpUsersRoleLink->role_id = 1;
+            $newUpUsersRoleLink->save();
+
+            $userRoleFront = new UpUsersRolesFrontLink();
+            $userRoleFront->user_id = $user->id;
+            $userRoleFront->roles_front_id = 2;
+            $userRoleFront->save();
+
+            // 2	VENDEDOR
+            // 5	PROVEEDOR
+
+            $typeU = $request->input('userType');
+
+            // if ($request->has(['nombre_comercial', 'telefono1', 'telefono2', 'costo_envio', 'costo_devolucion', 'url_tienda'])) {
+            $newSeller = new Vendedore();
+            $newSeller->nombre_comercial = $request->input('nombre_comercial');
+            $newSeller->telefono_1 = $request->input('telefono1');
+            $newSeller->telefono_2 = $request->input('telefono2');
+            $newSeller->costo_envio = "6.00";
+            $newSeller->costo_devolucion = "6.00";
+            $newSeller->fecha_alta = date("d/m/Y");
+            $newSeller->id_master = $user->id;
+            $newSeller->url_tienda = $request->input('url_tienda');
+            $newSeller->referer_cost = "0.10";
+            $newSeller->save();
+
+            $upUserVendedoreLinks = new UpUsersVendedoresLink();
+            $upUserVendedoreLinks->user_id = $user->id;
+            $upUserVendedoreLinks->vendedor_id = $newSeller->id;
+            $upUserVendedoreLinks->save();
+            // }
+
+            if ($newSeller) {
+                try {
+                    Mail::to($user->email)->send(new UserValidation($resultCode));
+                } catch (\Exception $e) {
+                    error_log("Error al enviar email con el newSeller-resultCode  $user->id: $e");
+                }
+                DB::commit();
+
+                return response()->json(['message' => 'Usuario from wp creado con éxito', 'user_id' => $user->id], 200);
+            } else {
+                DB::rollback();
+                return response()->json(['message' => 'Error al crear Usuario'], 404);
+            }
+        } catch (\Exception $e) {
+            DB::rollback();
+            error_log("Error storeUsuarioSeller: $e");
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 }

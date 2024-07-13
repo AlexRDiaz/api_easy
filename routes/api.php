@@ -628,6 +628,9 @@ Route::middleware(['cors'])->group(function () {
     Route::get('warehousessubprov/{idSub}', [WarehouseAPIController::class, 'bySubprov']);
 
 
+    //*
+    Route::post('easywp/newseller', [UpUserAPIController::class, 'storeSellerWP']);
+
 });
 
 
