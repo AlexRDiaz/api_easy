@@ -1674,7 +1674,7 @@ class UpUserAPIController extends Controller
             ], $messages);
 
             if ($validator->fails()) {
-                return response()->json(['error' => $validator->errors()->all()], 422);
+                return response()->json(['storeSellerWPError al crear Usuario' => $validator->errors()->all()], 422);
             }
 
             // $request->validate([
@@ -1761,14 +1761,14 @@ class UpUserAPIController extends Controller
                 try {
                     Mail::to($user->email)->send(new UserValidation($resultCode));
                 } catch (\Exception $e) {
-                    error_log("Error al enviar email con el newSeller-resultCode  $user->id: $e");
+                    error_log("storeSellerWPError al enviar email con el newSeller-resultCode  $user->id: $e");
                 }
                 DB::commit();
 
                 return response()->json(['message' => 'Usuario from wp creado con éxito', 'user_id' => $user->id], 200);
             } else {
                 DB::rollback();
-                return response()->json(['message' => 'Error al crear Usuario'], 404);
+                return response()->json(['message' => 'storeSellerWPError al crear Usuario'], 404);
             }
         } catch (\Exception $e) {
             DB::rollback();
