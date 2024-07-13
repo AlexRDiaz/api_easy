@@ -1637,10 +1637,10 @@ class UpUserAPIController extends Controller
         }
     }
 
-    public function storeSellerWP(Request $request)
+    public function storeUserWP(Request $request)
     {
-        //store from 
-        error_log("storeSellerWP");
+
+        error_log("storeUserWP");
 
         if (!isset($_SERVER['PHP_AUTH_USER']) || !isset($_SERVER['PHP_AUTH_PW'])) {
             error_log("Unauthorized-No credentials provided. Please provide your username and password.");
@@ -1692,7 +1692,9 @@ class UpUserAPIController extends Controller
             }
             $resultCode = $numeroAleatorio;
 
-            $rol = RolesFront::where("titulo", "=", "VENDEDOR")->first();
+            $typeU = $request->input('userType');
+
+            $rol = RolesFront::where("id", "=", $typeU)->first();
 
             $activeViewsNames = [];
 
@@ -1730,49 +1732,50 @@ class UpUserAPIController extends Controller
 
             $userRoleFront = new UpUsersRolesFrontLink();
             $userRoleFront->user_id = $user->id;
-            $userRoleFront->roles_front_id = 2;
+            $userRoleFront->roles_front_id = $typeU;
             $userRoleFront->save();
 
             // 2	VENDEDOR
             // 5	PROVEEDOR
 
-            $typeU = $request->input('userType');
+            if ($typeU == "2") {
 
-            // if ($request->has(['nombre_comercial', 'telefono1', 'telefono2', 'costo_envio', 'costo_devolucion', 'url_tienda'])) {
-            $newSeller = new Vendedore();
-            $newSeller->nombre_comercial = $request->input('nombre_comercial');
-            $newSeller->telefono_1 = $request->input('telefono1');
-            $newSeller->telefono_2 = $request->input('telefono2');
-            $newSeller->costo_envio = "6.00";
-            $newSeller->costo_devolucion = "6.00";
-            $newSeller->fecha_alta = date("d/m/Y");
-            $newSeller->id_master = $user->id;
-            $newSeller->url_tienda = $request->input('url_tienda');
-            $newSeller->referer_cost = "0.10";
-            $newSeller->save();
+                $newSeller = new Vendedore();
+                $newSeller->nombre_comercial = $request->input('nombre_comercial');
+                $newSeller->telefono_1 = $request->input('telefono1');
+                $newSeller->telefono_2 = $request->input('telefono2');
+                $newSeller->costo_envio = "6.00";
+                $newSeller->costo_devolucion = "6.00";
+                $newSeller->fecha_alta = date("d/m/Y");
+                $newSeller->id_master = $user->id;
+                $newSeller->url_tienda = $request->input('url_tienda');
+                $newSeller->referer_cost = "0.10";
+                $newSeller->save();
 
-            $upUserVendedoreLinks = new UpUsersVendedoresLink();
-            $upUserVendedoreLinks->user_id = $user->id;
-            $upUserVendedoreLinks->vendedor_id = $newSeller->id;
-            $upUserVendedoreLinks->save();
-            // }
+                $upUserVendedoreLinks = new UpUsersVendedoresLink();
+                $upUserVendedoreLinks->user_id = $user->id;
+                $upUserVendedoreLinks->vendedor_id = $newSeller->id;
+                $upUserVendedoreLinks->save();
 
-            if ($newSeller) {
-                try {
-                    Mail::to($user->email)->send(new UserValidation($resultCode));
-                } catch (\Exception $e) {
-                    error_log("storeSellerWPError al enviar email con el newSeller-resultCode  $user->id: $e");
+                if ($newSeller) {
+                    try {
+                        Mail::to($user->email)->send(new UserValidation($resultCode));
+                    } catch (\Exception $e) {
+                        error_log("storeSellerWPError al enviar email con el newSeller-resultCode  $user->id: $e");
+                    }
+                    DB::commit();
+
+                    return response()->json(['message' => 'Usuario from wp creado con éxito', 'user_id' => $user->id], 200);
+                } else {
+                    DB::rollback();
+                    return response()->json(['message' => 'storeSellerWPError al crear Usuario'], 404);
                 }
-                DB::commit();
-
-                return response()->json(['message' => 'Usuario from wp creado con éxito', 'user_id' => $user->id], 200);
-            } else {
-                DB::rollback();
-                return response()->json(['message' => 'storeSellerWPError al crear Usuario'], 404);
+            } else if ($typeU == "5") {
+                //
             }
         } catch (\Exception $e) {
             DB::rollback();
-            error_log("Error storeUsuarioSeller: $e");
+            error_log("Error storeUserWP: $e");
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }

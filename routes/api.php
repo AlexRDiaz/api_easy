@@ -629,7 +629,7 @@ Route::middleware(['cors'])->group(function () {
 
 
     //*
-    Route::post('easywp/newseller', [UpUserAPIController::class, 'storeSellerWP']);
+    Route::post('easywp/newuser', [UpUserAPIController::class, 'storeUserWP']);
 
 });
 
