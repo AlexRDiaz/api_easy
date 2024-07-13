@@ -1640,7 +1640,7 @@ class UpUserAPIController extends Controller
     public function storeSellerWP(Request $request)
     {
         //store from 
-        error_log("storeSeller-wp");
+        error_log("storeSellerWP");
 
         if (!isset($_SERVER['PHP_AUTH_USER']) || !isset($_SERVER['PHP_AUTH_PW'])) {
             error_log("Unauthorized-No credentials provided. Please provide your username and password.");
@@ -1707,7 +1707,6 @@ class UpUserAPIController extends Controller
             }
 
             $permisosCadena = json_encode($activeViewsNames);
-            error_log("$permisosCadena");
 
             //  creación del usuario
             $user = new UpUser();
