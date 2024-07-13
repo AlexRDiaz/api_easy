@@ -1675,8 +1675,8 @@ class UpUserAPIController extends Controller
 
             if ($validator->fails()) {
                 // return response()->json(['storeSellerWPError al crear Usuario' => $validator->errors()->all()], 422);
-                return response()->json(['storeUserWPError al crear Usuario: email existente'], 422);
-
+                error_log("storeUserWPError: email existente");
+                return response()->json(['storeUserWPError: email existente'], 422);
             }
 
             // $request->validate([
@@ -1767,9 +1767,10 @@ class UpUserAPIController extends Controller
                     }
                     DB::commit();
 
-                    return response()->json(['message' => 'Usuario from wp creado con éxito', 'user_id' => $user->id], 200);
+                    return response()->json(['message' => 'UserSeller from wp creado con éxito', 'user_id' => $user->id], 200);
                 } else {
                     DB::rollback();
+                    error_log("storeSellerWPError al crear Usuario");
                     return response()->json(['message' => 'storeSellerWPError al crear Usuario'], 404);
                 }
             } else if ($typeU == "5") {
