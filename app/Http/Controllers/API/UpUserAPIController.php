@@ -1674,7 +1674,9 @@ class UpUserAPIController extends Controller
             ], $messages);
 
             if ($validator->fails()) {
-                return response()->json(['storeSellerWPError al crear Usuario' => $validator->errors()->all()], 422);
+                // return response()->json(['storeSellerWPError al crear Usuario' => $validator->errors()->all()], 422);
+                return response()->json(['storeUserWPError al crear Usuario email existente'], 422);
+
             }
 
             // $request->validate([
