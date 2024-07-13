@@ -1717,6 +1717,7 @@ class UpUserAPIController extends Controller
             $user->username = $request->input('username');
             $user->email = $request->input('email');
             $user->codigo_generado = $resultCode;
+            error_log("pass:".$request->input('password'));
             $user->password = bcrypt($request->input('password'));
             $user->confirmed = true;
             $user->estado = "NO VALIDADO";
