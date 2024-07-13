@@ -1775,6 +1775,25 @@ class UpUserAPIController extends Controller
                 }
             } else if ($typeU == "5") {
                 //
+                $provider = new Provider();
+                $provider->name = $request->input('provider_name');
+                $provider->phone = $request->input('provider_phone');
+                $provider->description = $request->input('description');
+                // $provider->special = $request->input('special');
+                $provider->user_id = $user->id;
+
+                $provider->save();
+                $user->providers()->attach($provider->id, []);
+
+                if ($provider) {
+                    DB::commit();
+
+                    return response()->json(['message' => 'UserProvider from wp creado con éxito', 'user_id' => $user->id], 200);
+                } else {
+                    DB::rollback();
+                    error_log("storeProviderWPError al crear Usuario");
+                    return response()->json(['message' => 'storeProviderWPError al crear Usuario'], 404);
+                }
             }
         } catch (\Exception $e) {
             DB::rollback();
