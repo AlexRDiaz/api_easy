@@ -301,6 +301,7 @@ class UpUserAPIController extends Controller
     public function storeGeneral(Request $request)
     {
         // // Valida los datos de entrada (puedes agregar reglas de validación aquí)
+        error_log("storeReferido");
         $request->validate([
             'username' => 'required|string|max:255',
             'email' => 'required|email|unique:up_users',
@@ -316,57 +317,73 @@ class UpUserAPIController extends Controller
         }
         $resultCode = $numeroAleatorio;
 
-
-        $user = new UpUser();
-        $user->username = $request->input('username');
-        $user->email = $request->input('email');
-        $user->codigo_generado = $resultCode;
-        $user->password = bcrypt($request->input('password')); // Puedes utilizar bcrypt para encriptar la contraseña
-        $user->fecha_alta = $request->input('FechaAlta'); // Fecha actual
-        $user->confirmed = $request->input('confirmed');
-        $user->estado = "NO VALIDADO";
-        $user->provider = "local";
-        $user->confirmed = 1;
-        $user->fecha_alta = $request->input('fecha_alta');
-        $permisosCadena = json_encode(["DashBoard", "Reporte de Ventas", "Agregar Usuarios Vendedores", "Ingreso de Pedidos", "Estado Entregas Pedidos", "Pedidos No Deseados", "Billetera", "Devoluciones", "Retiros en Efectivo", "Conoce a tu Transporte"]);
-        $user->permisos = $permisosCadena;
-        $user->blocked = false;
-        $user->save();
-        $user->vendedores()->attach($request->input('vendedores'), []);
-
-
-
-        $newUpUsersRoleLink = new UpUsersRoleLink();
-        $newUpUsersRoleLink->user_id = $user->id; // Asigna el ID del usuario existente
-        $newUpUsersRoleLink->role_id = $request->input('role'); // Asigna el ID del rol existente
-        $newUpUsersRoleLink->save();
+        DB::beginTransaction();
+        try {
+            $user = new UpUser();
+            $user->username = $request->input('username');
+            $user->email = $request->input('email');
+            $user->codigo_generado = $resultCode;
+            $user->password = bcrypt($request->input('password')); // Puedes utilizar bcrypt para encriptar la contraseña
+            $user->fecha_alta = $request->input('FechaAlta'); // Fecha actual
+            $user->confirmed = $request->input('confirmed');
+            $user->estado = "NO VALIDADO";
+            $user->provider = "local";
+            $user->confirmed = 1;
+            $user->fecha_alta = $request->input('fecha_alta');
+            $permisosCadena = json_encode(["DashBoard", "Reporte de Ventas", "Agregar Usuarios Vendedores", "Ingreso de Pedidos", "Estado Entregas Pedidos", "Pedidos No Deseados", "Billetera", "Devoluciones", "Retiros en Efectivo", "Conoce a tu Transporte"]);
+            $user->permisos = $permisosCadena;
+            $user->blocked = false;
+            $user->save();
+            $user->vendedores()->attach($request->input('vendedores'), []);
 
 
-        $userRoleFront = new UpUsersRolesFrontLink();
-        $userRoleFront->user_id = $user->id;
-        $userRoleFront->roles_front_id = 2;
-        $userRoleFront->save();
 
-        $seller = new Vendedore();
-        $seller->nombre_comercial = $request->input('nombre_comercial');
-        $seller->telefono_1 = $request->input('telefono1');
-        $seller->telefono_2 = $request->input('telefono2');
-        $seller->nombre_comercial = $request->input('nombre_comercial');
-        $seller->fecha_alta = $request->input('fecha_alta');
-        $seller->id_master = $user->id;
-        $seller->url_tienda = $request->input('url_tienda');
-        $seller->costo_envio = $request->input('costo_envio');
-        $seller->costo_devolucion = $request->input('costo_devolucion');
-        $seller->referer = $request->input('referer');
-        $seller->save();
-
-        $user->vendedores()->attach($seller->id, []);
+            $newUpUsersRoleLink = new UpUsersRoleLink();
+            $newUpUsersRoleLink->user_id = $user->id; // Asigna el ID del usuario existente
+            $newUpUsersRoleLink->role_id = $request->input('role'); // Asigna el ID del rol existente
+            $newUpUsersRoleLink->save();
 
 
-        Mail::to($user->email)->send(new UserValidation($resultCode));
+            $userRoleFront = new UpUsersRolesFrontLink();
+            $userRoleFront->user_id = $user->id;
+            $userRoleFront->roles_front_id = 2;
+            $userRoleFront->save();
 
+            $seller = new Vendedore();
+            $seller->nombre_comercial = $request->input('nombre_comercial');
+            $seller->telefono_1 = $request->input('telefono1');
+            $seller->telefono_2 = $request->input('telefono2');
+            $seller->nombre_comercial = $request->input('nombre_comercial');
+            $seller->fecha_alta = $request->input('fecha_alta');
+            $seller->id_master = $user->id;
+            $seller->url_tienda = $request->input('url_tienda');
+            $seller->costo_envio = $request->input('costo_envio');
+            $seller->costo_devolucion = $request->input('costo_devolucion');
+            $seller->referer = $request->input('referer');
+            $seller->save();
 
-        return response()->json(['message' => 'Vendedor creado con éxito'], 200);
+            $user->vendedores()->attach($seller->id, []);
+
+            if ($seller) {
+
+                try {
+                    Mail::to($user->email)->send(new UserValidation($resultCode));
+                } catch (\Exception $e) {
+                    error_log("Error_storeReferido al enviar email con el newSeller-resultCode  $user->id: $e");
+                }
+                DB::commit();
+
+                return response()->json(['message' => 'Vendedor creado con éxito'], 200);
+            } else {
+                DB::rollback();
+                error_log("Error_storeReferido al crear UsuarioReferido");
+                return response()->json(['message' => 'storeSellerWPError al crear Usuario'], 404);
+            }
+        } catch (\Exception $e) {
+            DB::rollback();
+            error_log("Error_storeReferido: $e");
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
 
@@ -1717,7 +1734,7 @@ class UpUserAPIController extends Controller
             $user->username = $request->input('username');
             $user->email = $request->input('email');
             $user->codigo_generado = $resultCode;
-            error_log("pass:".$request->input('password'));
+            error_log("pass:" . $request->input('password'));
             $user->password = bcrypt($request->input('password'));
             $user->confirmed = true;
             $user->estado = "NO VALIDADO";
