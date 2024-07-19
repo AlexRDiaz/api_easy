@@ -1188,4 +1188,31 @@ class IntegrationAPIController extends Controller
         $vendedorencontrado->save();
         return response()->json("Monto debitado");
     }
+
+    public function putSolucionGTM(Request $request)
+    {
+        error_log("putSolucionGTM");
+
+        $data = $request->all();
+        // error_log(json_encode($data));
+
+        $apiUrl = 'https://ec.gintracom.site/web/easy/solucion';
+
+        // Nombre de usuario y contraseña para la autenticación básica
+        $username = 'easy';
+        $password = 'f7b2d589796f5f209e72d5697026500d';
+
+        $response = Http::withBasicAuth($username, $password)
+            ->post($apiUrl, $data);
+
+        if ($response->successful()) {
+            // La solicitud fue exitosa
+            error_log("La solicitud fue exitosa $response");
+            return $response->json(); // Devolver la respuesta JSON de la API externa
+        } else {
+            // La solicitud falló
+            error_log("La solicitud a la API externa falló $response");
+            return response()->json(['error' => 'La solicitud a la API externa falló'], $response->status());
+        }
+    }
 }
