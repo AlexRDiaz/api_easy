@@ -37,7 +37,8 @@ class Novedade extends Model
 		'try' => 'int',
 		'published_at' => 'datetime',
 		'created_by_id' => 'int',
-		'updated_by_id' => 'int'
+		'updated_by_id' => 'int',
+		'external_id' => 'int',
 	];
 
 	protected $fillable = [
@@ -47,7 +48,8 @@ class Novedade extends Model
 		'comment',
 		'published_at',
 		'created_by_id',
-		'updated_by_id'
+		'updated_by_id',
+		'external_id'
 	];
 
 	public function admin_user()

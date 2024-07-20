@@ -26,53 +26,63 @@ class OrdenesRetiroAPIController extends Controller
 
     public function withdrawal(Request $request, $id)
     {
-        //     // Obtiene los datos del cuerpo de la solicitud
-        $data = $request->validate([
-            'monto' => 'required',
-            'email' => 'required|email',
-            'id_vendedor' => 'required'
-        ]);
+        error_log("withdrawalSeller");
+        try {
 
-        // //     // Obtener datos del request
-        $monto = $request->input('monto');
-        // $fecha = $request->input('fecha');
-        $fecha = date("d/m/Y H:i:s");
-        $email  = $request->input('email');
-        $idVendedor  = $request->input('id_vendedor');
+            //     // Obtiene los datos del cuerpo de la solicitud
+            $data = $request->validate([
+                'monto' => 'required',
+                'email' => 'required|email',
+                'id_vendedor' => 'required'
+            ]);
 
-        // //     // Generar código único
-        $numerosUtilizados = [];
-        while (count($numerosUtilizados) < 10000000) {
-            $numeroAleatorio = str_pad(mt_rand(1, 99999999), 8, '0', STR_PAD_LEFT);
-            if (!in_array($numeroAleatorio, $numerosUtilizados)) {
-                $numerosUtilizados[] = $numeroAleatorio;
-                break;
+            // //     // Obtener datos del request
+            $monto = $request->input('monto');
+            // $fecha = $request->input('fecha');
+            $fecha = date("d/m/Y H:i:s");
+            $email  = $request->input('email');
+            $idVendedor  = $request->input('id_vendedor');
+
+            // //     // Generar código único
+            $numerosUtilizados = [];
+            while (count($numerosUtilizados) < 10000000) {
+                $numeroAleatorio = str_pad(mt_rand(1, 99999999), 8, '0', STR_PAD_LEFT);
+                if (!in_array($numeroAleatorio, $numerosUtilizados)) {
+                    $numerosUtilizados[] = $numeroAleatorio;
+                    break;
+                }
             }
+            $resultCode = $numeroAleatorio;
+            //  $resultCode = implode('', array_slice($numerosUnicos, 0, 8));
+
+
+            Mail::to($email)->send(new ValidationCode($resultCode, $monto));
+
+            //     // Crea un registro de retiro
+            $withdrawal = new OrdenesRetiro();
+            $withdrawal->monto = $monto;
+            $withdrawal->fecha = $fecha;
+            $withdrawal->codigo_generado = $resultCode;
+            $withdrawal->estado = 'PENDIENTE';
+            $withdrawal->id_vendedor = $idVendedor;
+            $withdrawal->rol_id = 2;
+            $withdrawal->save();
+
+            $ordenUser = new OrdenesRetirosUsersPermissionsUserLink();
+            $ordenUser->ordenes_retiro_id = $withdrawal->id;
+            $ordenUser->user_id = $id;
+            $ordenUser->save();
+
+
+
+            return response()->json(['code' => 200]);
+        } catch (\Exception $e) {
+            error_log("Error_withdrawalSeller: " . $e);
+
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
         }
-        $resultCode = $numeroAleatorio;
-        //  $resultCode = implode('', array_slice($numerosUnicos, 0, 8));
-
-
-        Mail::to($email)->send(new ValidationCode($resultCode, $monto));
-
-        //     // Crea un registro de retiro
-        $withdrawal = new OrdenesRetiro();
-        $withdrawal->monto = $monto;
-        $withdrawal->fecha = $fecha;
-        $withdrawal->codigo_generado = $resultCode;
-        $withdrawal->estado = 'PENDIENTE';
-        $withdrawal->id_vendedor = $idVendedor;
-        $withdrawal->rol_id = 2;
-        $withdrawal->save();
-
-        $ordenUser = new OrdenesRetirosUsersPermissionsUserLink();
-        $ordenUser->ordenes_retiro_id = $withdrawal->id;
-        $ordenUser->user_id = $id;
-        $ordenUser->save();
-
-
-
-        return response()->json(['code' => 200]);
     }
 
     public function withdrawalProvider(Request $request, $id)

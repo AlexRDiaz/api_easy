@@ -757,6 +757,7 @@ class IntegrationAPIController extends Controller
                                     $novedad->try = $novedades_try + 1;
                                     $novedad->url_image = $path; //como manejar para mostrar
                                     $novedad->comment = $no_novedad;
+                                    $novedad->external_id = $id_novedad;
                                     $novedad->published_at = $currentDateTime;
                                     $novedad->save();
 

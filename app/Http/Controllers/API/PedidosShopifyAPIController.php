@@ -897,7 +897,7 @@ class PedidosShopifyAPIController extends Controller
                         } else {
                             if ($key === 'gestioned_payment_cost_delivery') {
                                 $pedidos->whereJsonContains('gestioned_payment_cost_delivery->state', $valor);
-                            }else {
+                            } else {
                                 $pedidos->where($key, '=', $valor);
                             }
                             // $pedidos->where($key, '=', $valor);
@@ -2066,7 +2066,7 @@ class PedidosShopifyAPIController extends Controller
                         } else {
                             if ($key === 'gestioned_payment_cost_delivery') {
                                 $pedidos->whereJsonContains('gestioned_payment_cost_delivery->state', $valor);
-                            }else {
+                            } else {
                                 $pedidos->where($key, '=', $valor);
                             }
                         }
@@ -2124,13 +2124,13 @@ class PedidosShopifyAPIController extends Controller
                 })
                 +
                 $query3
-                    ->where('estado_interno', "CONFIRMADO")
-                    ->where('estado_logistico', "ENVIADO")
-                    ->where(function ($query) {
-                        $query->where('status', 'NOVEDAD')
-                            ->orWhere('status', 'NO ENTREGADO');
-                    })
-                    ->sum(DB::raw('REPLACE(costo_transportadora, ",", "")'))
+                ->where('estado_interno', "CONFIRMADO")
+                ->where('estado_logistico', "ENVIADO")
+                ->where(function ($query) {
+                    $query->where('status', 'NOVEDAD')
+                        ->orWhere('status', 'NO ENTREGADO');
+                })
+                ->sum(DB::raw('REPLACE(costo_transportadora, ",", "")'))
 
             // *************************************************************************************
 
@@ -4029,7 +4029,7 @@ class PedidosShopifyAPIController extends Controller
             $edited_novelty = !empty($order["gestioned_novelty"]) ? json_decode($order["gestioned_novelty"], true) : [];
 
             // Actualizar o crear la propiedad
-             $edited_novelty[$propertyName] = $propertyValue;
+            $edited_novelty[$propertyName] = $propertyValue;
 
             // Guardar los cambios en el modelo
             $order->gestioned_novelty = json_encode($edited_novelty);
@@ -4163,7 +4163,7 @@ class PedidosShopifyAPIController extends Controller
             ], Response::HTTP_NOT_FOUND);
         }
     }
-    public function updateGestionedPaymentCostDeliveryU(Request $request,$id)
+    public function updateGestionedPaymentCostDeliveryU(Request $request, $id)
     {
         try {
             $data = $request->json()->all();
@@ -4175,28 +4175,28 @@ class PedidosShopifyAPIController extends Controller
 
             $editedPayments = [];
 
-                $order = PedidosShopify::find($id);
-                if ($order) {
-                    $edited_payment = $order["gestioned_payment_cost_delivery"] != null
-                        ? json_decode($order["gestioned_payment_cost_delivery"], true)
-                        : [];
+            $order = PedidosShopify::find($id);
+            if ($order) {
+                $edited_payment = $order["gestioned_payment_cost_delivery"] != null
+                    ? json_decode($order["gestioned_payment_cost_delivery"], true)
+                    : [];
 
-                    if ($noveltyState == 0) {
-                        $edited_payment["state"] = 0;
-                        $edited_payment["id_user"] = $id_user;
-                        $edited_payment["m_t_g"] = $startDateFormatted;
-                    }
-                    // else if ($noveltyState == 0) {
-                    //     $edited_payment["state"] = 0;
-                    //     $edited_payment["id_user"] = $id_user;
-                    //     $edited_payment["m_t_g"] = $startDateFormatted;
-                    // }
-
-                    $order["gestioned_payment_cost_delivery"] = json_encode($edited_payment);
-                    $order->save();
-
-                    $editedPayments[] = $edited_payment;
+                if ($noveltyState == 0) {
+                    $edited_payment["state"] = 0;
+                    $edited_payment["id_user"] = $id_user;
+                    $edited_payment["m_t_g"] = $startDateFormatted;
                 }
+                // else if ($noveltyState == 0) {
+                //     $edited_payment["state"] = 0;
+                //     $edited_payment["id_user"] = $id_user;
+                //     $edited_payment["m_t_g"] = $startDateFormatted;
+                // }
+
+                $order["gestioned_payment_cost_delivery"] = json_encode($edited_payment);
+                $order->save();
+
+                $editedPayments[] = $edited_payment;
+            }
 
             return response()->json([
                 "response" => "Payment updated successfully",
@@ -4246,6 +4246,7 @@ class PedidosShopifyAPIController extends Controller
             }
             // $sku = $request->input('sku');
             $recaudo = $data['recaudo'];
+            // $apertura = $data['apertura'];
             $productId = $data['product_id'];
             $variant_details = $data['variant_details'];
             //transp
@@ -4332,6 +4333,7 @@ class PedidosShopifyAPIController extends Controller
                 $createOrder->id_product = $productId;
                 $createOrder->variant_details = $variant_details;
                 $createOrder->recaudo = $recaudo;
+                // $createOrder->apertura = $apertura;
                 // if ($newrouteId == 0) {
                 //     error_log("*****Tramsp externa********\n");
                 //     $createOrder->carrier_external_id = $carrierExternalId;
