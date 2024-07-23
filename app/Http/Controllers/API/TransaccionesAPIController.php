@@ -2145,6 +2145,7 @@ class TransaccionesAPIController extends Controller
             DB::commit();
         } catch (\Exception $e) {
             DB::rollback();
+            error_log("debitWithdrawal_error: $e ");
             return response()->json([
                 'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage(),
             ], 500);
