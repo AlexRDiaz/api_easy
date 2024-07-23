@@ -2198,7 +2198,7 @@ class TransaccionesAPIController extends Controller
             return response()->json(["response" => "solicitud generada exitosamente", "solicitud" => $withdrawal], Response::HTTP_OK);
         } catch (\Exception $e) {
             DB::rollback();
-
+            error_log("postWhitdrawalProviderAproved_error: $e");
             return response()->json(["response" => "error al cambiar de estado", "error" => $e], Response::HTTP_BAD_REQUEST);
         }
     }
