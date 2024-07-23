@@ -2157,6 +2157,7 @@ class TransaccionesAPIController extends Controller
 
         DB::beginTransaction();
         try {
+            // error_log("postWhitdrawalProviderAproved");
             //code...
 
             $data = $request->json()->all();
@@ -2168,6 +2169,7 @@ class TransaccionesAPIController extends Controller
             $withdrawal->estado = 'APROBADO';
             $withdrawal->id_vendedor = $data["id_vendedor"];
             $withdrawal->account_id = $data["id_account"];
+            $withdrawal->rol_id = 5;
             // $withdrawal->account_id = "EEEETEST";
 
             $withdrawal->save();
