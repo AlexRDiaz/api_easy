@@ -2754,13 +2754,31 @@ class PedidosShopifyAPIController extends Controller
         $startDateFormatted = Carbon::createFromFormat('j/n/Y', $startDate)->format('Y-m-d');
         $endDateFormatted = Carbon::createFromFormat('j/n/Y', $endDate)->format('Y-m-d');
         $and = $data['and'];
+        $dateFilter = $data["date_filter"];
 
+        $selectedFilter = "fecha_entrega";
+        if ($dateFilter != "FECHA ENTREGA") {
+            $selectedFilter = "marca_tiempo_envio";
+        }
         $status = $data['status'];
-        $internal = $data['internal'];
+        // $internal = $data['internal'];
+        // ! ordenamiento ↓
+        $orderBy = null;
+        if (isset($data['sort'])) {
+            $sort = $data['sort'];
+            $sortParts = explode(':', $sort);
+            if (count($sortParts) === 2) {
+                $field = $sortParts[0];
+                $direction = strtoupper($sortParts[1]) === 'DESC' ? 'DESC' : 'ASC';
+                $orderBy = [$field => $direction];
+            }
+        }
 
         $pedidos = PedidosShopify::with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider'])
             //select('marca_t_i', 'fecha_entrega', DB::raw('concat(tienda_temporal, "-", numero_orden) as codigo'), 'nombre_shipping', 'ciudad_shipping', 'direccion_shipping', 'telefono_shipping', 'cantidad_total', 'producto_p', 'producto_extra', 'precio_total', 'comentario', 'estado_interno', 'status', 'estado_logistico', 'estado_devolucion', 'costo_envio', 'costo_devolucion')
-            ->whereRaw("STR_TO_DATE(marca_t_i, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])->where((function ($pedidos) use ($and) {
+            // ->whereRaw("STR_TO_DATE(marca_t_i, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
+            ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
+            ->where((function ($pedidos) use ($and) {
                 foreach ($and as $condition) {
                     foreach ($condition as $key => $valor) {
                         if (strpos($key, '.') !== false) {
@@ -2776,10 +2794,14 @@ class PedidosShopifyAPIController extends Controller
         if (!empty($status)) {
             $pedidos->whereIn('status', $status);
         }
-        if (!empty($internal)) {
-            $pedidos->whereIn('estado_interno', $internal);
+        // if (!empty($internal)) {
+        //     $pedidos->whereIn('estado_interno', $internal);
+        // }
+        // ! Ordena
+        if ($orderBy !== null) {
+            $pedidos->orderBy(key($orderBy), reset($orderBy));
         }
-        $pedidos->orderBy('marca_t_i', 'asc');
+
         $response = $pedidos->get();
 
         return response()->json($response);
@@ -2799,11 +2821,31 @@ class PedidosShopifyAPIController extends Controller
         $not = $data['not'];
 
         $status = $data['status'];
-        $internal = $data['internal'];
+        // $internal = $data['internal'];
+        $dateFilter = $data["date_filter"];
+
+        $selectedFilter = "fecha_entrega";
+        if ($dateFilter != "FECHA ENTREGA") {
+            $selectedFilter = "marca_tiempo_envio";
+        }
+        $status = $data['status'];
+        // $internal = $data['internal'];
+        // ! ordenamiento ↓
+        $orderBy = null;
+        if (isset($data['sort'])) {
+            $sort = $data['sort'];
+            $sortParts = explode(':', $sort);
+            if (count($sortParts) === 2) {
+                $field = $sortParts[0];
+                $direction = strtoupper($sortParts[1]) === 'DESC' ? 'DESC' : 'ASC';
+                $orderBy = [$field => $direction];
+            }
+        }
+
 
         $pedidos = PedidosShopify::with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider', 'pedidoCarrier'])
             //select('marca_t_i', 'fecha_entrega', DB::raw('concat(tienda_temporal, "-", numero_orden) as codigo'), 'nombre_shipping', 'ciudad_shipping', 'direccion_shipping', 'telefono_shipping', 'cantidad_total', 'producto_p', 'producto_extra', 'precio_total', 'comentario', 'estado_interno', 'status', 'estado_logistico', 'estado_devolucion', 'costo_envio', 'costo_devolucion')
-            ->whereRaw("STR_TO_DATE(marca_t_i, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
+            ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
             ->where((function ($pedidos) use ($and) {
                 foreach ($and as $condition) {
                     foreach ($condition as $key => $valor) {
@@ -2833,10 +2875,14 @@ class PedidosShopifyAPIController extends Controller
         if (!empty($status)) {
             $pedidos->whereIn('status', $status);
         }
-        if (!empty($internal)) {
-            $pedidos->whereIn('estado_interno', $internal);
+        // if (!empty($internal)) {
+        //     $pedidos->whereIn('estado_interno', $internal);
+        // }
+        // $pedidos->orderBy('marca_t_i', 'asc');
+        if ($orderBy !== null) {
+            $pedidos->orderBy(key($orderBy), reset($orderBy));
         }
-        $pedidos->orderBy('marca_t_i', 'asc');
+
         $response = $pedidos->get();
 
         return response()->json($response);
