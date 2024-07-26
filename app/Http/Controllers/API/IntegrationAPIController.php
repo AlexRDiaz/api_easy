@@ -993,7 +993,7 @@ class IntegrationAPIController extends Controller
                     return response()->json(['message' => 'Order updated successfully.'], 200);
                 } catch (\Exception $e) {
                     DB::rollback();
-                    error_log("Error: $e");
+                    error_log("ErrorRequestUpdateState: $e ");
                     return response()->json([
                         'error' => "There was an error processing your request. " . $e->getMessage()
                     ], 500);
