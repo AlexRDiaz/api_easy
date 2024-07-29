@@ -312,6 +312,9 @@ class IntegrationAPIController extends Controller
                 $id_novedad = $data['id_novedad'];
                 $no_novedad = $data['no_novedad'];
                 $fecha_historial = $data['fecha_historial'];
+                $id_gestion = $data['id_gestion'];
+                $no_gestion = $data['no_gestion'];
+                $nota = $data['nota'];
 
                 $currentDateTime = date('Y-m-d H:i:s');
                 $date = now()->format('j/n/Y');
@@ -321,10 +324,13 @@ class IntegrationAPIController extends Controller
                 //     error_log("$key: $value");
                 // }
                 error_log("guia input: $guia ");
-                // error_log("estado input: $estado ");
+                error_log("estado input: $estado ");
                 // error_log("path input: $path ");
-                // error_log("id_novedad input: $id_novedad ");
-                // error_log("no_novedad input: $no_novedad ");
+                error_log("id_novedad input: $id_novedad ");
+                error_log("no_novedad input: $no_novedad ");
+                error_log("id_gestion input: $id_gestion ");
+                error_log("no_gestion input: $no_gestion ");
+                error_log("nota input: $nota ");
 
 
                 // error_log("pedido: $order");
@@ -987,7 +993,7 @@ class IntegrationAPIController extends Controller
                     return response()->json(['message' => 'Order updated successfully.'], 200);
                 } catch (\Exception $e) {
                     DB::rollback();
-                    error_log("Error: $e");
+                    error_log("ErrorRequestUpdateState: $e ");
                     return response()->json([
                         'error' => "There was an error processing your request. " . $e->getMessage()
                     ], 500);
