@@ -9,6 +9,7 @@ use App\Models\PedidosShopifiesSubRutaLink;
 use App\Models\PedidosShopifiesTransportadoraLink;
 use App\Models\PedidosShopify;
 use App\Models\Transaccion;
+use App\Models\TransactionsGlobal;
 use App\Models\UpUser;
 use App\Models\Vendedore;
 use App\Models\Product;
@@ -253,6 +254,75 @@ class TransaccionesAPIController extends Controller
         return response()->json("Monto debitado");
     }
 
+    public function TransactionGlobal(
+        // $admission_date, 
+        // $delivery_date, 
+        // $status,
+        // $return_state,
+        // $id_order, 
+        // $code, 
+        // $origin, 
+        // $withdrawal_price, 
+        // $value_order, 
+        // $return_cost, 
+        // $delivery_cost, 
+        // $notdelivery_cost, 
+        // $provider_cost, 
+        // $referer_cost, 
+        // $total_transaction, 
+        // $previous_value, 
+        // $current_value, 
+        // $state, 
+        // $id_seller,
+        // $internal_transportation_cost, 
+        // $external_transportation_cost, 
+        // $external_return_cost
+
+        $idforsearch
+    ){
+        // // * actualizacion de saldo vendedor 
+        // $user = UpUser::where("id", $id_seller)->with('vendedores')->first();
+        // $vendedor = $user['vendedores'][0];
+        // $saldo = $vendedor->saldo;
+        // $nuevoSaldo = $saldo - $total_transaction;
+        // $vendedor->saldo = $nuevoSaldo;
+        // $vendedor->save();
+
+
+        $searchTransactionGlobal = TransactionsGlobal::where('id_order',$idforsearch)->get();
+
+        // * generacion transaccion global
+
+        // $newTransGlobal = new TransactionsGlobal();
+        // $newTransGlobal->admission_date = $admission_date;
+        // $newTransGlobal->delivery_date = $delivery_date ; 
+        // $newTransGlobal->status = $status;
+        // $newTransGlobal->return_state = $return_state;
+        // $newTransGlobal->id_order = $id_order ; 
+        // $newTransGlobal->code = $code ; 
+        // $newTransGlobal->origin = $origin ; 
+        // $newTransGlobal->withdrawal_price = $withdrawal_price ; 
+        // $newTransGlobal->value_order = $value_order ; 
+        // $newTransGlobal->return_cost = $return_cost ; 
+        // $newTransGlobal->delivery_cost = $delivery_cost ; 
+        // $newTransGlobal->notdelivery_cost = $notdelivery_cost ; 
+        // $newTransGlobal->provider_cost = $provider_cost ; 
+        // $newTransGlobal->referer_cost = $referer_cost ; 
+        // $newTransGlobal->total_transaction = $total_transaction ; 
+        // $newTransGlobal->previous_value = $previous_value ; 
+        // $newTransGlobal->current_value =$current_value ; 
+        // $newTransGlobal->state = $state ; 
+        // $newTransGlobal->id_seller = $id_seller;
+        // $newTransGlobal->internal_transportation_cost = $internal_transportation_cost ; 
+        // $newTransGlobal->external_transportation_cost = $external_transportation_cost ; 
+        // $newTransGlobal->external_return_cost = $external_return_cost;
+        // $newTransGlobal->save();
+
+
+        return response()->json("Monto debitado");
+
+    }
+
     public function DebitLocal($vendedorId, $monto, $idOrigen, $codigo, $origen, $comentario, $generated_by)
     {
         $startDateFormatted = new DateTime();
@@ -261,7 +331,7 @@ class TransaccionesAPIController extends Controller
         $saldo = $vendedor->saldo;
         $nuevoSaldo = $saldo - $monto;
         $vendedor->saldo = $nuevoSaldo;
-
+        
 
         $newTrans = new Transaccion();
 
@@ -549,7 +619,7 @@ class TransaccionesAPIController extends Controller
             $startDateFormatted = new DateTime();
 
             // $pedido = PedidosShopify::findOrFail($data['id_origen']);
-            $pedido = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades', 'operadore', 'transactionTransportadora',])->findOrFail($data['id_origen']);
+            $pedido = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades', 'operadore', 'transactionTransportadora','pedidoCarrier'])->findOrFail($data['id_origen']);
 
             // if ($pedido->costo_envio == null) {
             // error_log("Transaccion nueva");
@@ -633,14 +703,36 @@ class TransaccionesAPIController extends Controller
             }
             $pedido->save();
 
+            // * inicio de la transaccion global
+            error_log("inicio trans globalxx");
+            $newTransGlobal = new TransactionsGlobal();
+            $newTransGlobal->admission_date = $pedido->marca_t_i;
+            $newTransGlobal->delivery_date = $pedido -> fecha_entrega; 
+            $newTransGlobal->status = $pedido->status;
+            // $newTransGlobal->return_state = $return_state;
+            $newTransGlobal->id_order = $pedido->id ; 
+            $newTransGlobal->code = $pedido['users'][0]['vendedores']['nombre_comercial'].$pedido->numero_orden; 
+            $newTransGlobal->origin = "Pedido ". $pedido->status; 
+            $newTransGlobal->withdrawal_price = 0 ; 
+            $newTransGlobal->value_order = $pedido->precio_total ; 
+            $newTransGlobal->return_cost = 0;
+            // *********************************************************
+
 
             $request->merge(['comentario' => 'Recaudo  de valor por pedido ' . $pedido->status]);
             $request->merge(['origen' => 'recaudo']);
 
             if ($SellerCreditFinalValue['total'] != null) {
                 $request->merge(['monto' => $SellerCreditFinalValue['total']]);
-            }
+                // *********************************************************
+                $newTransGlobal->delivery_cost = -$SellerCreditFinalValue['total'] ; 
+                $newTransGlobal->notdelivery_cost = 0 ;
+                error_log("entregado");
 
+                // *********************************************************
+
+            }
+            
             $this->Credit($request);
 
             $productValues = [];
@@ -657,6 +749,11 @@ class TransaccionesAPIController extends Controller
                     $request->merge(['monto' => $valueProduct]);
 
                     $this->Debit($request);
+                    
+                    // *********************************************************            
+                    // $newTransGlobal->provider_cost = -$valueProduct ;
+                    // error_log("valor producto bodega");
+
                 }
             }
 
@@ -708,7 +805,43 @@ class TransaccionesAPIController extends Controller
 
                 $this->transaccionesRepository->create($newTrans);
                 $this->vendedorRepository->update($nuevoSaldo, $user['vendedores'][0]['id']);
+ 
+                // *********************************************************            
+                //  ! aqui tmbn debe generar una nueva transaccion_global al referido 
+                //  ? esta linea aun no esta validada  
+                // $newTransGlobal->referer_cost = $referer_cost ;
+                // error_log("referido");
+
+                //  ? ***********************************
+                // *********************************************************            
+                            
             }
+
+
+            // *********************************************************            
+
+            $previousTransactionGlobal = TransactionsGlobal::where('id_seller',$pedido->id_comercial)
+            ->where('order_entry',(($newTrans->order_entry)-1))
+            ->get();
+
+            if(!$previousTransactionGlobal){
+                $newTransGlobal->previous_value = 0 ; 
+            }
+            else{
+                $newTransGlobal->previous_value = $previousTransactionGlobal->current_value ; 
+            }
+            // $newTransGlobal->previous_value = $previous_value ; 
+            $newTransGlobal->current_value = ($newTransGlobal->total_transaction + $newTransGlobal->previous_value); 
+            $newTransGlobal->state = 1 ; 
+            $newTransGlobal->id_seller = $pedido->id_comercial;
+            $newTransGlobal->internal_transportation_cost = $pedido->costo_trnasportadora; 
+            // $newTransGlobal->external_transportation_cost = $external_transportation_cost ; 
+            $newTransGlobal->external_transportation_cost = 0 ; 
+            $newTransGlobal->external_return_cost = $pedido['pedidoCarrier'][0]['cost_refound_external'];
+            $newTransGlobal->save();
+            error_log("fin creacion nueva transaccion global");
+            // *********************************************************
+
 
             // error_log("add en tpt");
 
@@ -1092,8 +1225,6 @@ class TransaccionesAPIController extends Controller
         }
     }
 
-
-
     public function paymentTransportByReturnStatus(Request $request, $id)
     {
         DB::beginTransaction();
@@ -1163,8 +1294,6 @@ class TransaccionesAPIController extends Controller
             ], 500);
         }
     }
-
-
 
     public function paymentLogisticByReturnStatus(Request $request, $id)
     {
@@ -1237,7 +1366,6 @@ class TransaccionesAPIController extends Controller
             ], 500);
         }
     }
-
 
     public function updateFieldTime(Request $request, $id)
     {
