@@ -33,7 +33,8 @@ class OrdenesRetiroAPIController extends Controller
             $data = $request->validate([
                 'monto' => 'required',
                 'email' => 'required|email',
-                'id_vendedor' => 'required'
+                'id_vendedor' => 'required',
+                'generated_by' => 'required',
             ]);
 
             // //     // Obtener datos del request
@@ -42,6 +43,7 @@ class OrdenesRetiroAPIController extends Controller
             $fecha = date("d/m/Y H:i:s");
             $email  = $request->input('email');
             $idVendedor  = $request->input('id_vendedor');
+            $generated_by = $request->input('generated_by');
 
             // //     // Generar código único
             $numerosUtilizados = [];
@@ -66,6 +68,7 @@ class OrdenesRetiroAPIController extends Controller
             $withdrawal->estado = 'PENDIENTE';
             $withdrawal->id_vendedor = $idVendedor;
             $withdrawal->rol_id = 2;
+            $withdrawal->created_by_id = $generated_by;
             $withdrawal->save();
 
             $ordenUser = new OrdenesRetirosUsersPermissionsUserLink();
@@ -530,6 +533,7 @@ class OrdenesRetiroAPIController extends Controller
 
             $withdrawal = OrdenesRetiro::findOrFail($id);
             $withdrawal->estado = "RECHAZADO";
+            $withdrawal->updated_by_id = $userSesion;
             $withdrawal->save();
 
             if ($withdrawal) {
@@ -560,7 +564,7 @@ class OrdenesRetiroAPIController extends Controller
             return response()->json(["response" => "update succesfully"], Response::HTTP_OK);
         } catch (\Exception $e) {
             DB::rollback(); // En caso de error, revierte todos los cambios realizados en la transacción
-
+            error_log("error_putRechazado: $e");
             return response()->json(["response" => "edidted failed", "error" => $e], Response::HTTP_BAD_REQUEST);
         }
     }

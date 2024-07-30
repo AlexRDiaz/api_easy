@@ -2070,6 +2070,7 @@ class TransaccionesAPIController extends Controller
                 $orden->fecha_transferencia = date("d/m/Y H:i:s");
                 $orden->updated_at = new DateTime();
                 $orden->monto = str_replace(',', '.', $orden->monto);
+                $orden->updated_by_id = $data['generated_by'];
                 $orden->save();
 
                 $rolInvoke = $data['rol_id'];
@@ -2216,9 +2217,11 @@ class TransaccionesAPIController extends Controller
             $withdrawal->estado = "APROBADO";
             $withdrawal->updated_at = new DateTime();
             $withdrawal->codigo = $withdrawal->codigo_generado;
+            $withdrawal->updated_by_id = $data["generated_by"];
             $withdrawal->save();
             $monto = str_replace(',', '.', $withdrawal->monto);
-            $this->DebitLocal($data["id_vendedor"], $monto, $withdrawal->id, "retiro-" . $withdrawal->id, "retiro", "debito por retiro solicitado", $data["id_vendedor"]);
+            // $this->DebitLocal($data["id_vendedor"], $monto, $withdrawal->id, "retiro-" . $withdrawal->id, "retiro", "debito por retiro solicitado", $data["id_vendedor"]);
+            $this->DebitLocal($data["id_vendedor"], $monto, $withdrawal->id, "retiro-" . $withdrawal->id, "retiro", "debito por retiro solicitado", $data["generated_by"]);
 
             DB::commit();
             return response()->json(["response" => "cambio de estado y debit exitoso", "solicitud" => $withdrawal], 200);
