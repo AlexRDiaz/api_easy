@@ -753,28 +753,52 @@ class IntegrationAPIController extends Controller
                                     }
                                     // */
                                     //
+                                    $order->status = $name_local;
+                                    $order->status_last_modified_at = $currentDateTime;
                                 } else if ($name_local == "NOVEDAD") {
                                     //
-                                    $novedades = NovedadesPedidosShopifyLink::where('pedidos_shopify_id', $order->id)->get();
-                                    $novedades_try = $novedades->isEmpty() ? 0 : $novedades->count();
+                                    if ($id_gestion == 2 || $id_gestion == "") {
+                                        # code...
+                                        $commentText = "";
+                                        if ($id_gestion == 2) {
+                                            // error_log("Nueva nov. creada la solucion");
+                                            $commentText = $no_novedad . "-" . $no_gestion . "-" . $nota;
+                                        } else {
+                                            $commentText = $no_novedad;
+                                            // error_log("Nueva nov. creada");
+                                        }
+                                        // error_log("$commentText");
 
-                                    $novedad = new Novedade();
-                                    $novedad->m_t_novedad = $currentDateTimeText;
-                                    $novedad->try = $novedades_try + 1;
-                                    $novedad->url_image = $path; //como manejar para mostrar
-                                    $novedad->comment = $no_novedad;
-                                    $novedad->external_id = $id_novedad;
-                                    $novedad->published_at = $currentDateTime;
-                                    $novedad->save();
+                                        $novedades = NovedadesPedidosShopifyLink::where('pedidos_shopify_id', $order->id)->get();
+                                        $novedades_try = $novedades->isEmpty() ? 0 : $novedades->count();
 
-                                    $novedad_pedido = new NovedadesPedidosShopifyLink();
-                                    $novedad_pedido->novedad_id = $novedad->id;
-                                    $novedad_pedido->pedidos_shopify_id = $order->id;
-                                    $novedad_pedido->novedad_order = $novedades_try + 1;
-                                    $novedad_pedido->save();
+                                        $novedad = new Novedade();
+                                        $novedad->m_t_novedad = $currentDateTimeText;
+                                        $novedad->try = $novedades_try + 1;
+                                        $novedad->url_image = $path; //como manejar para mostrar
+                                        // $novedad->comment = $no_novedad;
+                                        $novedad->comment =  $commentText;
+                                        $novedad->external_id = $id_novedad;
+                                        $novedad->published_at = $currentDateTime;
+                                        $novedad->save();
+
+                                        $novedad_pedido = new NovedadesPedidosShopifyLink();
+                                        $novedad_pedido->novedad_id = $novedad->id;
+                                        $novedad_pedido->pedidos_shopify_id = $order->id;
+                                        $novedad_pedido->novedad_order = $novedades_try + 1;
+                                        $novedad_pedido->save();
+
+                                        $order->status = $name_local;
+                                        $order->status_last_modified_at = $currentDateTime;
+                                    } else if ($id_gestion == 1) {
+                                        // error_log("se acepto la solucion");
+                                    }
+                                } else {
+                                    $order->status = $name_local;
+                                    $order->status_last_modified_at = $currentDateTime;
                                 }
-                                $order->status = $name_local;
-                                $order->status_last_modified_at = $currentDateTime;
+                                // $order->status = $name_local;
+                                // $order->status_last_modified_at = $currentDateTime;
                                 // $order->status_last_modified_by = $idUser;
 
                             } else if ($key == "estado_devolucion") {
