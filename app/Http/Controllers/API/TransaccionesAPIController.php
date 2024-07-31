@@ -2057,7 +2057,7 @@ class TransaccionesAPIController extends Controller
     public function debitWithdrawal(Request $request, $id)
     {
         DB::beginTransaction();
-
+        error_log("debitWithdrawal_logistic");
         try {
             $data = $request->json()->all();
             // $pedido = PedidosShopify::findOrFail($data['id_origen']);
@@ -2071,6 +2071,7 @@ class TransaccionesAPIController extends Controller
                 $orden->updated_at = new DateTime();
                 $orden->monto = str_replace(',', '.', $orden->monto);
                 $orden->updated_by_id = $data['generated_by'];
+                $orden->paid_by = $data['generated_by'];
                 $orden->save();
 
                 $rolInvoke = $data['rol_id'];
@@ -2158,7 +2159,7 @@ class TransaccionesAPIController extends Controller
 
         DB::beginTransaction();
         try {
-            // error_log("postWhitdrawalProviderAproved");
+            error_log("postWhitdrawalProviderAproved");
             //code...
 
             $data = $request->json()->all();
@@ -2172,6 +2173,7 @@ class TransaccionesAPIController extends Controller
             $withdrawal->account_id = $data["id_account"];
             $withdrawal->rol_id = 5;
             // $withdrawal->account_id = "EEEETEST";
+            $withdrawal->created_by_id = $data["generated_by"];
 
             $withdrawal->save();
 

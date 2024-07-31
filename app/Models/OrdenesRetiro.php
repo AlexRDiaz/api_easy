@@ -41,7 +41,8 @@ class OrdenesRetiro extends Model
 
 	protected $casts = [
 		'created_by_id' => 'int',
-		'updated_by_id' => 'int'
+		'updated_by_id' => 'int',
+		'paid_by' => 'int',
 	];
 
 	protected $fillable = [
@@ -59,8 +60,8 @@ class OrdenesRetiro extends Model
 		'account_id',
 		'previous_value',
 		'current_value',
-		'rol_id'
-
+		'rol_id',
+		'paid_by',
 	];
 
 	public function admin_user()
@@ -74,13 +75,19 @@ class OrdenesRetiro extends Model
 	}
 
 	public function users_permissions_user()
-    {
-        return $this->hasManyThrough(UpUser::class, OrdenesRetirosUsersPermissionsUserLink::class, 'ordenes_retiro_id', 'id', 'id', 'user_id');
-    }
+	{
+		return $this->hasManyThrough(UpUser::class, OrdenesRetirosUsersPermissionsUserLink::class, 'ordenes_retiro_id', 'id', 'id', 'user_id');
+	}
 
 	public function users_permissions()
 	{
 		return $this->belongsToMany(UpUser::class, OrdenesRetirosUsersPermissionsUserLink::class, 'user_id')
-					->withPivot('id');
+			->withPivot('id');
+	}
+
+	public function paidBy()
+	{
+		return $this->belongsTo(UpUser::class, 'paid_by', 'id')
+			->select('id', 'username', 'email');
 	}
 }

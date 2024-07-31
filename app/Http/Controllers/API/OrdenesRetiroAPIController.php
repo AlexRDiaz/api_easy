@@ -501,6 +501,7 @@ class OrdenesRetiroAPIController extends Controller
             $withdrawal->comprobante = $data["comprobante"];
             $withdrawal->comentario = $data["comentario"];
             // $withdrawal->fecha_transferencia =  Carbon::now()->format('j/n/Y H:i:s');
+            $withdrawal->updated_by_id = $data["generated_by"];
             $withdrawal->save();
 
             return response()->json(["response" => "edited succesfully"], Response::HTTP_OK);
@@ -534,12 +535,15 @@ class OrdenesRetiroAPIController extends Controller
             $withdrawal = OrdenesRetiro::findOrFail($id);
             $withdrawal->estado = "RECHAZADO";
             $withdrawal->updated_by_id = $userSesion;
+            $withdrawal->paid_by = $userSesion;
             $withdrawal->save();
+            
+            $idSellerProv = $withdrawal->id_vendedor;//idSeller or provider
 
             if ($withdrawal) {
                 if ($data["rol_id"] == 2) {
                     $transactionsController->CreditLocal(
-                        $userSesion,
+                        $idSellerProv,
                         $monto,
                         $idOrdenRetiro,
                         "0000",
@@ -549,7 +553,7 @@ class OrdenesRetiroAPIController extends Controller
                     );
                 } else {
                     $transactionsController->CreditLocalProvider(
-                        $userSesion,
+                        $idSellerProv,
                         $monto,
                         $idOrdenRetiro,
                         "reembolso-" . $idOrdenRetiro,
