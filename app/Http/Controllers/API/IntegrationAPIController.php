@@ -781,6 +781,8 @@ class IntegrationAPIController extends Controller
                                         // $novedad->external_id = $id_novedad;
                                         if ($id_gestion == "") {
                                             $novedad->external_id = $id_novedad;
+                                        }else{
+                                            $novedad->external_id = 1300;
                                         }
                                         $novedad->published_at = $currentDateTime;
                                         $novedad->save();
