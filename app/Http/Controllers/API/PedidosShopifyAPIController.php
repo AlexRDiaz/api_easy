@@ -3335,7 +3335,7 @@ class PedidosShopifyAPIController extends Controller
                 'costo_transportadora',
                 'costo_envio'
             )
-                ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'ruta'])
+                ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'ruta', 'pedidoCarrier'])
                 ->whereRaw("STR_TO_DATE(fecha_entrega, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
                 ->where((function ($pedidos) use ($Map) {
                     foreach ($Map as $condition) {
@@ -3367,6 +3367,10 @@ class PedidosShopifyAPIController extends Controller
                 return isset($condition['equals/transportadora.transportadora_id']);
             });
 
+            $isIdTransportExternalPresent = collect($Map)->contains(function ($condition) {
+                return isset($condition['equals/pedidoCarrier.carrier_id']);
+            });
+
             $estadoPedidos = $pedidos
                 ->whereIn('status', ['ENTREGADO', 'NO ENTREGADO', 'NOVEDAD'])
                 ->groupBy('status')
@@ -3386,6 +3390,7 @@ class PedidosShopifyAPIController extends Controller
                 }
             }
 
+            // ! INTERNAS
             $sumatoriaCostoTransportadora = $isIdTransportPresent
                 ? $pedidos->sum('costo_transportadora')
                 : null;
@@ -3395,6 +3400,17 @@ class PedidosShopifyAPIController extends Controller
                 $sumatoriaCostoTransportadora = 0.0;
             }
 
+            // ! EXTERNAS
+            $sumatoriaCostoTransportadoraExterna = $isIdTransportExternalPresent
+                ? $pedidos->sum('costo_transportadora')
+                : null;
+
+            if ($sumatoriaCostoTransportadoraExterna === null) {
+                // Manejar el caso cuando el valor es null
+                $sumatoriaCostoTransportadoraExterna = 0.0;
+            }
+
+            // ! TIENDAS 
             $sumatoriaCostoEntrega = $isIdComercialPresent
                 ? $pedidos->whereIn('status', ['ENTREGADO', 'NO ENTREGADO'])->sum('costo_envio')
                 : 0.0;
@@ -3411,12 +3427,16 @@ class PedidosShopifyAPIController extends Controller
             if ($isIdTransportPresent) {
                 $presentVendedor = 2;
             }
-            if ($isIdTransportPresent && $isIdComercialPresent) {
+            if ($isIdTransportExternalPresent) {
+                $presentVendedor = 3;
+            }
+            if ($isIdTransportPresent && $isIdComercialPresent && $isIdTransportExternalPresent) {
                 $presentVendedor = 0;
             }
 
             return response()->json([
                 'Costo_Transporte' => $sumatoriaCostoTransportadora,
+                'Costo_TransporteExterno' => $sumatoriaCostoTransportadoraExterna,
                 'Costo_Entrega' => $sumatoriaCostoEntrega,
                 'Costo_Devolución' => $sumatoriaCostoDevolucion,
                 'Filtro_Existente' => $presentVendedor,
@@ -3426,6 +3446,7 @@ class PedidosShopifyAPIController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'Costo_Transporte' => 0,
+                'Costo_TransporteExterno' => 0,
                 'Costo_Entrega' => 0,
                 'Costo_Devolución' => 0,
                 'Filtro_Existente' => 0,

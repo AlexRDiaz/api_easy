@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 // use App\Models\pedidos_shopifies;
+use App\Models\CarriersExternal;
 use App\Models\Operadore;
 use App\Models\PedidosShopify;
 use App\Models\Ruta;
@@ -41,6 +42,35 @@ class TransportadorasAPIController extends Controller
 
         return response()->json(['transportadoras' => $transportadoras]);
     }
+
+    public function getTransportadorasAndTransExternal(Request $request)
+    {
+        // Consultar transportadoras internas
+        $transportadoras = Transportadora::select(DB::raw('CONCAT(nombre, "-", id ) as id_nombre'))
+            ->where('active', true)
+            ->distinct()
+            ->get()
+            ->pluck('id_nombre')
+            ->map(function ($item) {
+                return ['id_nombre' => $item, 'type' => 'internal'];
+            });
+
+        // Consultar transportadoras externas
+        $transportadorasExternas = CarriersExternal::select(DB::raw('CONCAT(name, "-", id ) as id_nombre'))
+            ->where('active', true)
+            ->distinct()
+            ->get()
+            ->pluck('id_nombre')
+            ->map(function ($item) {
+                return ['id_nombre' => $item, 'type' => 'external'];
+            });
+
+        // Combinar los resultados en una sola colección
+        $combined = $transportadoras->merge($transportadorasExternas);
+
+        return response()->json(['transportadoras' => $combined]);
+    }
+
 
     public function getTransportadorasNovelties(Request $request)
     {
@@ -146,7 +176,7 @@ class TransportadorasAPIController extends Controller
         }
 
         // Opcional: Verificar si el modelo es uno de los permitidos
-        $allowedModels = ['Transportadora', 'UpUser', 'Vendedore', 'UpUsersVendedoresLink', 'UpUsersRolesFrontLink', 'OrdenesRetiro', 'PedidosShopify', 'Provider', 'TransaccionPedidoTransportadora',"pedidoCarrier"];
+        $allowedModels = ['Transportadora', 'UpUser', 'Vendedore', 'UpUsersVendedoresLink', 'UpUsersRolesFrontLink', 'OrdenesRetiro', 'PedidosShopify', 'Provider', 'TransaccionPedidoTransportadora', "pedidoCarrier"];
 
         if (!in_array($modelName, $allowedModels)) {
             return response()->json(['error' => 'Acceso al modelo no permitido'], 403);
@@ -240,7 +270,6 @@ class TransportadorasAPIController extends Controller
                         if ($valor === '') {
                             // $databackend->whereRaw("$key <> ''");
                             $this->recursiveWhereHasNeg($databackend, $relacion, $propiedad, $valor);
-
                         } else {
                             if ($valor === null) {
                                 $databackend->whereNotNull($key);

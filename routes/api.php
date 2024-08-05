@@ -212,6 +212,7 @@ Route::middleware(['cors'])->group(function () {
     //  ! MIA TRANSPORTADORAS
 
     Route::get('transportadoras', [App\Http\Controllers\API\TransportadorasAPIController::class, 'getTransportadoras']);
+    Route::get('transportadoras-transext', [App\Http\Controllers\API\TransportadorasAPIController::class, 'getTransportadorasAndTransExternal']);
     Route::post('transportadoras-novelties', [App\Http\Controllers\API\TransportadorasAPIController::class, 'getTransportadorasNovelties']);
     Route::get('active/transportadoras', [App\Http\Controllers\API\TransportadorasAPIController::class, 'getActiveTransportadoras']);
     Route::post('generaldata', [App\Http\Controllers\API\TransportadorasAPIController::class, 'generalData']);
