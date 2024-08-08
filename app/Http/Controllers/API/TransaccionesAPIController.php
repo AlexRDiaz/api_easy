@@ -2208,7 +2208,7 @@ class TransaccionesAPIController extends Controller
 
                     $lastTransaccion = Transaccion::where('id_origen', $id)
                         ->orderBy('id', 'desc')
-                        ->first();
+                        ->first(); 
 
                     if ($lastTransaccion == null) {
                         error_log("Nuevo registro");
