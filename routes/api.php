@@ -616,6 +616,10 @@ Route::middleware(['cors'])->group(function () {
         Route::get('/{id}', [PedidosShopifiesCarrierExternalLinkAPIController::class, 'show']);
     });
 
+    //  * transacciones global
+    Route::post('generaldata-tg', [App\Http\Controllers\API\TransaccionesGlobalAPIController::class, 'generalData']);
+
+
     //  *
     Route::get('dbbackup', [DBBackUpAPIController::class, 'db_backup']);
     Route::delete('rutatransp/delete/{id}', [PedidosShopifyAPIController::class, 'rutaTranspDestroy']); //*
