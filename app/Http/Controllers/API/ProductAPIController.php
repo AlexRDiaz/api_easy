@@ -1510,4 +1510,39 @@ class ProductAPIController extends Controller
             ], 500);
         }
     }
+
+    public function getByStorage(Request $request)
+    {
+        error_log("getByStorage");
+        try {
+            $data = $request->json()->all();
+
+            $populate = $data['populate'];
+            $storage = $data['storage_w'];
+            $idSellerMaster = $data['idseller'];
+
+            $products = Product::with($populate)
+                ->where('active', 1)
+                ->where(function ($query) use ($idSellerMaster) {
+                    $query->where('seller_owned', $idSellerMaster)
+                        ->orWhereNull('seller_owned');
+                })
+                ->get();
+
+            $filteredProducts = $products->filter(function ($product) use ($storage) {
+                $warehouses = $product->warehouses_s;
+                if ($warehouses && count($warehouses) > 0) {
+                    $lastWarehouse = $warehouses->last();
+                    return $lastWarehouse->warehouse_id == $storage;
+                }
+                return false;
+            });
+            $filteredProducts = $filteredProducts->values();
+
+            return response()->json($filteredProducts);
+        } catch (\Exception $e) {
+            error_log("Error in getByStorage: " . $e->getMessage());
+            return response()->json(['error' => 'An error occurred'], 500);
+        }
+    }
 }

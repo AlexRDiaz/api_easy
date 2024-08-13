@@ -17,6 +17,7 @@ use App\Http\Controllers\API\RutaAPIController;
 use App\Http\Controllers\API\StockHistoryAPIController;
 use App\Http\Controllers\API\SubRutaAPIController;
 use App\Http\Controllers\API\OperadoreAPIController;
+use App\Http\Controllers\API\PedidosProductLinkAPIController;
 use App\Http\Controllers\API\PedidosShopifiesCarrierExternalLinkAPIController;
 use App\Http\Controllers\API\TransaccionPedidoTransportadoraAPIController;
 use App\Http\Controllers\API\TransportadorasShippingCostAPIController;
@@ -588,7 +589,7 @@ Route::middleware(['cors'])->group(function () {
     Route::get('coverages/all', [App\Http\Controllers\API\CoverageExternalAPIController::class, 'index']);
 
     //  * 
-    Route::post('orderproduct', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'shopifyPedidosProducto']);
+    Route::post('orderproduct', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'orderProducto']);
 
     Route::post('/gintracom/postorder', [IntegrationAPIController::class, 'putIntegrationsUrlStoreG']);
     Route::post('gintracom/updatestate', [IntegrationAPIController::class, 'requestUpdateState']);
@@ -630,6 +631,14 @@ Route::middleware(['cors'])->group(function () {
 
     //*
     Route::post('easywp/newuser', [UpUserAPIController::class, 'storeUserWP']);
+    //*
+    Route::post('bystorage', [ProductAPIController::class, 'getByStorage']);
+    //  *
+    Route::prefix('orderproduct')->group(function () {
+        Route::post('create', [PedidosProductLinkAPIController::class, 'store']);
+        Route::delete('delete', [PedidosProductLinkAPIController::class, 'destroy']);
+
+    });
 
 });
 

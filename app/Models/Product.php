@@ -94,6 +94,15 @@ class Product extends Model
 			}]);
 	}
 
+	public function warehouses_s()
+	{
+		// return $this->belongsToMany(Warehouse::class, 'product_warehouse_link', 'id_product', 'id_warehouse')
+		// 	->with('up_users');
+		// ->withPivot('id')
+		// ->withTimestamps();
+		return $this->belongsToMany(Warehouse::class, 'product_warehouse_link', 'id_product', 'id_warehouse')
+			->select('warehouse_id', 'branch_name', 'id_provincia', 'city', 'address', 'provider_id');
+	}
 
 	public function changeStock($skuProduct, $quantity)
 	{

@@ -353,4 +353,14 @@ class PedidosShopify extends Model
 	{
 		return $this->hasMany(PedidosShopifiesCarrierExternalLink::class, 'pedidos_shopify_id')->with('carrier_nov', 'cityExternal');
 	}
+
+	public function vendor()
+	{
+		return $this->belongsTo(Vendedore::class, 'id_comercial', 'id_master');
+	}
+
+	public function products()
+	{
+		return $this->hasMany(PedidosProductLink::class);
+	}
 }
