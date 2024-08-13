@@ -1523,6 +1523,7 @@ class ProductAPIController extends Controller
 
             $products = Product::with($populate)
                 ->where('active', 1)
+                ->where('approved', 1)
                 ->where(function ($query) use ($idSellerMaster) {
                     $query->where('seller_owned', $idSellerMaster)
                         ->orWhereNull('seller_owned');
