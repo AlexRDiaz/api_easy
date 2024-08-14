@@ -781,7 +781,7 @@ class IntegrationAPIController extends Controller
                                         // $novedad->external_id = $id_novedad;
                                         if ($id_gestion == "") {
                                             $novedad->external_id = $id_novedad;
-                                        }else{
+                                        } else {
                                             $novedad->external_id = 1300;
                                         }
                                         $novedad->published_at = $currentDateTime;
@@ -951,62 +951,90 @@ class IntegrationAPIController extends Controller
                                         // $order->received_by = $idUser;
                                     }
 
-                                    //
-                                    $deliveryPrice = 0;
-                                    if ($prov_destiny == $prov_origen) {
-                                        error_log("Provincial");
-                                        if ($coverage_type == "Normal") {
-                                            $deliveryPrice = (float)$costs['normal1'];
+                                    if ($order->costo_devolucion == null) {
+                                        //
+                                        $deliveryPrice = 0;
+                                        if ($prov_destiny == $prov_origen) {
+                                            error_log("Provincial");
+                                            if ($coverage_type == "Normal") {
+                                                $deliveryPrice = (float)$costs['normal1'];
+                                            } else {
+                                                $deliveryPrice = (float)$costs['especial1'];
+                                            }
                                         } else {
-                                            $deliveryPrice = (float)$costs['especial1'];
+                                            error_log("Nacional");
+                                            if ($coverage_type == "Normal") {
+                                                $deliveryPrice = (float)$costs['normal2'];
+                                            } else {
+                                                $deliveryPrice = (float)$costs['especial2'];
+                                            }
                                         }
+                                        $deliveryPrice = $deliveryPrice + ($deliveryPrice * $iva);
+                                        $deliveryPrice = round($deliveryPrice, 2);
+
+                                        error_log("after type + iva: $deliveryPrice");
+
+                                        $costo_seguro = (((float)$orderData['precio_total']) * ((float)$costs['costo_seguro'])) / 100;
+                                        $costo_seguro = round($costo_seguro, 2);
+                                        $costo_seguro =  $costo_seguro + ($costo_seguro * $iva);
+                                        $costo_seguro = round($costo_seguro, 2);
+
+                                        error_log("costo_seguro: $costo_seguro");
+
+                                        $deliveryPrice += $costo_seguro;
+                                        error_log("after costo_seguro: $deliveryPrice");
+                                        $costo_recaudo = 0;
+
+                                        $deliveryPrice += $costo_recaudo;
+                                        $deliveryPrice = round($deliveryPrice, 2);
+                                        $deliveryPriceSeller = $deliveryPrice + $costo_easy;
+                                        // $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
+                                        $deliveryPriceSeller = round($deliveryPriceSeller, 2);
+
+
+                                        error_log("costo entrega after recaudo: $deliveryPrice");
+                                        error_log("costo deliveryPriceSeller: $deliveryPriceSeller");
+
+                                        $order->costo_transportadora = strval($deliveryPrice);
+                                        $order->costo_envio = strval($deliveryPriceSeller);
+
+
+                                        $refundpercentage = $costs['costo_devolucion'];
+                                        $refound_seller = ($deliveryPriceSeller * ($refundpercentage)) / 100;
+                                        $refound_transp = ($deliveryPrice * ($refundpercentage)) / 100;
+
+                                        $order->costo_devolucion = round(((float)$refound_seller), 2);
+                                        // $order->cost_refound_external = round(((float)$refound_transp), 2);
+                                        $pedidoCarrier = PedidosShopifiesCarrierExternalLink::where('pedidos_shopify_id', $orderid)->first();
+                                        $pedidoCarrier->cost_refound_external = round(((float)$refound_transp), 2);
+                                        $pedidoCarrier->save();
+                                        /*
+                                        $comentarioDebitEnvio = 'Costo de envio por pedido en ' . $order->status . " y " . $order->estado_devolucion;
+                                        $this->DebitInt(
+                                            $order->id_comercial,
+                                            $deliveryPriceSeller,
+                                            $orderid,
+                                            'envio',
+                                            $codigo_order,
+                                            $comentarioDebitEnvio,
+                                            1   //cambiar
+                                        );
+
+                                        $comentarioDebitDev = 'Costo de devolución por pedido en ' . $order->status . " y " . $order->estado_devolucion;
+                                        $this->DebitInt(
+                                            $order->id_comercial,
+                                            round(((float)$refound_seller), 2),
+                                            $orderid,
+                                            'devolucion',
+                                            $codigo_order,
+                                            $comentarioDebitDev,
+                                            1   //cambiar
+                                        );
+                                        */
                                     } else {
-                                        error_log("Nacional");
-                                        if ($coverage_type == "Normal") {
-                                            $deliveryPrice = (float)$costs['normal2'];
-                                        } else {
-                                            $deliveryPrice = (float)$costs['especial2'];
-                                        }
+                                        //
+                                        error_log("ya existe registro costo_devolucion");
                                     }
-                                    $deliveryPrice = $deliveryPrice + ($deliveryPrice * $iva);
-                                    $deliveryPrice = round($deliveryPrice, 2);
-
-                                    error_log("after type + iva: $deliveryPrice");
-
-                                    $costo_seguro = (((float)$orderData['precio_total']) * ((float)$costs['costo_seguro'])) / 100;
-                                    $costo_seguro = round($costo_seguro, 2);
-                                    $costo_seguro =  $costo_seguro + ($costo_seguro * $iva);
-                                    $costo_seguro = round($costo_seguro, 2);
-
-                                    error_log("costo_seguro: $costo_seguro");
-
-                                    $deliveryPrice += $costo_seguro;
-                                    error_log("after costo_seguro: $deliveryPrice");
-                                    $costo_recaudo = 0;
-
-                                    $deliveryPrice += $costo_recaudo;
-                                    $deliveryPrice = round($deliveryPrice, 2);
-                                    $deliveryPriceSeller = $deliveryPrice + $costo_easy;
-                                    // $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
-                                    $deliveryPriceSeller = round($deliveryPriceSeller, 2);
-
-
-                                    error_log("costo entrega after recaudo: $deliveryPrice");
-                                    error_log("costo deliveryPriceSeller: $deliveryPriceSeller");
-
-                                    $order->costo_transportadora = strval($deliveryPrice);
-                                    $order->costo_envio = strval($deliveryPriceSeller);
-
-
-                                    $refundpercentage = $costs['costo_devolucion'];
-                                    $refound_seller = ($deliveryPriceSeller * ($refundpercentage)) / 100;
-                                    $refound_transp = ($deliveryPrice * ($refundpercentage)) / 100;
-
-                                    $order->costo_devolucion = round(((float)$refound_seller), 2);
-                                    // $order->cost_refound_external = round(((float)$refound_transp), 2);
-                                    $pedidoCarrier = PedidosShopifiesCarrierExternalLink::where('pedidos_shopify_id', $orderid)->first();
-                                    $pedidoCarrier->cost_refound_external = round(((float)$refound_transp), 2);
-                                    $pedidoCarrier->save();
                                 } else {
                                     return response()->json(['message' => "Error, Order must be in NOVEDAD."], 400);
                                 }

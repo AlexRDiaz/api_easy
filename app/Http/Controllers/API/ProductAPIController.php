@@ -1520,6 +1520,7 @@ class ProductAPIController extends Controller
             $populate = $data['populate'];
             $storage = $data['storage_w'];
             $idSellerMaster = $data['idseller'];
+            $idProduct = $data['idproduct'];
 
             $products = Product::with($populate)
                 ->where('active', 1)
@@ -1530,17 +1531,36 @@ class ProductAPIController extends Controller
                 })
                 ->get();
 
+            $warehousesProd = ProductWarehouseLink::where('id_product', $idProduct)
+                ->pluck('id_warehouse');
+            // error_log("warP: $warehousesProd ");
+
+            $filteredProducts = $products->filter(function ($product) use ($warehousesProd) {
+                $warehouses = $product->warehouses_s->pluck('warehouse_id');
+                // error_log("$warehouses ");
+                if ($warehouses && count($warehouses) > 0) {
+                    // Verificar si el producto tiene exactamente el mismo número, los mismos warehouse_id, y en el mismo orden
+                    return $warehouses->count() === $warehousesProd->count() &&
+                        $warehouses->values()->all() === $warehousesProd->values()->all();
+                }
+
+                return false;
+            });
+
+            $filteredProducts = $filteredProducts->values();
+
+            return response()->json($filteredProducts);
+            /*
             $filteredProducts = $products->filter(function ($product) use ($storage) {
                 $warehouses = $product->warehouses_s;
+                error_log("$warehouses");
                 if ($warehouses && count($warehouses) > 0) {
                     $lastWarehouse = $warehouses->last();
                     return $lastWarehouse->warehouse_id == $storage;
                 }
                 return false;
             });
-            $filteredProducts = $filteredProducts->values();
-
-            return response()->json($filteredProducts);
+            */
         } catch (\Exception $e) {
             error_log("Error in getByStorage: " . $e->getMessage());
             return response()->json(['error' => 'An error occurred'], 500);
