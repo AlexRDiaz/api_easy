@@ -719,8 +719,10 @@ class PedidosShopifyAPIController extends Controller
         return response()->json($pedidos);
     }
 
-    public function getOrderByIDLaravel(Request $req)
+    public function getByID(Request $req)
     {
+        error_log("getByID");
+        
         $data = $req->json()->all();
         $id = $data['id'];
         $populate = $data['populate'];

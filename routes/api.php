@@ -108,7 +108,7 @@ Route::middleware(['cors'])->group(function () {
 
     Route::post('upd/pedidossho-LogisticStatusPrint', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'updateOrderLogisticStatusPrintLaravel']);
 
-    Route::post('pedido-shopifie', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getOrderByIDLaravel']);
+    Route::post('order', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getByID']);
 
     // * --> GUIDES_SENT
 
