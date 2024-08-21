@@ -1256,68 +1256,74 @@ class ProductAPIController extends Controller
                         $onlySku = 0;
                         $productIdFromSKU = 0;
 
-                        $pattern = '/^[a-zA-Z0-9]+C\d+$/';
+                        // $pattern = '/^[a-zA-Z0-9]+C\d+$/';
+                        $lastCPosition = strrpos($skuProduct, 'C');
+                        if ($lastCPosition !== false) {
+                            // Extraer la parte del SKU después de la última "C"
+                            $suffix = substr($skuProduct, $lastCPosition);
 
-                        if (preg_match($pattern, $skuProduct) && strpos($skuProduct, ' ') === false) {
-                            // Si coincide con el patrón y no contiene espacios, extraer las partes
-                            $lastCPosition = strrpos($skuProduct, 'C');
+                            // if (preg_match($pattern, $skuProduct) && strpos($skuProduct, ' ') === false) {
+                            if (preg_match('/^C\d+$/', $suffix)) {
 
-                            $onlySku = substr($skuProduct, 0, $lastCPosition);
-                            $productIdFromSKU = substr($skuProduct, $lastCPosition + 1);
-                            $productIdFromSKU = intval($productIdFromSKU);
+                                // Si coincide con el patrón y no contiene espacios, extraer las partes
+                                $lastCPosition = strrpos($skuProduct, 'C');
 
-                            // Ejemplo de salida
-                            // error_log("onlySku: " . $onlySku . "\n");
-                            // error_log("productIdFromSKU: " . $productIdFromSKU . "\n");
+                                $onlySku = substr($skuProduct, 0, $lastCPosition);
+                                $productIdFromSKU = substr($skuProduct, $lastCPosition + 1);
+                                $productIdFromSKU = intval($productIdFromSKU);
 
-                            // error_log("$productIdFromSKU");
-                            $product = Product::find($productIdFromSKU);
+                                // Ejemplo de salida
+                                // error_log("onlySku: " . $onlySku . "\n");
+                                // error_log("productIdFromSKU: " . $productIdFromSKU . "\n");
 
-                            // if ($idProductMain == $productIdFromSKU) {
+                                // error_log("$productIdFromSKU");
+                                $product = Product::find($productIdFromSKU);
 
-                            if ($product === null) {
-                                error_log("Id Product not found");
-                                // return null;
-                                //idProduct|isAvaliable|#currentStock|#requested
-                                $responses[] = "$productIdFromSKU|3|0|0";
-                            }
-                            if ($product) {
-                                error_log("Id Product found");
+                                // if ($idProductMain == $productIdFromSKU) {
 
-                                $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
-                                //skuProduct|isAvaliable|#currentStock|#requested
+                                if ($product === null) {
+                                    error_log("Id Product not found");
+                                    // return null;
+                                    //idProduct|isAvaliable|#currentStock|#requested
+                                    $responses[] = "$productIdFromSKU|3|0|0";
+                                }
+                                if ($product) {
+                                    error_log("Id Product found");
 
-                                $searchResult = json_decode($response->getContent());
+                                    $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
+                                    //skuProduct|isAvaliable|#currentStock|#requested
 
-                                if ($searchResult && $searchResult->response) {
-                                    error_log("$productIdFromSKU-$onlySku Reserve found");
+                                    $searchResult = json_decode($response->getContent());
 
-                                    $reserve = $searchResult->reserve;
+                                    if ($searchResult && $searchResult->response) {
+                                        error_log("$productIdFromSKU-$onlySku Reserve found");
 
-                                    if ($quantity > $reserve->stock) {
-                                        //skuProduct|0|#currentStock|#requested
-                                        // $responses[] = ['message' => 'No Dispone de Stock en la Reserva'];
-                                        // error_log("$skuProduct Reserve $quantity > $reserve->stock");
-                                        error_log("$skuProduct|0|$reserve->stock|$quantity");
-                                        $responses[] = "$skuProduct|0|$reserve->stock|$quantity";
-                                        continue;
+                                        $reserve = $searchResult->reserve;
+
+                                        if ($quantity > $reserve->stock) {
+                                            //skuProduct|0|#currentStock|#requested
+                                            // $responses[] = ['message' => 'No Dispone de Stock en la Reserva'];
+                                            // error_log("$skuProduct Reserve $quantity > $reserve->stock");
+                                            error_log("$skuProduct|0|$reserve->stock|$quantity");
+                                            $responses[] = "$skuProduct|0|$reserve->stock|$quantity";
+                                            continue;
+                                        } else {
+                                            //skuProduct|1|#currentStock|#requested
+                                            // error_log("$skuProduct Reserve $quantity < $reserve->stock");
+                                            error_log("$skuProduct|1|$reserve->stock|$quantity");
+                                            $responses[] = "$skuProduct|1|$reserve->stock|$quantity";
+                                            continue;
+                                        }
                                     } else {
-                                        //skuProduct|1|#currentStock|#requested
-                                        // error_log("$skuProduct Reserve $quantity < $reserve->stock");
-                                        error_log("$skuProduct|1|$reserve->stock|$quantity");
-                                        $responses[] = "$skuProduct|1|$reserve->stock|$quantity";
-                                        continue;
-                                    }
-                                } else {
-                                    error_log("Product stock general");
+                                        error_log("Product stock general");
 
-                                    //stock general
-                                    $features = json_decode($product->features, true);
+                                        //stock general
+                                        $features = json_decode($product->features, true);
 
-                                    $isvariable = $product->isvariable;
-                                    if ($product->stock < $quantity) {
-                                        error_log("$skuProduct *insufficient_stock general");
-                                        /*
+                                        $isvariable = $product->isvariable;
+                                        if ($product->stock < $quantity) {
+                                            error_log("$skuProduct *insufficient_stock general");
+                                            /*
                                         if ($isvariable == 1) {
                                             //skuProduct|2|#currentStock
                                             error_log("$skuProduct *insufficient_stock general");
@@ -1325,59 +1331,60 @@ class ProductAPIController extends Controller
                                             $responses[] = "$skuProduct|2|$product->stock|$quantity";
                                         } else 
                                         */
-                                        if ($isvariable == 0) {
-                                            if ($onlySku != $features['sku']) {
-                                                error_log("prod_simple no existe una variante con este sku");
-                                                $responses[] = "$skuProduct|3|0|0"; //skuProduct|0|#currentStock|#requested
-                                            } else {
-                                                error_log("$skuProduct|0|$product->stock|$quantity");
-                                                $responses[] = "$skuProduct|0|$product->stock|$quantity";
-                                            }
-                                        }
-                                    } else {
-                                        if ($isvariable == 0) {
-                                            // error_log("$skuProduct *sufficient_stock general $product->stock");
-                                            error_log("$skuProduct|1|$product->stock|$quantity"); //skuProduct|1|#currentStock|#requested
-                                            $responses[] = "$skuProduct|1|$product->stock|$quantity";
-                                        }
-                                    }
-
-                                    if ($isvariable == 1) {
-                                        if (isset($features['variants']) && is_array($features['variants'])) {
-                                            $found = false;
-
-                                            foreach ($features['variants'] as $key => $variant) {
-
-                                                if ($variant['sku'] == $onlySku) {
-                                                    $found = true;
-                                                    $inventory_quantity = $variant['inventory_quantity'];
-
-                                                    if ($inventory_quantity < $quantity) {
-                                                        error_log("$skuProduct|0|$inventory_quantity|$quantity"); //skuProduct|0|#currentStock
-                                                        $responses[] = "$skuProduct|0|$inventory_quantity|$quantity";
-                                                    } else {
-                                                        error_log("$skuProduct|1|$inventory_quantity|$quantity"); //skuProduct|1|#currentStock
-                                                        $responses[] = "$skuProduct|1|$inventory_quantity|$quantity";
-                                                    }
-                                                    break;
+                                            if ($isvariable == 0) {
+                                                if ($onlySku != $features['sku']) {
+                                                    error_log("prod_simple no existe una variante con este sku");
+                                                    $responses[] = "$skuProduct|3|0|0"; //skuProduct|0|#currentStock|#requested
+                                                } else {
+                                                    error_log("$skuProduct|0|$product->stock|$quantity");
+                                                    $responses[] = "$skuProduct|0|$product->stock|$quantity";
                                                 }
                                             }
+                                        } else {
+                                            if ($isvariable == 0) {
+                                                // error_log("$skuProduct *sufficient_stock general $product->stock");
+                                                error_log("$skuProduct|1|$product->stock|$quantity"); //skuProduct|1|#currentStock|#requested
+                                                $responses[] = "$skuProduct|1|$product->stock|$quantity";
+                                            }
+                                        }
 
-                                            if (!$found) {
-                                                error_log("$skuProduct no existe una variante con este sku");
-                                                $responses[] = "$skuProduct|3|0|0";
+                                        if ($isvariable == 1) {
+                                            if (isset($features['variants']) && is_array($features['variants'])) {
+                                                $found = false;
+
+                                                foreach ($features['variants'] as $key => $variant) {
+
+                                                    if ($variant['sku'] == $onlySku) {
+                                                        $found = true;
+                                                        $inventory_quantity = $variant['inventory_quantity'];
+
+                                                        if ($inventory_quantity < $quantity) {
+                                                            error_log("$skuProduct|0|$inventory_quantity|$quantity"); //skuProduct|0|#currentStock
+                                                            $responses[] = "$skuProduct|0|$inventory_quantity|$quantity";
+                                                        } else {
+                                                            error_log("$skuProduct|1|$inventory_quantity|$quantity"); //skuProduct|1|#currentStock
+                                                            $responses[] = "$skuProduct|1|$inventory_quantity|$quantity";
+                                                        }
+                                                        break;
+                                                    }
+                                                }
+
+                                                if (!$found) {
+                                                    error_log("$skuProduct no existe una variante con este sku");
+                                                    $responses[] = "$skuProduct|3|0|0";
+                                                }
                                             }
                                         }
                                     }
                                 }
-                            }
-                            // } else {
-                            //     error_log("El id no es igual al de ProductMain: $skuProduct");
+                                // } else {
+                                //     error_log("El id no es igual al de ProductMain: $skuProduct");
 
-                            // }
-                        } else {
-                            $responses[] = "$skuProduct|4|0|0";
-                            error_log("El formato de skuProduct no es válido o contiene espacios.\n");
+                                // }
+                            } else {
+                                $responses[] = "$skuProduct|4|0|0";
+                                error_log("El formato de skuProduct no es válido o contiene espacios.\n");
+                            }
                         }
                     } else {
                         error_log("Es vacio o null skuProductVariant: $skuProduct");
@@ -1387,7 +1394,7 @@ class ProductAPIController extends Controller
 
             return response()->json($responses);
         } catch (\Exception $e) {
-            error_log("Error: $e");
+            error_log("Error_getProductVariantStock: $e");
             return response()->json([
                 'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
             ], 500);
