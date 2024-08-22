@@ -570,7 +570,7 @@ class UpUserAPIController extends Controller
             'roles_fronts',
             'vendedores',
             'transportadora',
-            'operadores',
+            'operadores.transportadoras',
             'providers',
         ])->find($id);
 
