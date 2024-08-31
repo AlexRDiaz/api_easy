@@ -187,6 +187,7 @@ class PedidosShopify extends Model
 		'id_shopify',
 		'costo_operador',
 		'apertura',
+		'status_history',
 	];
 
 	public function admin_user()

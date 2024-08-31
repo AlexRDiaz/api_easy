@@ -395,6 +395,7 @@ class IntegrationAPIController extends Controller
                             // error_log("Estado: $key, Nombre Local: $name_local, ID Ref: $id_ref, Nombre: $name, ID: $id");
                             $iva = 0.15; //15%
                             $costo_easy = 2.3;
+                            $commentHist = "";
 
                             if ($key == "estado_interno") {
                                 // $order->estado_devolucion = "";
@@ -768,6 +769,7 @@ class IntegrationAPIController extends Controller
                                             // error_log("Nueva nov. creada");
                                         }
                                         // error_log("$commentText");
+                                        $commentHist = $commentText;
 
                                         $novedades = NovedadesPedidosShopifyLink::where('pedidos_shopify_id', $order->id)->get();
                                         $novedades_try = $novedades->isEmpty() ? 0 : $novedades->count();
@@ -1038,6 +1040,26 @@ class IntegrationAPIController extends Controller
                                 } else {
                                     return response()->json(['message' => "Error, Order must be in NOVEDAD."], 400);
                                 }
+                            }
+
+                            //new column
+                            $newHistory = [
+                                "area" => $key,
+                                "status" => $name_local,
+                                "timestap" => date('Y-m-d H:i:s'),
+                                "comment" => $commentHist,
+                                "path" => $path,
+                                "generated_by" => "1_GTM"
+                            ];
+
+                            if ($order->status_history === null || $order->status_history === '[]') {
+                                $order->status_history = json_encode([$newHistory]);
+                            } else {
+                                $existingHistory = json_decode($order->status_history, true);
+
+                                $existingHistory[] = $newHistory;
+
+                                $order->status_history = json_encode($existingHistory);
                             }
 
                             $order->save();

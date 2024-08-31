@@ -523,6 +523,30 @@ class TransaccionesAPIController extends Controller
             } else {
                 $message = "Transacción sin débito por estado" . $order->status . " y " . $order->estado_devolucion;
             }
+
+            //new column
+            $user = UpUser::where('id',  $data['generated_by'])->first();
+            $username = $user ? $user->username : null;
+
+            $newHistory = [
+                "area" => "estado_devolucion",
+                "status" => "EN BODEGA PROVEEDOR",
+                "timestap" => date('Y-m-d H:i:s'),
+                "comment" => "",
+                "path" => "",
+                "generated_by" => $data['generated_by'] . "_" . $username
+            ];
+
+            if ($order->status_history === null || $order->status_history === '[]') {
+                $order->status_history = json_encode([$newHistory]);
+            } else {
+                $existingHistory = json_decode($order->status_history, true);
+
+                $existingHistory[] = $newHistory;
+
+                $order->status_history = json_encode($existingHistory);
+            }
+
             $order->save();
             DB::commit();
 
@@ -579,6 +603,29 @@ class TransaccionesAPIController extends Controller
             $pedido->costo_envio = $data['monto_debit'];
             if ($data["archivo"] != "") {
                 $pedido->archivo = $data["archivo"];
+            }
+
+            //new column
+            $user = UpUser::where('id', $data['generated_by'])->first();
+            $username = $user ? $user->username : null;
+
+            $newHistory = [
+                "area" => "status",
+                "status" => "ENTREGADO",
+                "timestap" => date('Y-m-d H:i:s'),
+                "comment" => $data["comentario"],
+                "path" => "",
+                "generated_by" => $data['generated_by'] . "_" . $username
+            ];
+
+            if ($pedido->status_history === null || $pedido->status_history === '[]') {
+                $pedido->status_history = json_encode([$newHistory]);
+            } else {
+                $existingHistory = json_decode($pedido->status_history, true);
+
+                $existingHistory[] = $newHistory;
+
+                $pedido->status_history = json_encode($existingHistory);
             }
 
             $costoTransportadora = $pedido['transportadora'][0]['costo_transportadora'];
@@ -799,6 +846,30 @@ class TransaccionesAPIController extends Controller
                 error_log("operadore_cost nd: " . $operCost);
                 $pedido->costo_operador = $operCost;
             }
+
+            //new column
+            $user = UpUser::where('id', $data['generated_by'])->first();
+            $username = $user ? $user->username : null;
+
+            $newHistory = [
+                "area" => "status",
+                "status" => "NO ENTREGADO",
+                "timestap" => date('Y-m-d H:i:s'),
+                "comment" => $data["comentario"],
+                "path" => $data["archivo"],
+                "generated_by" => $data['generated_by'] . "_" . $username
+            ];
+
+            if ($pedido->status_history === null || $pedido->status_history === '[]') {
+                $pedido->status_history = json_encode([$newHistory]);
+            } else {
+                $existingHistory = json_decode($pedido->status_history, true);
+
+                $existingHistory[] = $newHistory;
+
+                $pedido->status_history = json_encode($existingHistory);
+            }
+
             $pedido->save();
 
             // error_log("NO ENTREGADO add en tpt");
@@ -905,9 +976,34 @@ class TransaccionesAPIController extends Controller
             $order->status_last_modified_at = date('Y-m-d H:i:s');
             $order->status_last_modified_by = $data['generated_by'];
             $order->comentario = $data['comentario'];
+            $order->fecha_entrega = now()->format('j/n/Y');
             if ($order->novedades == []) {
                 $order->fecha_entrega = now()->format('j/n/Y');
             }
+
+            //new column
+            $user = UpUser::where('id', $data['generated_by'])->first();
+            $username = $user ? $user->username : null;
+
+            $newHistory = [
+                "area" => "status",
+                "status" => "NOVEDAD",
+                "timestap" => date('Y-m-d H:i:s'),
+                "comment" => $data["comentario"],
+                "path" => "",
+                "generated_by" => $data['generated_by'] . "_" . $username
+            ];
+
+            if ($order->status_history === null || $order->status_history === '[]') {
+                $order->status_history = json_encode([$newHistory]);
+            } else {
+                $existingHistory = json_decode($order->status_history, true);
+
+                $existingHistory[] = $newHistory;
+
+                $order->status_history = json_encode($existingHistory);
+            }
+
             $order->save();
 
             // error_log("delete from tpt");
@@ -960,6 +1056,30 @@ class TransaccionesAPIController extends Controller
             $order->do = "ENTREGADO EN OFICINA";
             $order->marca_t_d = date("d/m/Y H:i");
             $order->received_by = $data['generated_by'];
+
+            //new column
+            $user = UpUser::where('id', $data['generated_by'])->first();
+            $username = $user ? $user->username : null;
+
+            $newHistory = [
+                "area" => "estado_devolucion",
+                "status" => "ENTREGADO EN OFICINA",
+                "timestap" => date('Y-m-d H:i:s'),
+                "comment" => "",
+                "path" => "",
+                "generated_by" => $data['generated_by'] . "_" . $username
+            ];
+
+            if ($order->status_history === null || $order->status_history === '[]') {
+                $order->status_history = json_encode([$newHistory]);
+            } else {
+                $existingHistory = json_decode($order->status_history, true);
+
+                $existingHistory[] = $newHistory;
+
+                $order->status_history = json_encode($existingHistory);
+            }
+
             if ($order->status == "NOVEDAD") {
 
 
@@ -1043,6 +1163,29 @@ class TransaccionesAPIController extends Controller
                 );
             }
 
+            //new column
+            $user = UpUser::where('id', $data['generated_by'])->first();
+            $username = $user ? $user->username : null;
+
+            $newHistory = [
+                "area" => "estado_devolucion",
+                "status" => "EN BODEGA",
+                "timestap" => date('Y-m-d H:i:s'),
+                "comment" => "",
+                "path" => "",
+                "generated_by" => $data['generated_by'] . "_" . $username
+            ];
+
+            if ($order->status_history === null || $order->status_history === '[]') {
+                $order->status_history = json_encode([$newHistory]);
+            } else {
+                $existingHistory = json_decode($order->status_history, true);
+
+                $existingHistory[] = $newHistory;
+
+                $order->status_history = json_encode($existingHistory);
+            }
+
             // !
 
             if ($order->status == "NOVEDAD") {
@@ -1117,6 +1260,29 @@ class TransaccionesAPIController extends Controller
             }
 
 
+            //new column
+            $user = UpUser::where('id', $data['generated_by'])->first();
+            $username = $user ? $user->username : null;
+
+            $newHistory = [
+                "area" => "estado_devolucion",
+                "status" => $data["return_status"],
+                "timestap" => date('Y-m-d H:i:s'),
+                "comment" => "",
+                "path" => "",
+                "generated_by" => $data['generated_by'] . "_" . $username
+            ];
+
+            if ($order->status_history === null || $order->status_history === '[]') {
+                $order->status_history = json_encode([$newHistory]);
+            } else {
+                $existingHistory = json_decode($order->status_history, true);
+
+                $existingHistory[] = $newHistory;
+
+                $order->status_history = json_encode($existingHistory);
+            }
+
             if ($order->status == "NOVEDAD") {
                 if ($order->costo_devolucion == null) { // Verifica si está vacío convirtiendo a un array
                     $order->costo_devolucion = $order->users[0]->vendedores[0]->costo_devolucion;
@@ -1188,6 +1354,29 @@ class TransaccionesAPIController extends Controller
                 $order->received_by = $data['generated_by'];
             }
 
+
+            //new column
+            $user = UpUser::where('id', $data['generated_by'])->first();
+            $username = $user ? $user->username : null;
+
+            $newHistory = [
+                "area" => "estado_devolucion",
+                "status" => $data["return_status"],
+                "timestap" => date('Y-m-d H:i:s'),
+                "comment" => "",
+                "path" => "",
+                "generated_by" => $data['generated_by'] . "_" . $username
+            ];
+
+            if ($order->status_history === null || $order->status_history === '[]') {
+                $order->status_history = json_encode([$newHistory]);
+            } else {
+                $existingHistory = json_decode($order->status_history, true);
+
+                $existingHistory[] = $newHistory;
+
+                $order->status_history = json_encode($existingHistory);
+            }
 
             if ($order->status == "NOVEDAD") {
 
@@ -2018,6 +2207,29 @@ class TransaccionesAPIController extends Controller
 
 
                 $order->confirmed_at = null;
+
+                //new column
+                $user = UpUser::where('id', $data['generated_by'])->first();
+                $username = $user ? $user->username : null;
+
+                $newHistory = [
+                    "area" => "status",
+                    "status" => "PEDIDO PROGRAMADO",
+                    "timestap" => date('Y-m-d H:i:s'),
+                    "comment" => "",
+                    "path" => "",
+                    "generated_by" => $data['generated_by'] . "_" . $username
+                ];
+
+                if ($order->status_history === null || $order->status_history === '[]') {
+                    $order->status_history = json_encode([$newHistory]);
+                } else {
+                    $existingHistory = json_decode($order->status_history, true);
+
+                    $existingHistory[] = $newHistory;
+
+                    $order->status_history = json_encode($existingHistory);
+                }
 
                 $order->save();
             }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\CarrierCoverage;
+use App\Models\CarriersExternal;
 use App\Models\OrdenesRetiro;
 use App\Models\PedidoFecha;
 use App\Models\pedidos_shopifies;
@@ -722,7 +723,7 @@ class PedidosShopifyAPIController extends Controller
     public function getByID(Request $req)
     {
         error_log("getByID");
-        
+
         $data = $req->json()->all();
         $id = $data['id'];
         $populate = $data['populate'];
@@ -1241,6 +1242,29 @@ class PedidosShopifyAPIController extends Controller
 
         $pedido->fecha_entrega = $fecha_entrega;
         $pedido->status = $status;
+
+        //new column
+        $user = UpUser::where('id', $data['generated_by'])->first();
+        $username = $user ? $user->username : null;
+
+        $newHistory = [
+            "area" => "status",
+            "status" => $status,
+            "timestap" => date('Y-m-d H:i:s'),
+            "comment" => "",
+            "path" => "",
+            "generated_by" => $data['generated_by'] . "_" . $username
+        ];
+
+        if ($pedido->status_history === null || $pedido->status_history === '[]') {
+            $pedido->status_history = json_encode([$newHistory]);
+        } else {
+            $existingHistory = json_decode($pedido->status_history, true);
+
+            $existingHistory[] = $newHistory;
+
+            $pedido->status_history = json_encode($existingHistory);
+        }
         $pedido->save();
 
         // return response()->json(['data' => $pedido]);
@@ -1539,8 +1563,10 @@ class PedidosShopifyAPIController extends Controller
             ->with('ruta')
             ->with('pedidoCarrier')
             ->with('subRuta')->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
-            ->selectRaw('status, COUNT(*) as count')
-            ->groupBy('status')
+            // ->selectRaw('status, COUNT(*) as count')
+            // ->groupBy('status')
+            ->selectRaw('status, estado_devolucion, COUNT(*) as count') // Incluye estado_devolucion si es necesario
+            ->groupBy('status', 'estado_devolucion')
             ->where((function ($pedidos) use ($Map) {
                 foreach ($Map as $condition) {
                     foreach ($condition as $key => $valor) {
@@ -1594,7 +1620,8 @@ class PedidosShopifyAPIController extends Controller
             'EN OFICINA' => 0,
             'PEDIDO PROGRAMADO' => 0,
             'TOTAL' => 0,
-            'P. PROVEEDOR' => 0
+            'P. PROVEEDOR' => 0,
+            'DEVOLUCION' => 0,
         ];
         $stateTotals['P. PROVEEDOR'] += $countProductWarehouseNotNull;
 
@@ -1602,7 +1629,17 @@ class PedidosShopifyAPIController extends Controller
         foreach ($result as $row) {
             $counter++;
             $estado = $row->status;
-            $stateTotals[$estado] = $row->count;
+            // $stateTotals[$estado] = $row->count;
+            if ($estado === 'NOVEDAD') {
+                if ($row->estado_devolucion === 'PENDIENTE') {
+                    $stateTotals[$estado] += $row->count;
+                } elseif ($row->estado_devolucion != 'PENDIENTE') {
+                    $stateTotals['DEVOLUCION'] += $row->count;
+                }
+            } else {
+                $stateTotals[$estado] += $row->count;
+            }
+
             $stateTotals['TOTAL'] += $row->count;
         }
 
@@ -2656,46 +2693,117 @@ class PedidosShopifyAPIController extends Controller
     // *
     public function updateOrderRouteAndTransport(Request $request, $id)
     {
-        $data = $request->json()->all();
+        DB::beginTransaction();
 
-        $newrouteId = $data['ruta'];
-        $newtransportadoraId = $data['transportadora'];
+        try {
+            //code...
 
-        $order = PedidosShopify::with(['ruta', 'transportadora'])->find($id);
-        if (!$order) {
-            return response()->json(['message' => 'Orden no encontrada'], 404);
-        }
+            $data = $request->json()->all();
 
-        //44966
-        //44939
-        // return response()->json($order);
+            $newrouteId = $data['ruta'];
+            $newtransportadoraId = $data['transportadora'];
 
-        $resRuta = $order->pedidos_shopifies_ruta_links;
-        $resRutaNum = count($resRuta);
-        // return response()->json($resRuta);
-        // return response()->json(['resRuta' => $resRuta, 'num' => $resRutaNum], 200);
+            $order = PedidosShopify::with(['ruta', 'transportadora'])->find($id);
+            if (!$order) {
+                return response()->json(['message' => 'Orden no encontrada'], 404);
+            }
+
+            //44966
+            //44939
+            // return response()->json($order);
+
+            $resRuta = $order->pedidos_shopifies_ruta_links;
+            $resRutaNum = count($resRuta);
+            // return response()->json($resRuta);
+            // return response()->json(['resRuta' => $resRuta, 'num' => $resRutaNum], 200);
 
 
-        if ($resRutaNum === 0) {
-            $createPedidoRuta = new PedidosShopifiesRutaLink();
-            $createPedidoRuta->pedidos_shopify_id = $order->id;
-            $createPedidoRuta->ruta_id = $newrouteId;
-            $createPedidoRuta->save();
+            if ($resRutaNum === 0) {
+                $createPedidoRuta = new PedidosShopifiesRutaLink();
+                $createPedidoRuta->pedidos_shopify_id = $order->id;
+                $createPedidoRuta->ruta_id = $newrouteId;
+                $createPedidoRuta->save();
 
-            $createPedidoTransportadora = new PedidosShopifiesTransportadoraLink();
-            $createPedidoTransportadora->pedidos_shopify_id = $order->id;
-            $createPedidoTransportadora->transportadora_id = $newtransportadoraId;
-            $createPedidoTransportadora->save();
-            return response()->json(['orden' => 'Ruta&Transportadora asignada exitosamente'], 200);
-        } else {
-            $pedidoRuta = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $id)->first();
-            $pedidoRuta->ruta_id = $newrouteId;
-            $pedidoRuta->save();
+                $createPedidoTransportadora = new PedidosShopifiesTransportadoraLink();
+                $createPedidoTransportadora->pedidos_shopify_id = $order->id;
+                $createPedidoTransportadora->transportadora_id = $newtransportadoraId;
+                $createPedidoTransportadora->save();
 
-            $pedidoTrasportadora = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $id)->first();
-            $pedidoTrasportadora->transportadora_id = $newtransportadoraId;
-            $pedidoTrasportadora->save();
-            return response()->json(['orden' => 'Ruta&Transportadora actualizada exitosamente'], 200);
+                //
+                /*
+                $pedido = PedidosShopify::with('users.vendedores')->where('id', $id)->first();
+
+                $pedido->estado_interno = "CONFIRMADO";
+                $pedido->fecha_confirmacion =  date("d/m/Y H:i");
+                // $pedido->confirmed_by = $generatedBy;
+                $pedido->confirmed_at = date('Y-m-d H:i:s');
+                //new column
+                // $user = UpUser::where('id',  $generatedBy)->first();
+                // $username = $user ? $user->username : null;
+
+                $transp = Transportadora::where('id',  $newtransportadoraId)->first();
+                $transpNombre = $transp ? $transp->nombre : null;
+
+                $newHistory = [
+                    "area" => "estado_interno",
+                    "status" => "CONFIRMADO",
+                    "timestap" => date('Y-m-d H:i:s'),
+                    "comment" => "Transportadora asignada: " . $newtransportadoraId . "_" . $transpNombre,
+                    "path" => "",
+                    // "generated_by" => $generatedBy . "_" . $username
+                ];
+
+                $pedido->status_history = json_encode([$newHistory]);
+                */
+
+                DB::commit();
+
+                return response()->json(['orden' => 'Ruta&Transportadora asignada exitosamente'], 200);
+            } else {
+                $pedidoRuta = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $id)->first();
+                $pedidoRuta->ruta_id = $newrouteId;
+                $pedidoRuta->save();
+
+                $pedidoTrasportadora = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $id)->first();
+                $pedidoTrasportadora->transportadora_id = $newtransportadoraId;
+                $pedidoTrasportadora->save();
+
+                //
+                /*
+                $pedido = PedidosShopify::with('users.vendedores')->where('id', $id)->first();
+
+                $pedido->estado_interno = "CONFIRMADO";
+                $pedido->fecha_confirmacion =  date("d/m/Y H:i");
+                // $pedido->confirmed_by = $generatedBy;
+                $pedido->confirmed_at = date('Y-m-d H:i:s');
+                //new column
+                // $user = UpUser::where('id',  $generatedBy)->first();
+                // $username = $user ? $user->username : null;
+
+                $transp = Transportadora::where('id',  $newtransportadoraId)->first();
+                $transpNombre = $transp ? $transp->nombre : null;
+
+                $newHistory = [
+                    "area" => "estado_interno",
+                    "status" => "CONFIRMADO",
+                    "timestap" => date('Y-m-d H:i:s'),
+                    "comment" => "Transportadora asignada: " . $newtransportadoraId . "_" . $transpNombre,
+                    "path" => "",
+                    // "generated_by" => $generatedBy . "_" . $username
+                ];
+
+                $pedido->status_history = json_encode([$newHistory]);
+                */
+
+                DB::commit();
+                return response()->json(['orden' => 'Ruta&Transportadora actualizada exitosamente'], 200);
+            }
+        } catch (\Exception $e) {
+            error_log("ERROR_updateOrderRouteAndTransport: $e");
+            DB::rollback();
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -2823,7 +2931,17 @@ class PedidosShopifyAPIController extends Controller
             }
         }
 
-        $pedidos = PedidosShopify::with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider'])
+        $pedidos = PedidosShopify::with([
+            'operadore.up_users',
+            'transportadora',
+            'users.vendedores',
+            'novedades',
+            'pedidoFecha',
+            'ruta',
+            'subRuta',
+            'product.warehouse.provider',
+            "pedidoCarrier",
+        ])
             //select('marca_t_i', 'fecha_entrega', DB::raw('concat(tienda_temporal, "-", numero_orden) as codigo'), 'nombre_shipping', 'ciudad_shipping', 'direccion_shipping', 'telefono_shipping', 'cantidad_total', 'producto_p', 'producto_extra', 'precio_total', 'comentario', 'estado_interno', 'status', 'estado_logistico', 'estado_devolucion', 'costo_envio', 'costo_devolucion')
             // ->whereRaw("STR_TO_DATE(marca_t_i, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
             ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
@@ -3226,134 +3344,197 @@ class PedidosShopifyAPIController extends Controller
             $value = $parts[1];
         }
 
-        $currentDateTime = date('Y-m-d H:i:s');
-        // "${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}"
-        $date = now()->format('j/n/Y');
-        //"${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year} ${DateTime.now().hour}:${DateTime.now().minute} ";
-        $currentDateTimeText = date("d/m/Y H:i");
+        DB::beginTransaction();
+        try {
 
-        // $pedido = PedidosShopify::findOrFail($id);
-        $pedido = PedidosShopify::with('users.vendedores')->where('id', $id)->first();
+            $currentDateTime = date('Y-m-d H:i:s');
+            // "${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}"
+            $date = now()->format('j/n/Y');
+            //"${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year} ${DateTime.now().hour}:${DateTime.now().minute} ";
+            $currentDateTimeText = date("d/m/Y H:i");
 
-        if ($key == "estado_logistico") {
-            if ($value == "IMPRESO") {  //from log,sell
-                $pedido->estado_logistico = $value;
-                $pedido->printed_at = $currentDateTime;
-                $pedido->printed_by = $idUser;
+            // $pedido = PedidosShopify::findOrFail($id);
+            $pedido = PedidosShopify::with('users.vendedores')->where('id', $id)->first();
+            $user = UpUser::where('id', $idUser)->first();
+            $username = $user ? $user->username : null;
+            $commentHist = "";
+
+            if ($key == "estado_logistico") {
+                if ($value == "IMPRESO") {  //from log,sell
+                    $pedido->estado_logistico = $value;
+                    $pedido->printed_at = $currentDateTime;
+                    $pedido->printed_by = $idUser;
+                }
+                if ($value == "PENDIENTE") {  //from log,sell
+                    $pedido->estado_logistico = $value;
+                    // $pedido->printed_at = $currentDateTime;
+                    // $pedido->printed_by = $idUser;
+                }
+                if ($value == "ENVIADO") {  //from log,sell
+                    $pedido->estado_logistico = $value;
+                    $pedido->sent_at = $currentDateTime;
+                    $pedido->sent_by = $idUser;
+                    $pedido->marca_tiempo_envio = $date;
+                    $pedido->estado_interno = "CONFIRMADO";
+                    $pedido->fecha_entrega = $date;
+                }
             }
-            if ($value == "PENDIENTE") {  //from log,sell
-                $pedido->estado_logistico = $value;
-                // $pedido->printed_at = $currentDateTime;
-                // $pedido->printed_by = $idUser;
+            if ($key == "estado_devolucion") {
+                if ($value == "EN BODEGA") { //from logistic
+                    $pedido->estado_devolucion = $value;
+                    $pedido->dl = $value;
+                    $pedido->marca_t_d_l = $currentDateTimeText;
+                    $pedido->received_by = $idUser;
+                }
+                if ($from == "carrier") {
+                    if ($value == "ENTREGADO EN OFICINA") {
+                        $pedido->estado_devolucion = $value;
+                        $pedido->dt = $value;
+                        $pedido->marca_t_d = $currentDateTimeText;
+                        $pedido->received_by = $idUser;
+                    }
+                    if ($value == "DEVOLUCION EN RUTA") {
+                        $pedido->estado_devolucion = $value;
+                        $pedido->dt = $value;
+                        $pedido->marca_t_d_t = $currentDateTimeText;
+                        $pedido->received_by = $idUser;
+                    }
+                    if ($value == "PENDIENTE") { //restart
+                        $pedido->estado_devolucion = $value;
+                        $pedido->do = $value;
+                        $pedido->dt = $value;
+                        $pedido->marca_t_d = null;
+                        $pedido->marca_t_d_t = null;
+                        $pedido->received_by = $idUser;
+                    }
+                } elseif ($from == "operator") {
+                    if ($value == "ENTREGADO EN OFICINA") { //from operator, logistica
+                        $pedido->estado_devolucion = $value;
+                        $pedido->do = $value;
+                        $pedido->marca_t_d = $currentDateTimeText;
+                        $pedido->received_by = $idUser;
+                    }
+                } elseif ($from == "seller") {
+                    if ($value == "EN BODEGA PROVEEDOR") { //from seller return scanner
+                        $pedido->estado_devolucion = $value;
+                        $pedido->marca_t_d = $currentDateTimeText;
+                        $pedido->received_by = $idUser;
+                    }
+                }
             }
-            if ($value == "ENVIADO") {  //from log,sell
-                $pedido->estado_logistico = $value;
-                $pedido->sent_at = $currentDateTime;
-                $pedido->sent_by = $idUser;
-                $pedido->marca_tiempo_envio = $date;
-                $pedido->estado_interno = "CONFIRMADO";
-                $pedido->fecha_entrega = $date;
+
+
+            if ($key == "status") {
+                if ($value != "NOVEDAD_date") {
+                    $pedido->status = $value;
+                }
+
+                $pedido->fill($datarequest);
+                $comentario = $datarequest['comentario'];
+                $commentHist = $comentario;
+
+                if ($value == "ENTREGADO" || $value == "NO ENTREGADO") {
+                    $pedido->fecha_entrega = $date;
+                }
+                if ($value == "NOVEDAD_date") {
+                    $pedido->status = "NOVEDAD";
+                    $pedido->fecha_entrega = $date;
+                }
+                $pedido->status_last_modified_at = $currentDateTime;
+                $pedido->status_last_modified_by = $idUser;
+
+                // // * if it exists, delete from transaccion_pedidos_transportadora
+                // error_log("delete from tpt");
+
+                $idTransportadora = $pedido['transportadora'][0]['id'];
+                $fechaEntrega = now()->format('j/n/Y');
+
+                $transaccion = TransaccionPedidoTransportadora::where('id_pedido', $id)
+                    ->where('id_transportadora', $idTransportadora)
+                    ->where('fecha_entrega', $fechaEntrega)
+                    ->get();
+
+                $transaccionFound = $transaccion->first();
+
+                if ($transaccionFound !== null) {
+                    // error_log($transaccionFound->id);
+                    $transaccionFound->delete();
+                    // error_log("deleted");
+                }
             }
+
+            //v2
+            if ($key == "estado_interno") {
+                if ($value == "CONFIRMADO") {
+                    $name_comercial = $pedido->tienda_temporal;
+
+
+
+                    if (empty($datarequest)) {
+                        error_log("no tiene carrier");
+                    } else {
+                        $carrier = $datarequest['carrier'];
+
+                        $partsCarrier = explode(":", $carrier);
+                        if (count($partsCarrier) === 2) {
+                            $type = $partsCarrier[0];
+                            $idCarr = $partsCarrier[1];
+                        }
+
+                        if ($type == "int") {
+                            $transp = Transportadora::where('id', $idCarr)->first();
+                            $transpNombre = $transp ? $transp->nombre : 'Desconocida';
+                        } else {
+                            $transp = CarriersExternal::where('id', $idCarr)->first();
+                            $transpNombre = $transp ? $transp->name : 'Desconocida';
+                        }
+                        $commentHist = "Transportadora asignada: " . $idCarr . "_" . $transpNombre;
+                    }
+                }
+                if (
+                    $pedido->users->isNotEmpty() && $pedido->users[0]->vendedores->isNotEmpty()
+                ) {
+                    $name_comercial = $pedido->users[0]->vendedores[0]->nombre_comercial;
+                }
+                $pedido->estado_interno = $value;
+                $pedido->fecha_confirmacion = $currentDateTimeText;
+                $pedido->confirmed_by = $idUser;
+                $pedido->confirmed_at = $currentDateTime;
+                $pedido->name_comercial = $name_comercial;
+            }
+
+            //new column
+            $newHistory = [
+                "area" => $key,
+                "status" => $value,
+                "timestap" => $currentDateTime,
+                "comment" => $commentHist,
+                "path" => "",
+                "generated_by" => $idUser . "_" . $username
+            ];
+
+            if ($pedido->status_history === null || $pedido->status_history === '[]') {
+                $pedido->status_history = json_encode([$newHistory]);
+            } else {
+                $existingHistory = json_decode($pedido->status_history, true);
+
+                $existingHistory[] = $newHistory;
+
+                $pedido->status_history = json_encode($existingHistory);
+            }
+
+            $pedido->save();
+
+            DB::commit();
+
+            return response()->json([$pedido], 200);
+        } catch (\Exception $e) {
+            DB::rollback();
+            error_log("ERROR_updateFieldTime: $e");
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
         }
-        if ($key == "estado_devolucion") {
-            if ($value == "EN BODEGA") { //from logistic
-                $pedido->estado_devolucion = $value;
-                $pedido->dl = $value;
-                $pedido->marca_t_d_l = $currentDateTimeText;
-                $pedido->received_by = $idUser;
-            }
-            if ($from == "carrier") {
-                if ($value == "ENTREGADO EN OFICINA") {
-                    $pedido->estado_devolucion = $value;
-                    $pedido->dt = $value;
-                    $pedido->marca_t_d = $currentDateTimeText;
-                    $pedido->received_by = $idUser;
-                }
-                if ($value == "DEVOLUCION EN RUTA") {
-                    $pedido->estado_devolucion = $value;
-                    $pedido->dt = $value;
-                    $pedido->marca_t_d_t = $currentDateTimeText;
-                    $pedido->received_by = $idUser;
-                }
-                if ($value == "PENDIENTE") { //restart
-                    $pedido->estado_devolucion = $value;
-                    $pedido->do = $value;
-                    $pedido->dt = $value;
-                    $pedido->marca_t_d = null;
-                    $pedido->marca_t_d_t = null;
-                    $pedido->received_by = $idUser;
-                }
-            } elseif ($from == "operator") {
-                if ($value == "ENTREGADO EN OFICINA") { //from operator, logistica
-                    $pedido->estado_devolucion = $value;
-                    $pedido->do = $value;
-                    $pedido->marca_t_d = $currentDateTimeText;
-                    $pedido->received_by = $idUser;
-                }
-            } elseif ($from == "seller") {
-                if ($value == "EN BODEGA PROVEEDOR") { //from seller return scanner
-                    $pedido->estado_devolucion = $value;
-                    $pedido->marca_t_d = $currentDateTimeText;
-                    $pedido->received_by = $idUser;
-                }
-            }
-        }
-
-
-        if ($key == "status") {
-            if ($value != "NOVEDAD_date") {
-                $pedido->status = $value;
-            }
-
-            $pedido->fill($datarequest);
-
-            if ($value == "ENTREGADO" || $value == "NO ENTREGADO") {
-                $pedido->fecha_entrega = $date;
-            }
-            if ($value == "NOVEDAD_date") {
-                $pedido->status = "NOVEDAD";
-                $pedido->fecha_entrega = $date;
-            }
-            $pedido->status_last_modified_at = $currentDateTime;
-            $pedido->status_last_modified_by = $idUser;
-
-            // // * if it exists, delete from transaccion_pedidos_transportadora
-            // error_log("delete from tpt");
-
-            $idTransportadora = $pedido['transportadora'][0]['id'];
-            $fechaEntrega = now()->format('j/n/Y');
-
-            $transaccion = TransaccionPedidoTransportadora::where('id_pedido', $id)
-                ->where('id_transportadora', $idTransportadora)
-                ->where('fecha_entrega', $fechaEntrega)
-                ->get();
-
-            $transaccionFound = $transaccion->first();
-
-            if ($transaccionFound !== null) {
-                // error_log($transaccionFound->id);
-                $transaccionFound->delete();
-                // error_log("deleted");
-            }
-        }
-
-        //v2
-        if ($key == "estado_interno") {
-            $name_comercial = $pedido->tienda_temporal;
-            if (
-                $pedido->users->isNotEmpty() && $pedido->users[0]->vendedores->isNotEmpty()
-            ) {
-                $name_comercial = $pedido->users[0]->vendedores[0]->nombre_comercial;
-            }
-            $pedido->estado_interno = $value;
-            $pedido->fecha_confirmacion = $currentDateTimeText;
-            $pedido->confirmed_by = $idUser;
-            $pedido->confirmed_at = $currentDateTime;
-            $pedido->name_comercial = $name_comercial;
-        }
-
-        $pedido->save();
-        return response()->json([$pedido], 200);
     }
 
 
@@ -4176,6 +4357,29 @@ class PedidosShopifyAPIController extends Controller
                     $edited_novelty["m_t_g"] = $startDateFormatted;
 
                     $order->status = "NOVEDAD RESUELTA";
+
+                    $user = UpUser::where('id', $data["id_user"])->first();
+                    $username = $user ? $user->username : null;
+                    //new column
+                    $newHistory = [
+                        "area" => "status",
+                        "status" => "NOVEDAD RESUELTA",
+                        "timestap" => date('Y-m-d H:i:s'),
+                        "comment" => "",
+                        "path" => "",
+                        "generated_by" => $data["id_user"] . "_" . $username
+                    ];
+
+                    if ($order->status_history === null || $order->status_history === '[]') {
+                        $order->status_history = json_encode([$newHistory]);
+                    } else {
+                        $existingHistory = json_decode($order->status_history, true);
+
+                        $existingHistory[] = $newHistory;
+
+                        $order->status_history = json_encode($existingHistory);
+                    }
+
                     $order->save();
 
                     break;
@@ -4464,7 +4668,7 @@ class PedidosShopifyAPIController extends Controller
                 $createOrder->name_comercial = $Name_Comercial;
                 $createOrder->tienda_temporal = $Name_Comercial;
                 $createOrder->marca_t_i = $Marca_T_I;
-                $createOrder->estado_interno = "CONFIRMADO";
+                // $createOrder->estado_interno = "CONFIRMADO";
                 $createOrder->status = "PEDIDO PROGRAMADO";
                 $createOrder->estado_logistico = 'PENDIENTE';
                 $createOrder->estado_pagado = 'PENDIENTE';
@@ -4473,18 +4677,40 @@ class PedidosShopifyAPIController extends Controller
                 $createOrder->do = 'PENDIENTE';
                 $createOrder->dt = 'PENDIENTE';
                 $createOrder->dl = 'PENDIENTE';
-                $createOrder->fecha_confirmacion = $Fecha_Confirmacion;
-                $createOrder->confirmed_by = $generatedBy;
-                $createOrder->confirmed_at = $currentDateTime;
+                // $createOrder->fecha_confirmacion = $Fecha_Confirmacion;
+                // $createOrder->confirmed_by = $generatedBy;
+                // $createOrder->confirmed_at = $currentDateTime;
                 $createOrder->id_product = $firstIdProduct;
                 $createOrder->variant_details = $variant_details;
                 $createOrder->recaudo = $recaudo;
                 // $createOrder->apertura = $apertura;
-                // if ($newrouteId == 0) {
-                //     error_log("*****Tramsp externa********\n");
-                //     $createOrder->carrier_external_id = $carrierExternalId;
-                //     $createOrder->ciudad_external_id = $ciudadDes;
-                // }
+                $createOrder->estado_interno = "PENDIENTE";
+
+                if ($newrouteId != 0) {
+                    error_log("*****Transp Int********\n");
+                    $createOrder->estado_interno = "CONFIRMADO";
+                    $createOrder->fecha_confirmacion = $Fecha_Confirmacion;
+                    $createOrder->confirmed_by = $generatedBy;
+                    $createOrder->confirmed_at = $currentDateTime;
+                    //new column
+                    $user = UpUser::where('id',  $generatedBy)->first();
+                    $username = $user ? $user->username : null;
+
+                    $transp = Transportadora::where('id',  $newtransportadoraId)->first();
+                    $transpNombre = $transp ? $transp->nombre : null;
+
+                    $newHistory = [
+                        "area" => "estado_interno",
+                        "status" => "CONFIRMADO",
+                        "timestap" => date('Y-m-d H:i:s'),
+                        "comment" => "Transportadora asignada: " . $newtransportadoraId . "_" . $transpNombre,
+                        "path" => "",
+                        "generated_by" => $generatedBy . "_" . $username
+                    ];
+
+                    $createOrder->status_history = json_encode([$newHistory]);
+                }
+
                 $createOrder->save();
 
                 // error_log("******************proceso 3 terminado************************\n");
