@@ -1636,6 +1636,12 @@ class PedidosShopifyAPIController extends Controller
                 } elseif ($row->estado_devolucion != 'PENDIENTE') {
                     $stateTotals['DEVOLUCION'] += $row->count;
                 }
+            } else if ($estado === 'NO ENTREGADO') {
+                if ($row->estado_devolucion === 'PENDIENTE') {
+                    $stateTotals[$estado] += $row->count;
+                } elseif ($row->estado_devolucion != 'PENDIENTE') {
+                    $stateTotals['DEVOLUCION'] += $row->count;
+                }
             } else {
                 $stateTotals[$estado] += $row->count;
             }
