@@ -8,6 +8,8 @@ use App\Models\PedidosShopify;
 use App\Models\Vendedore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
 
 class MiSaldoAPIController extends Controller
 {
@@ -34,6 +36,7 @@ class MiSaldoAPIController extends Controller
         //         $sumaEntregados += floatval($producto->precio_total);
         //     }
         // }
+        $fechaServidor = date('j/n/Y');
 
         $sumaEntregados = PedidosShopify::where('id_comercial', $upuser)
             ->where('estado_interno', 'CONFIRMADO')
@@ -198,10 +201,19 @@ class MiSaldoAPIController extends Controller
                     ->orWhere('ordenes_retiros.estado', 'REALIZADO');
             })
             ->sum('ordenes_retiros.monto');
-        // error_log("sumaRetiros: $sumaRetiros");
+        error_log("sumaRetiros: $sumaRetiros");
 
-        $responseFinal = (($sumaEntregados + $refererValue) - ($sumaCosto + $sumaDevolucion + $sumaRetiros + $AmountProductWarehouse));
+        $responseFinal = ($sumaEntregados + $refererValue) - ($sumaCosto + $sumaDevolucion + $AmountProductWarehouse);
 
+        $responseFinal = $responseFinal -  $sumaRetiros ;
+
+        Log::info($sumaEntregados);
+        Log::info($refererValue);
+        Log::info($sumaCosto);
+        Log::info($sumaDevolucion);
+        Log::info($sumaRetiros);
+        Log::info($AmountProductWarehouse);
+        Log::info($responseFinal);
         return [
             'code' => 200,
             'value' => $responseFinal

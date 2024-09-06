@@ -19,6 +19,7 @@ use App\Models\Provider;
 use App\Http\Controllers\API\ProductAPIController;
 use App\Models\OrdenesRetiro;
 use App\Models\OrdenesRetirosUsersPermissionsUserLink;
+use App\Models\TransaccionGlobal;
 use App\Models\TransaccionPedidoTransportadora;
 use App\Models\TransportadorasShippingCost;
 use App\Repositories\transaccionesRepository;
@@ -57,7 +58,27 @@ class TransaccionesGlobalAPIController extends Controller
     }
 
 
+    public function getSaldoActualSellerTG(Request $request)
+    {
+        try {
+            $sellerId = $request->input('seller_id', 0);
+            $latestTransaction = TransaccionGlobal::where('id_seller', $sellerId)
+                ->select(['current_value','order_entry','id_seller'])
+                ->orderBy('order_entry', 'desc')
+                ->first();
 
+            if (!$latestTransaction) {
+                return response()->json([
+                    'message' => 'No se encontraron transacciones para el vendedor especificado.',
+                    'current_value' => 0
+                ]);
+            }
+
+            return response()->json($latestTransaction);
+        } catch (\Throwable $th) {
+            return response()->json(['error' => $th]);
+        }
+    }
     public function generalData(Request $request)
     {
         $data = $request->json()->all();
@@ -66,6 +87,7 @@ class TransaccionesGlobalAPIController extends Controller
         $pageNumber = $data['page_number'];
         $searchTerm = $data['search'];
         // $dateFilter = $data["date_filter"];
+        $dateFilter = "";
         $populate = $data["populate"];
         $modelName = $data['model'];
         $Map = $data['and'];
@@ -90,7 +112,7 @@ class TransaccionesGlobalAPIController extends Controller
 
         if (isset($data['date_filter'])) {
             $dateFilter = $data["date_filter"];
-            $selectedFilter = "delivery_date";
+            // $selectedFilter = "admission_date";
             // if ($dateFilter != "FECHA ENTREGA") {
             //     $selectedFilter = "marca_tiempo_envio";
             // }
@@ -122,9 +144,9 @@ class TransaccionesGlobalAPIController extends Controller
         if (isset($data['start']) && isset($data['end'])) {
             $startDateFormatted = Carbon::createFromFormat('j/n/Y', $data['start'])->format('Y-m-d');
             $endDateFormatted = Carbon::createFromFormat('j/n/Y', $data['end'])->format('Y-m-d');
-            $databackend->whereBetween('delivery_date', [$startDateFormatted, $endDateFormatted]);
+            $databackend->whereBetween($dateFilter, [$startDateFormatted, $endDateFormatted]);
         }
-    
+
 
         $databackend
             // ->whereDoesntHave(['pedidoCarrier',''])

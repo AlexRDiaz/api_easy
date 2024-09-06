@@ -239,6 +239,12 @@ Route::middleware(['cors'])->group(function () {
     Route::get('/vendedores/refereds/{id}', [VendedoreAPIController::class, 'getRefereds']);
     Route::get('/vendedores-principals', [App\Http\Controllers\API\VendedoreAPIController::class, 'obtenerUsuariosPrincipales']);
 
+    // ! transacciones_globales
+    
+    Route::post("transacciones-global/saldo", [\App\Http\Controllers\API\TransaccionesGlobalAPIController::class, 'getSaldoActualSellerTG']);
+
+
+
     // ! TRANSACCIONES
     Route::get("transacciones", [\App\Http\Controllers\API\TransaccionesAPIController::class, 'index']);
     // ! LAST 30
@@ -271,6 +277,8 @@ Route::middleware(['cors'])->group(function () {
     // ! ***********************
     // !  Rollback transactions
     Route::post("transacciones/rollback", [\App\Http\Controllers\API\TransaccionesAPIController::class, 'rollbackTransaction']);
+    // !  Rollback transactions-global
+    Route::post("transacciones-global/rollback", [\App\Http\Controllers\API\TransaccionesAPIController::class, 'rollbackTransactionGlobal']);
 
     // ? pedido programado ************
     Route::post("transacciones/pedido-programado", [\App\Http\Controllers\API\TransaccionesAPIController::class, 'pedidoProgramado']);
@@ -283,6 +291,8 @@ Route::middleware(['cors'])->group(function () {
     Route::post("transacciones/by-date", [\App\Http\Controllers\API\TransaccionesAPIController::class, 'getTransactionsByDate']);
     // ! GetTransacctions To rollback
     Route::get("transacciones/to-rollback/{id}", [\App\Http\Controllers\API\TransaccionesAPIController::class, 'getTransactionToRollback']);
+     // ! GetTransacctionsGlobal To rollback
+     Route::get("transacciones-global/to-rollback/{id}", [\App\Http\Controllers\API\TransaccionesAPIController::class, 'getTransactionGlobalToRollback']);
 
     Route::post("transacciones/cleanTransactionsFailed/{id}", [\App\Http\Controllers\API\TransaccionesAPIController::class, 'cleanTransactionsFailed']);
 
