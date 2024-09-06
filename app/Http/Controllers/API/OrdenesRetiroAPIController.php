@@ -252,6 +252,8 @@ class OrdenesRetiroAPIController extends Controller
         $total_retiros = $ordenes->sum('o.monto');
 
         $pedidos['total_retiros'] = number_format($total_retiros, 2, '.', '');
+        
+        error_log($pedidos['total_retiros']);
 
         return response()->json($pedidos);
     }

@@ -9,7 +9,6 @@ use App\Models\PedidosShopifiesSubRutaLink;
 use App\Models\PedidosShopifiesTransportadoraLink;
 use App\Models\PedidosShopify;
 use App\Models\Transaccion;
-use App\Models\TransactionsGlobal;
 use App\Models\UpUser;
 use App\Models\Vendedore;
 use App\Models\Product;
@@ -20,9 +19,9 @@ use App\Models\Provider;
 use App\Http\Controllers\API\ProductAPIController;
 use App\Models\OrdenesRetiro;
 use App\Models\OrdenesRetirosUsersPermissionsUserLink;
+use App\Models\TransaccionGlobal;
 use App\Models\TransaccionPedidoTransportadora;
 use App\Models\TransportadorasShippingCost;
-use App\Models\TransaccionGlobal;
 use App\Repositories\transaccionesRepository;
 use App\Repositories\vendedorRepository;
 use App\Repositories\providerRepository;
@@ -39,7 +38,7 @@ use function PHPUnit\Framework\isEmpty;
 
 use Illuminate\Support\Facades\Log;
 
-class TransaccionesAPIController extends Controller
+class TransaccionesGlobalAPIController extends Controller
 {
     protected $transaccionesRepository;
     protected $vendedorRepository;
@@ -59,7 +58,203 @@ class TransaccionesAPIController extends Controller
     }
 
 
+    public function getSaldoActualSellerTG(Request $request)
+    {
+        try {
+            $sellerId = $request->input('seller_id', 0);
+            $latestTransaction = TransaccionGlobal::where('id_seller', $sellerId)
+                ->select(['current_value','order_entry','id_seller'])
+                ->orderBy('order_entry', 'desc')
+                ->first();
 
+            if (!$latestTransaction) {
+                return response()->json([
+                    'message' => 'No se encontraron transacciones para el vendedor especificado.',
+                    'current_value' => 0
+                ]);
+            }
+
+            return response()->json($latestTransaction);
+        } catch (\Throwable $th) {
+            return response()->json(['error' => $th]);
+        }
+    }
+    public function generalData(Request $request)
+    {
+        $data = $request->json()->all();
+
+        $pageSize = $data['page_size'];
+        $pageNumber = $data['page_number'];
+        $searchTerm = $data['search'];
+        // $dateFilter = $data["date_filter"];
+        $dateFilter = "";
+        $populate = $data["populate"];
+        $modelName = $data['model'];
+        $Map = $data['and'];
+        $not = $data['not'];
+
+        $relationsToInclude = $data['include'];
+        $relationsToExclude = $data['exclude'];
+
+        $fullModelName = "App\\Models\\" . $modelName;
+
+        // Verificar si la clase del modelo existe y es válida
+        if (!class_exists($fullModelName)) {
+            return response()->json(['error' => 'Modelo no encontrado'], 404);
+        }
+
+        // Opcional: Verificar si el modelo es uno de los permitidos
+        $allowedModels = ['Transportadora', 'UpUser', 'Vendedore', 'UpUsersVendedoresLink', 'UpUsersRolesFrontLink', 'OrdenesRetiro', 'PedidosShopify', 'Provider', 'TransaccionPedidoTransportadora', "pedidoCarrier", "TransaccionGlobal"];
+
+        if (!in_array($modelName, $allowedModels)) {
+            return response()->json(['error' => 'Acceso al modelo no permitido'], 403);
+        }
+
+        if (isset($data['date_filter'])) {
+            $dateFilter = $data["date_filter"];
+            // $selectedFilter = "admission_date";
+            // if ($dateFilter != "FECHA ENTREGA") {
+            //     $selectedFilter = "marca_tiempo_envio";
+            // }
+        }
+
+        if ($searchTerm != "") {
+            $filteFields = $data['or'];
+        } else {
+            $filteFields = [];
+        }
+
+
+        $orderBy = null;
+        if (isset($data['sort'])) {
+            $sort = $data['sort'];
+            $sortParts = explode(':', $sort);
+            if (count($sortParts) === 2) {
+                $field = $sortParts[0];
+                $direction = strtoupper($sortParts[1]) === 'DESC' ? 'DESC' : 'ASC';
+                $orderBy = [$field => $direction];
+            }
+        }
+        $databackend = $fullModelName::with($populate);
+        // if (isset($data['start']) && isset($data['end'])) {
+        //     $startDateFormatted = Carbon::createFromFormat('j/n/Y', $data['start'])->format('Y-m-d');
+        //     $endDateFormatted = Carbon::createFromFormat('j/n/Y', $data['end'])->format('Y-m-d');
+        //     $databackend->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted]);
+        // }
+        if (isset($data['start']) && isset($data['end'])) {
+            $startDateFormatted = Carbon::createFromFormat('j/n/Y', $data['start'])->format('Y-m-d');
+            $endDateFormatted = Carbon::createFromFormat('j/n/Y', $data['end'])->format('Y-m-d');
+            $databackend->whereBetween($dateFilter, [$startDateFormatted, $endDateFormatted]);
+        }
+
+
+        $databackend
+            // ->whereDoesntHave(['pedidoCarrier',''])
+            ->where(function ($databackend) use ($searchTerm, $filteFields) {
+                // foreach ($filteFields as $field) {
+                //     if (strpos($field, '.') !== false) {
+                //         $relacion = substr($field, 0, strpos($field, '.'));
+                //         $propiedad = substr($field, strpos($field, '.') + 1);
+                //         $this->recursiveWhereHasLike($databackend, $relacion, $propiedad, $searchTerm);
+                //     } else {
+                //         $databackend->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                //     }
+                // }
+                foreach ($filteFields as $field) {
+                    if (strpos($field, '.') !== false) {
+                        $segments = explode('.', $field);
+                        $lastSegment = array_pop($segments);
+                        $relation = implode('.', $segments);
+
+                        $databackend->orWhereHas($relation, function ($query) use ($lastSegment, $searchTerm) {
+                            $query->where($lastSegment, 'LIKE', '%' . $searchTerm . '%');
+                        });
+                    } else {
+                        $databackend->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                    }
+                }
+            })
+            ->where((function ($databackend) use ($Map) {
+                foreach ($Map as $condition) {
+                    foreach ($condition as $key => $valor) {
+                        $parts = explode("/", $key);
+                        $type = $parts[0];
+                        $filter = $parts[1];
+                        if ($valor === null) {
+                            $databackend->whereNull($filter);
+                        } else {
+                            if (strpos($filter, '.') !== false) {
+                                $relacion = substr($filter, 0, strpos($filter, '.'));
+                                $propiedad = substr($filter, strpos($filter, '.') + 1);
+                                $this->recursiveWhereHas($databackend, $relacion, $propiedad, $valor);
+                            } else {
+                                if ($type == "equals") {
+                                    $databackend->where($filter, '=', $valor);
+                                } else {
+                                    $databackend->where($filter, 'LIKE', '%' . $valor . '%');
+                                }
+                            }
+                        }
+                    }
+                }
+            }))
+            ->where((function ($databackend) use ($not) {
+                foreach ($not as $condition) {
+                    foreach ($condition as $key => $valor) {
+                        if ($valor === '') {
+                            // $databackend->whereRaw("$key <> ''");
+                            $this->recursiveWhereHasNeg($databackend, $relacion, $propiedad, $valor);
+                        } else {
+                            if ($valor === null) {
+                                $databackend->whereNotNull($key);
+                            } else {
+                                if (strpos($key, '.') !== false) {
+                                    $relacion = substr($key, 0, strpos($key, '.'));
+                                    $propiedad = substr($key, strpos($key, '.') + 1);
+                                    $this->recursiveWhereHas($databackend, $relacion, $propiedad, $valor);
+                                } else {
+                                    // $databackend->where($key, '!=', $valor);
+                                    $databackend->whereRaw("$key <> ''");
+                                }
+                            }
+                        }
+                    }
+                }
+            }));
+
+
+        // $relationsToInclude = ['ruta', 'transportadora'];
+        // $relationsToExclude = ['pedidoCarrier'];
+
+        // $relationsToInclude = ['pedidoCarrier'];
+        // $relationsToExclude = ['ruta', 'transportadora'];
+
+        if (isset($relationsToInclude)) {
+            // error_log("IS relationsToInclude");
+            foreach ($relationsToInclude as $relation) {
+                // error_log("Include relation: $relation");
+                $databackend->whereHas($relation);
+            }
+        }
+
+        if (isset($relationsToExclude)) {
+            // error_log("IS relationsToInclude");
+            foreach ($relationsToExclude as $relation) {
+                // error_log("Exclude relation: $relation");
+                $databackend->whereDoesntHave($relation);
+            }
+        }
+
+
+
+        if ($orderBy !== null) {
+            $databackend->orderBy(key($orderBy), reset($orderBy));
+        }
+
+        $databackend = $databackend->paginate($pageSize, ['*'], 'page', $pageNumber);
+
+        return response()->json($databackend);
+    }
     public function getExistTransaction(Request $request)
     {
         $data = $request->json()->all();
@@ -77,7 +272,6 @@ class TransaccionesAPIController extends Controller
 
         return response()->json($pedido);
     }
-
     public function getTransactionsByDate(Request $request)
     {
         $data = $request->json()->all();
@@ -119,7 +313,6 @@ class TransaccionesAPIController extends Controller
 
         return response()->json($filteredData->get());
     }
-
     private function recursiveWhereHas($query, $relation, $property, $searchTerm)
     {
         if ($searchTerm == "null") {
@@ -139,7 +332,6 @@ class TransaccionesAPIController extends Controller
             });
         }
     }
-
     public function last30rows()
     {
         $ultimosRegistros = Transaccion::orderBy('id', 'desc')
@@ -153,13 +345,11 @@ class TransaccionesAPIController extends Controller
         $transacciones = Transaccion::all();
         return response()->json($transacciones);
     }
-
     public function show($id)
     {
         $transaccion = Transaccion::findOrFail($id);
         return response()->json($transaccion);
     }
-
     public function Credit(Request $request)
     {
         $data = $request->json()->all();
@@ -255,76 +445,6 @@ class TransaccionesAPIController extends Controller
         return response()->json("Monto debitado");
     }
 
-    public function TransactionGlobal(
-        // $admission_date, 
-        // $delivery_date, 
-        // $status,
-        // $return_state,
-        // $id_order, 
-        // $code, 
-        // $origin, 
-        // $withdrawal_price, 
-        // $value_order, 
-        // $return_cost, 
-        // $delivery_cost, 
-        // $notdelivery_cost, 
-        // $provider_cost, 
-        // $referer_cost, 
-        // $total_transaction, 
-        // $previous_value, 
-        // $current_value, 
-        // $state, 
-        // $id_seller,
-        // $internal_transportation_cost, 
-        // $external_transportation_cost, 
-        // $external_return_cost
-
-        $idforsearch
-    ) {
-        // // * actualizacion de saldo vendedor 
-        // $user = UpUser::where("id", $id_seller)->with('vendedores')->first();
-        // $vendedor = $user['vendedores'][0];
-        // $saldo = $vendedor->saldo;
-        // $nuevoSaldo = $saldo - $total_transaction;
-        // $vendedor->saldo = $nuevoSaldo;
-        // $vendedor->save();
-
-
-        $searchTransactionGlobal = TransactionsGlobal::where('id_order', $idforsearch)->get();
-
-        // * generacion transaccion global
-
-        // $newTransGlobal = new TransactionsGlobal();
-        // $newTransGlobal->admission_date = $admission_date;
-        // $newTransGlobal->delivery_date = $delivery_date ; 
-        // $newTransGlobal->status = $status;
-        // $newTransGlobal->return_state = $return_state;
-        // $newTransGlobal->id_order = $id_order ; 
-        // $newTransGlobal->code = $code ; 
-        // $newTransGlobal->origin = $origin ; 
-        // $newTransGlobal->withdrawal_price = $withdrawal_price ; 
-        // $newTransGlobal->value_order = $value_order ; 
-        // $newTransGlobal->return_cost = $return_cost ; 
-        // $newTransGlobal->delivery_cost = $delivery_cost ; 
-        // $newTransGlobal->notdelivery_cost = $notdelivery_cost ; 
-        // $newTransGlobal->provider_cost = $provider_cost ; 
-        // $newTransGlobal->referer_cost = $referer_cost ; 
-        // $newTransGlobal->total_transaction = $total_transaction ; 
-        // $newTransGlobal->previous_value = $previous_value ; 
-        // $newTransGlobal->current_value =$current_value ; 
-        // $newTransGlobal->state = $state ; 
-        // $newTransGlobal->id_seller = $id_seller;
-        // $newTransGlobal->internal_transportation_cost = $internal_transportation_cost ; 
-        // $newTransGlobal->external_transportation_cost = $external_transportation_cost ; 
-        // $newTransGlobal->external_return_cost = $external_return_cost;
-        // $newTransGlobal->save();
-
-
-        return response()->json("Monto debitado");
-    }
-
-    // public function TransactionGlobalLocal($vendedirId,$monto, $idOrigen, $codigo, $origen,){
-    // }
     public function DebitLocal($vendedorId, $monto, $idOrigen, $codigo, $origen, $comentario, $generated_by)
     {
         $startDateFormatted = new DateTime();
@@ -580,57 +700,12 @@ class TransaccionesAPIController extends Controller
             $order->marca_t_d_l = date("d/m/Y H:i");
             $order->received_by = $data['generated_by'];
             if ($order->status == "NOVEDAD") {
+
+
                 if ($order->costo_devolucion == null) { // Verifica si está vacío convirtiendo a un array
                     $order->costo_devolucion = $order->users[0]->vendedores[0]->costo_devolucion;
                     $this->DebitLocal($order->users[0]->vendedores[0]->id_master, $order->users[0]->vendedores[0]->costo_devolucion, $order->id, $order->users[0]->vendedores[0]->nombre_comercial . "-" . $order->numero_orden, "devolucion", "Costo de devolución desde operador por pedido en " . $order->status . " y " . $order->estado_devolucion, $data['generated_by']);
 
-
-                    // ! integracion 
-                    // ! ----------------------------------------------
-
-                    // Verificar si ya existe una transacción global para este pedido y vendedor
-                    $existingTransaction = TransaccionGlobal::where('id_order', $order->id)
-                        ->where('id_seller', $order->users[0]->vendedores[0]->id_master)
-                        ->first();
-
-                    if ($existingTransaction === null) {
-                        // Crear la nueva transacción global
-                        TransaccionGlobal::create([
-                            'admission_date' => now(), // Ajusta según necesites
-                            'delivery_date' => null, // Ajusta según necesites
-                            'status' => $order->status,
-                            'return_state' => $order->estado_devolucion,
-                            'id_order' => $order->id,
-                            'code' => $order->users[0]->vendedores[0]->nombre_comercial . "-" . $order->numero_orden,
-                            'origin' => 'Pedido' . $order->status,
-                            'withdrawal_price' => 0, // Ajusta según necesites
-                            'value_order' => 0, // Ajusta según necesites
-                            'return_cost' => $order->costo_devolucion,
-                            'delivery_cost' => 0, // Ajusta según necesites
-                            'notdelivery_cost' => 0, // Ajusta según necesites
-                            'provider_cost' => 0, // Ajusta según necesites
-                            'referer_cost' => 0, // Ajusta según necesites
-                            'total_transaction' => 0, // Ajusta según necesites
-                            'previous_value' => 0, // Ajusta según necesites
-                            'current_value' => 0, // Ajusta según necesites
-                            'state' => true,
-                            'id_seller' => $order->users[0]->vendedores[0]->id_master,
-                            'internal_transportation_cost' => 0, // Ajusta según necesites
-                            'external_transportation_cost' => 0, // Ajusta según necesites
-                            'external_return_cost' => 0
-                        ]);
-
-                        $message = "Transacción con débito por estado " . $order->status . " y " . $order->estado_devolucion;
-                    }
-                    //  else {
-                    //     $existingTransaction->update([
-                    //         'status' => $order->status,
-                    //         'return_state' => $order->estado_devolucion,
-                    //         'cost_return' => $order->users[0]->vendedores[0]->costo_devolucion,
-                    //         'origin' => 'Pedido ' . $order->status
-                    //     ]);
-                    // }
-                    // ! ----------------------------------------------
 
 
                     $message = "Transacción con débito por estado " . $order->status . " y " . $order->estado_devolucion;
@@ -640,30 +715,6 @@ class TransaccionesAPIController extends Controller
             } else {
                 $message = "Transacción sin débito por estado" . $order->status . " y " . $order->estado_devolucion;
             }
-
-            //new column
-            $user = UpUser::where('id',  $data['generated_by'])->first();
-            $username = $user ? $user->username : null;
-
-            $newHistory = [
-                "area" => "estado_devolucion",
-                "status" => "EN BODEGA PROVEEDOR",
-                "timestap" => date('Y-m-d H:i:s'),
-                "comment" => "",
-                "path" => "",
-                "generated_by" => $data['generated_by'] . "_" . $username
-            ];
-
-            if ($order->status_history === null || $order->status_history === '[]') {
-                $order->status_history = json_encode([$newHistory]);
-            } else {
-                $existingHistory = json_decode($order->status_history, true);
-
-                $existingHistory[] = $newHistory;
-
-                $order->status_history = json_encode($existingHistory);
-            }
-
             $order->save();
             DB::commit();
 
@@ -690,22 +741,7 @@ class TransaccionesAPIController extends Controller
             $startDateFormatted = new DateTime();
 
             // $pedido = PedidosShopify::findOrFail($data['id_origen']);
-            $pedido = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades', 'operadore', 'transactionTransportadora', 'pedidoCarrier'])->findOrFail($data['id_origen']);
-            $marcaT = "";
-
-            if (!empty($pedido->marca_t_i)) {
-                try {
-                    $marcaT = Carbon::createFromFormat('d/m/Y H:i', $pedido->marca_t_i)->format('Y-m-d H:i:s');
-                } catch (\Exception $e) {
-                    Log::error('Error al convertir marca_t_i: ' . $pedido->marca_t_i . ' - ' . $e->getMessage());
-                    // Asignar una fecha por defecto si la conversión falla
-                    $marcaT = Carbon::now()->format('Y-m-d H:i:s');
-                }
-            } else {
-                // Asignar una fecha por defecto
-                $marcaT = Carbon::now()->format('Y-m-d H:i:s');
-            }
-
+            $pedido = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades', 'operadore', 'transactionTransportadora',])->findOrFail($data['id_origen']);
 
             // if ($pedido->costo_envio == null) {
             // error_log("Transaccion nueva");
@@ -718,13 +754,13 @@ class TransaccionesAPIController extends Controller
             if ($transaccionSellerPrevious->isNotEmpty()) {
                 // Obtener el último registro de transacción
                 $lastTransaction = $transaccionSellerPrevious->last();
-                Log::info($lastTransaction);
+                error_log($lastTransaction);
                 if ($lastTransaction->origen !== 'reembolso' && $lastTransaction->origen !== 'envio') {
                     return response()->json(["res" => "Transacciones ya Registradas"]);
                 }
             }
 
-            Log::info("Transaccion nueva");
+            error_log("Transaccion nueva");
 
             $pedido->status = "ENTREGADO";
             $pedido->fecha_entrega = now()->format('j/n/Y');
@@ -735,29 +771,6 @@ class TransaccionesAPIController extends Controller
             $pedido->costo_envio = $data['monto_debit'];
             if ($data["archivo"] != "") {
                 $pedido->archivo = $data["archivo"];
-            }
-
-            //new column
-            $user = UpUser::where('id', $data['generated_by'])->first();
-            $username = $user ? $user->username : null;
-
-            $newHistory = [
-                "area" => "status",
-                "status" => "ENTREGADO",
-                "timestap" => date('Y-m-d H:i:s'),
-                "comment" => $data["comentario"],
-                "path" => "",
-                "generated_by" => $data['generated_by'] . "_" . $username
-            ];
-
-            if ($pedido->status_history === null || $pedido->status_history === '[]') {
-                $pedido->status_history = json_encode([$newHistory]);
-            } else {
-                $existingHistory = json_decode($pedido->status_history, true);
-
-                $existingHistory[] = $newHistory;
-
-                $pedido->status_history = json_encode($existingHistory);
             }
 
             $costoTransportadora = $pedido['transportadora'][0]['costo_transportadora'];
@@ -807,90 +820,10 @@ class TransaccionesAPIController extends Controller
 
             if ($pedido['operadore']->isNotEmpty()) {
                 $operCost = $pedido['operadore'][0]['costo_operador'];
-                Log::info("operadore_cost d: " . $operCost);
+                error_log("operadore_cost d: " . $operCost);
                 $pedido->costo_operador = $operCost;
             }
             $pedido->save();
-
-            // * inicio de la transaccion global
-            Log::info("inicio trans global");
-
-
-            // Verificar si ya existe una transacción global para este pedido y vendedor
-            $existingTransaction = TransaccionGlobal::where('id_order', $pedido->id)
-                ->where('id_seller', $pedido->users[0]->vendedores[0]->id_master)
-
-                ->first();
-
-            // Obtener la transacción global previa
-            $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $pedido->users[0]->vendedores[0]->id_master)
-                ->orderBy('id', 'desc')
-                ->first();
-
-            $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
-
-
-
-            $newTransactionGlobal = new TransaccionGlobal();
-
-            if ($existingTransaction === null) {
-
-                $newTransactionGlobal->admission_date = $marcaT;
-                $newTransactionGlobal->delivery_date = now()->format('Y-m-d');
-                // $newTransactionGlobal->status = $pedido->status;
-                $newTransactionGlobal->status = 'ENTREGADO';
-                // 'return_state' => $pedido->estado_devolucion,
-                $newTransactionGlobal->return_state = null;
-                $newTransactionGlobal->id_order = $pedido->id;
-                $newTransactionGlobal->code = $pedido->users[0]->vendedores[0]->nombre_comercial . "-" . $pedido->numero_orden;
-                $newTransactionGlobal->origin = 'Pedido ' . $pedido->status;
-                $newTransactionGlobal->withdrawal_price = 0; // Ajusta según necesites
-                $newTransactionGlobal->value_order = $pedido->precio_total; // Ajusta según necesites
-                $newTransactionGlobal->return_cost = 0;
-                $newTransactionGlobal->delivery_cost = -$pedido->costo_envio; // Ajusta según necesites
-                $newTransactionGlobal->notdelivery_cost = 0; // Ajusta según necesites
-                // $newTransactionGlobal->provider_cost = 0; // Ajusta según necesites
-                $newTransactionGlobal->referer_cost = 0; // Ajusta según necesites
-                $newTransactionGlobal->total_transaction =
-                    $newTransactionGlobal->value_order +
-                    $newTransactionGlobal->return_cost +
-                    $newTransactionGlobal->delivery_cost +
-                    $newTransactionGlobal->notdelivery_cost +
-                    $newTransactionGlobal->provider_cost +
-                    $newTransactionGlobal->referer_cost;
-                $newTransactionGlobal->previous_value = $previousValue;
-                $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
-                $newTransactionGlobal->state = true;
-                $newTransactionGlobal->id_seller = $pedido->users[0]->vendedores[0]->id_master;
-                $newTransactionGlobal->internal_transportation_cost = -$costoTransportadora; // Ajusta según necesites
-                $newTransactionGlobal->external_transportation_cost = 0; // Ajusta según necesites
-                $newTransactionGlobal->external_return_cost = 0;
-
-                $message = "Transacción con débito por estado " . $pedido->status;
-            }
-
-
-
-
-
-
-
-
-
-
-            // $newTransGlobal = new TransactionsGlobal();
-            // $newTransGlobal->admission_date = $pedido->marca_t_i;
-            // $newTransGlobal->delivery_date = $pedido->fecha_entrega;
-            // $newTransGlobal->status = $pedido->status;
-            // $newTransGlobal->return_state = null;
-            // // $newTransGlobal->return_state = $return_state;
-            // $newTransGlobal->id_order = $pedido->id;
-            // $newTransGlobal->code = $pedido['users'][0]['vendedores']['nombre_comercial'] . $pedido->numero_orden;
-            // $newTransGlobal->origin = "Pedido " . $pedido->status;
-            // $newTransGlobal->withdrawal_price = 0;
-            // $newTransGlobal->value_order = $pedido->precio_total;
-            // $newTransGlobal->return_cost = 0;
-            // *********************************************************
 
 
             $request->merge(['comentario' => 'Recaudo  de valor por pedido ' . $pedido->status]);
@@ -898,41 +831,25 @@ class TransaccionesAPIController extends Controller
 
             if ($SellerCreditFinalValue['total'] != null) {
                 $request->merge(['monto' => $SellerCreditFinalValue['total']]);
-                // *********************************************************
-                // $newTransGlobal->delivery_cost = -$SellerCreditFinalValue['total'];
-                // $newTransGlobal->notdelivery_cost = 0;
-                Log::info("entregado");
-
-                // *********************************************************
-
             }
 
             $this->Credit($request);
 
             $productValues = [];
-            $sumatoria = 0;
             // !*********
             if (!empty($SellerCreditFinalValue['valor_producto'])) {
                 $productValues = $SellerCreditFinalValue['valor_producto'];
                 // No necesitas codificar a JSON si ya es un array
                 // $decodevalues = json_encode($productValues);
-                Log::info(print_r($productValues, true));
+                error_log(print_r($productValues, true));
                 foreach ($productValues as $valueProduct) {
                     // Asumiendo que $valueProduct es un número, podrías necesitar validar o formatearlo según sea necesario
                     $request->merge(['comentario' => 'Costo de valor de Producto en Bodega ' . $pedido->status]);
                     $request->merge(['origen' => 'valor producto bodega']);
                     $request->merge(['monto' => $valueProduct]);
+
                     $this->Debit($request);
-                    $sumatoria += $valueProduct;
                 }
-
-                // *********************************************************            
-                $newTransactionGlobal->provider_cost = -$sumatoria; // Ajusta según necesites
-                // $newTransGlobal->provider_cost = -$valueProduct ;
-                Log::info("valor producto bodega");
-            } else {
-                $newTransactionGlobal->provider_cost = 0; // Ajusta según necesites
-
             }
 
 
@@ -983,109 +900,10 @@ class TransaccionesAPIController extends Controller
 
                 $this->transaccionesRepository->create($newTrans);
                 $this->vendedorRepository->update($nuevoSaldo, $user['vendedores'][0]['id']);
-
-
-
-                // ! transaccion global para el referido --------------------------------------
-
-
-                // Verificar si ya existe una transacción global para este pedido y vendedor
-                // $existingTransaction = TransaccionGlobal::where('id_order', $pedido->id)
-                //     ->where('id_seller', $pedido->users[0]->vendedores[0]->id_master)
-                //     ->where('status', '!=', 'ROLLBACK')
-                //     ->first();
-
-                // Obtener la transacción global previa
-                $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $refered[0]->id_master)
-                    ->orderBy('id', 'desc')
-                    ->first();
-
-                $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
-
-
-
-                $newTransactionGlobalReferer = new TransaccionGlobal();
-
-                if ($existingTransaction === null) {
-
-                    $newTransactionGlobalReferer->admission_date = $marcaT;
-                    $newTransactionGlobalReferer->delivery_date = now()->format('Y-m-d');
-                    $newTransactionGlobalReferer->status = $pedido->status;
-                    // 'return_state' => $pedido->estado_devolucion,
-                    $newTransactionGlobalReferer->return_state = null;
-                    $newTransactionGlobalReferer->id_order = $pedido->id;
-                    $newTransactionGlobalReferer->code = $pedido->users[0]->vendedores[0]->nombre_comercial . "-" . $pedido->numero_orden;
-                    $newTransactionGlobalReferer->origin = 'Referenciado';
-                    $newTransactionGlobalReferer->withdrawal_price = 0; // Ajusta según necesites
-                    $newTransactionGlobalReferer->value_order = 0; // Ajusta según necesites
-                    $newTransactionGlobalReferer->return_cost = 0;
-                    $newTransactionGlobalReferer->delivery_cost = 0; // Ajusta según necesites
-                    $newTransactionGlobalReferer->notdelivery_cost = 0; // Ajusta según necesites
-                    $newTransactionGlobalReferer->provider_cost = 0; // Ajusta según necesites
-                    $newTransactionGlobalReferer->referer_cost = $refered[0]->referer_cost; // Ajusta según necesites
-                    $newTransactionGlobalReferer->total_transaction =
-                        $newTransactionGlobalReferer->value_order +
-                        $newTransactionGlobalReferer->return_cost +
-                        $newTransactionGlobalReferer->delivery_cost +
-                        $newTransactionGlobalReferer->notdelivery_cost +
-                        $newTransactionGlobalReferer->provider_cost +
-                        $newTransactionGlobalReferer->referer_cost;
-                    $newTransactionGlobalReferer->previous_value = $previousValue;
-                    $newTransactionGlobalReferer->current_value = $previousValue + $newTransactionGlobalReferer->total_transaction;
-                    $newTransactionGlobalReferer->state = true;
-                    // $newTransactionGlobalReferer->id_seller = $pedido->users[0]->vendedores[0]->id_master;
-                    $newTransactionGlobalReferer->id_seller = $refered[0]->id_master;
-                    // $newTransactionGlobalReferer->internal_transportation_cost = -$costoTransportadora; // Ajusta según necesites
-                    $newTransactionGlobalReferer->internal_transportation_cost = 0; // Ajusta según necesites
-                    $newTransactionGlobalReferer->external_transportation_cost = 0; // Ajusta según necesites
-                    $newTransactionGlobalReferer->external_return_cost = 0;
-                    $newTransactionGlobalReferer->save();
-                }
-
-
-                // ! --------------------------------------------------------------------------
-
-                // *********************************************************            
-                //  ! aqui tmbn debe generar una nueva transaccion_global al referido 
-                //  ? esta linea aun no esta validada  
-                // $newTransGlobal->referer_cost =  $refered[0]->referer_cost;
-                Log::info("referido");
-
-                //  ? ***********************************
-                // *********************************************************            
-
             }
 
+            // error_log("add en tpt");
 
-            // *********************************************************  
-            Log::info("inicio total");
-            // $newTransGlobal->total_transaction = $newTransGlobal->value_order + $newTransGlobal->return_cost + $newTransGlobal->delivery_cost + $newTransGlobal->notdelivery_cost + $newTransGlobal->provider_cost + $newTransGlobal->referer_cost;
-            // error_log("fin total");
-            // // *********************************************************            
-
-            // $previousTransactionGlobal = TransactionsGlobal::where('id_seller', $pedido->id_comercial)
-            //     ->where('order_entry', (($newTrans->order_entry) - 1))
-            //     ->get();
-
-            // if (!$previousTransactionGlobal) {
-            //     $newTransGlobal->previous_value = 0;
-            // } else {
-            //     $newTransGlobal->previous_value = $previousTransactionGlobal->current_value;
-            // }
-            // // $newTransGlobal->previous_value = $previous_value ; 
-            // $newTransGlobal->current_value = ($newTransGlobal->total_transaction + $newTransGlobal->previous_value);
-            // $newTransGlobal->state = 1;
-            // $newTransGlobal->id_seller = $pedido->id_comercial;
-            // $newTransGlobal->internal_transportation_cost = $pedido->costo_trnasportadora;
-            // // $newTransGlobal->external_transportation_cost = $external_transportation_cost ; 
-            // $newTransGlobal->external_transportation_cost = 0;
-            // // $newTransGlobal->external_return_cost = $pedido['pedidoCarrier'][0]['cost_refound_external'];
-            // $newTransGlobal->external_return_cost = 0;
-            // $newTransGlobal->save();
-            $newTransactionGlobal->save();
-
-            Log::info("fin creacion nueva transaccion global");
-            // *********************************************************
             $idTransportadora = $pedido['transportadora'][0]['id'];
             $fechaEntrega = now()->format('j/n/Y');
 
@@ -1101,6 +919,7 @@ class TransaccionesAPIController extends Controller
             }
 
             if ($pedido['transactionTransportadora'] == null) {
+                // error_log("new tpt");
                 $transaccionNew = new TransaccionPedidoTransportadora();
                 $transaccionNew->status = "ENTREGADO";
                 $transaccionNew->fecha_entrega = $fechaEntrega;
@@ -1112,15 +931,26 @@ class TransaccionesAPIController extends Controller
 
                 $transaccionNew->save();
             } else {
+                // error_log("upt tpt");
                 TransaccionPedidoTransportadora::where('id', $pedido['transactionTransportadora']['id'])->update([
                     'status' => 'ENTREGADO',
                     'costo_transportadora' => $costoTransportadora,
                 ]);
             }
+
+
             DB::commit(); // Confirma la transacción si todas las operaciones tienen éxito
             return response()->json([
                 "res" => "transaccion exitosa"
             ]);
+            // }else{
+            //     error_log("Este pedido ya tiene marcado el costo_envio");
+
+            //     return response()->json([
+            //         'error' => 'Ocurrió un error al procesar la solicitud'
+            //     ], 500); 
+            // }
+
         } catch (\Exception $e) {
             DB::rollback(); // En caso de error, revierte todos los cambios realizados en la transacción
             // Maneja el error aquí si es necesario
@@ -1139,7 +969,6 @@ class TransaccionesAPIController extends Controller
             $data = $request->json()->all();
             // $pedido = PedidosShopify::findOrFail($data['id_origen']);
             $pedido = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades', 'operadore', 'transactionTransportadora'])->findOrFail($data['id_origen']);
-            $marcaT = Carbon::createFromFormat('d/m/Y H:i', $pedido->marca_t_i)->format('Y-m-d H:i:s');
 
             $pedido->status = "NO ENTREGADO";
             $pedido->fecha_entrega = now()->format('j/n/Y');
@@ -1162,30 +991,6 @@ class TransaccionesAPIController extends Controller
                 error_log("operadore_cost nd: " . $operCost);
                 $pedido->costo_operador = $operCost;
             }
-
-            //new column
-            $user = UpUser::where('id', $data['generated_by'])->first();
-            $username = $user ? $user->username : null;
-
-            $newHistory = [
-                "area" => "status",
-                "status" => "NO ENTREGADO",
-                "timestap" => date('Y-m-d H:i:s'),
-                "comment" => $data["comentario"],
-                "path" => $data["archivo"],
-                "generated_by" => $data['generated_by'] . "_" . $username
-            ];
-
-            if ($pedido->status_history === null || $pedido->status_history === '[]') {
-                $pedido->status_history = json_encode([$newHistory]);
-            } else {
-                $existingHistory = json_decode($pedido->status_history, true);
-
-                $existingHistory[] = $newHistory;
-
-                $pedido->status_history = json_encode($existingHistory);
-            }
-
             $pedido->save();
 
             // error_log("NO ENTREGADO add en tpt");
@@ -1224,66 +1029,6 @@ class TransaccionesAPIController extends Controller
                 ]);
             }
 
-
-            // Verificar si ya existe una transacción global para este pedido y vendedor
-            $existingTransaction = TransaccionGlobal::where('id_order', $pedido->id)
-                ->where('id_seller', $pedido->users[0]->vendedores[0]->id_master)
-
-                ->first();
-
-            // Obtener la transacción global previa
-            $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $pedido->users[0]->vendedores[0]->id_master)
-                ->orderBy('id', 'desc')
-                ->first();
-
-            $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
-
-            if ($existingTransaction === null) {
-                $newTransactionGlobal = new TransaccionGlobal();
-
-                $newTransactionGlobal->admission_date = $marcaT;
-                $newTransactionGlobal->delivery_date = now()->format('Y-m-d');
-                $newTransactionGlobal->status = $pedido->status;
-                // 'return_state' => $pedido->estado_devolucion,
-                $newTransactionGlobal->return_state = null;
-                $newTransactionGlobal->id_order = $pedido->id;
-                $newTransactionGlobal->code = $pedido->users[0]->vendedores[0]->nombre_comercial . "-" . $pedido->numero_orden;
-                $newTransactionGlobal->origin = 'Pedido ' . $pedido->status;
-                $newTransactionGlobal->withdrawal_price = 0; // Ajusta según necesites
-                $newTransactionGlobal->value_order = 0; // Ajusta según necesites
-                $newTransactionGlobal->return_cost = 0;
-                $newTransactionGlobal->delivery_cost = 0; // Ajusta según necesites
-                $newTransactionGlobal->notdelivery_cost = -$pedido->costo_envio; // Ajusta según necesites
-                $newTransactionGlobal->provider_cost = 0; // Ajusta según necesites
-                $newTransactionGlobal->referer_cost = 0; // Ajusta según necesites
-                $newTransactionGlobal->total_transaction =
-                    $newTransactionGlobal->value_order +
-                    $newTransactionGlobal->return_cost +
-                    $newTransactionGlobal->delivery_cost +
-                    $newTransactionGlobal->notdelivery_cost +
-                    $newTransactionGlobal->provider_cost +
-                    $newTransactionGlobal->referer_cost;
-                $newTransactionGlobal->previous_value = $previousValue;
-                $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
-                $newTransactionGlobal->state = true;
-                $newTransactionGlobal->id_seller = $pedido->users[0]->vendedores[0]->id_master;
-                $newTransactionGlobal->internal_transportation_cost = -$costoTransportadora; // Ajusta según necesites
-                $newTransactionGlobal->external_transportation_cost = 0; // Ajusta según necesites
-                $newTransactionGlobal->external_return_cost = 0;
-                $newTransactionGlobal->save();
-
-                $message = "Transacción con débito por estado " . $pedido->status;
-            }
-            // else {
-            //     $existingTransaction->update([
-            //         'status' => $pedido->status,
-            //         'notdelivery_cost' =>  -$pedido->costo_envio,
-            //         'origin' => 'Pedido ' . $pedido->status,
-            //         'previous_value' => $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0,
-            //         'current_value' => $previousTransactionGlobal ? $previousTransactionGlobal->current_value + $existingTransaction->total_transaction : $existingTransaction->total_transaction,
-            //     ]);
-            // }
-
             DB::commit(); // Confirma la transacción si todas las operaciones tienen éxito
             return response()->json([
                 "res" => "transaccion exitosa"
@@ -1308,9 +1053,6 @@ class TransaccionesAPIController extends Controller
 
 
             $order = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades'])->find($id);
-            $marcaT = Carbon::createFromFormat('d/m/Y H:i', $order->marca_t_i)->format('Y-m-d H:i:s');
-            // $costoTransportadora = $order['transportadora'][0]['costo_transportadora'];
-
 
 
             if (
@@ -1337,7 +1079,7 @@ class TransaccionesAPIController extends Controller
                     $newTrans->codigo = $order->users[0]->vendedores[0]->nombre_comercial . "-" . $order->numero_orden;
 
                     $newTrans->origen = "devolucion";
-                    $newTrans->comentario = "Costo de devolucion por pedido en   y" . $order->estado_devolucion;
+                    $newTrans->comentario = "Costo de devolucion por pedido en NOVEDAD y" . $order->estado_devolucion;
 
                     $newTrans->id_vendedor = $order->users[0]->vendedores[0]->id_master;
                     $newTrans->state = 1;
@@ -1345,70 +1087,6 @@ class TransaccionesAPIController extends Controller
 
                     $this->transaccionesRepository->create($newTrans);
                     $this->vendedorRepository->update($newSaldo, $order->users[0]->vendedores[0]->id);
-
-
-
-                    // ! integracion
-
-                    // Verificar si ya existe una transacción global para este pedido y vendedor
-                    $existingTransaction = TransaccionGlobal::where('id_order', $order->id)
-                        ->where('id_seller', $order->users[0]->vendedores[0]->id_master)
-
-                        ->first();
-
-                    // Obtener la transacción global previa
-                    $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $order->users[0]->vendedores[0]->id_master)
-                        ->orderBy('id', 'desc')
-                        ->first();
-
-                    $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
-
-                    if ($existingTransaction === null) {
-                        $newTransactionGlobal = new TransaccionGlobal();
-
-                        $newTransactionGlobal->admission_date = $marcaT;
-                        $newTransactionGlobal->delivery_date = now()->format('Y-m-d');
-                        $newTransactionGlobal->status = "NOVEDAD";
-                        $newTransactionGlobal->return_state = $order->estado_devolucion;
-                        // $newTransactionGlobal->return_state = null;
-                        $newTransactionGlobal->id_order = $order->id;
-                        $newTransactionGlobal->code = $order->users[0]->vendedores[0]->nombre_comercial . "-" . $order->numero_orden;
-                        $newTransactionGlobal->origin = 'Pedido ' . 'NOVEDAD';
-                        $newTransactionGlobal->withdrawal_price = 0; // Ajusta según necesites
-                        $newTransactionGlobal->value_order = 0; // Ajusta según necesites
-                        $newTransactionGlobal->return_cost = $order->users[0]->vendedores[0]->costo_devolucion;
-                        $newTransactionGlobal->delivery_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->notdelivery_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->provider_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->referer_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->total_transaction =
-                            $newTransactionGlobal->value_order +
-                            $newTransactionGlobal->return_cost +
-                            $newTransactionGlobal->delivery_cost +
-                            $newTransactionGlobal->notdelivery_cost +
-                            $newTransactionGlobal->provider_cost +
-                            $newTransactionGlobal->referer_cost;
-                        $newTransactionGlobal->previous_value = $previousValue;
-                        $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
-                        $newTransactionGlobal->state = true;
-                        $newTransactionGlobal->id_seller = $order->users[0]->vendedores[0]->id_master;
-                        $newTransactionGlobal->internal_transportation_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->external_transportation_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->external_return_cost = 0;
-                        $newTransactionGlobal->save();
-
-                        $message = "Transacción con débito por estado " . $order->status;
-                    }
-                    //  else {
-                    //     $existingTransaction->update([
-                    //         'status' => 'NOVEDAD',
-                    //         'return_state' => $order->estado_devolucion,
-                    //         'return_cost' => $order->users->vendedores->costo_devolucion,
-                    //         'origin' => 'Pedido ' . 'NOVEDAD',
-                    //         'previous_value' => $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0,
-                    //         'current_value' => $previousTransactionGlobal ? $previousTransactionGlobal->current_value + $existingTransaction->total_transaction : $existingTransaction->total_transaction,
-                    //     ]);
-                    // }
                 }
                 $message = "transacción con debito por devolucion";
             } else {
@@ -1419,34 +1097,9 @@ class TransaccionesAPIController extends Controller
             $order->status_last_modified_at = date('Y-m-d H:i:s');
             $order->status_last_modified_by = $data['generated_by'];
             $order->comentario = $data['comentario'];
-            $order->fecha_entrega = now()->format('j/n/Y');
             if ($order->novedades == []) {
                 $order->fecha_entrega = now()->format('j/n/Y');
             }
-
-            //new column
-            $user = UpUser::where('id', $data['generated_by'])->first();
-            $username = $user ? $user->username : null;
-
-            $newHistory = [
-                "area" => "status",
-                "status" => "NOVEDAD",
-                "timestap" => date('Y-m-d H:i:s'),
-                "comment" => $data["comentario"],
-                "path" => "",
-                "generated_by" => $data['generated_by'] . "_" . $username
-            ];
-
-            if ($order->status_history === null || $order->status_history === '[]') {
-                $order->status_history = json_encode([$newHistory]);
-            } else {
-                $existingHistory = json_decode($order->status_history, true);
-
-                $existingHistory[] = $newHistory;
-
-                $order->status_history = json_encode($existingHistory);
-            }
-
             $order->save();
 
             // error_log("delete from tpt");
@@ -1494,38 +1147,11 @@ class TransaccionesAPIController extends Controller
 
         try {
             $data = $request->json()->all();
-
             $order = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades'])->find($id);
-            $marcaT = Carbon::createFromFormat('d/m/Y H:i', $order->marca_t_i)->format('Y-m-d H:i:s');
-
             $order->estado_devolucion = "ENTREGADO EN OFICINA";
             $order->do = "ENTREGADO EN OFICINA";
             $order->marca_t_d = date("d/m/Y H:i");
             $order->received_by = $data['generated_by'];
-
-            //new column
-            $user = UpUser::where('id', $data['generated_by'])->first();
-            $username = $user ? $user->username : null;
-
-            $newHistory = [
-                "area" => "estado_devolucion",
-                "status" => "ENTREGADO EN OFICINA",
-                "timestap" => date('Y-m-d H:i:s'),
-                "comment" => "",
-                "path" => "",
-                "generated_by" => $data['generated_by'] . "_" . $username
-            ];
-
-            if ($order->status_history === null || $order->status_history === '[]') {
-                $order->status_history = json_encode([$newHistory]);
-            } else {
-                $existingHistory = json_decode($order->status_history, true);
-
-                $existingHistory[] = $newHistory;
-
-                $order->status_history = json_encode($existingHistory);
-            }
-
             if ($order->status == "NOVEDAD") {
 
 
@@ -1550,71 +1176,6 @@ class TransaccionesAPIController extends Controller
 
                     $this->transaccionesRepository->create($newTrans);
                     $this->vendedorRepository->update($newSaldo, $order->users[0]->vendedores[0]->id);
-
-
-
-
-                    // ! integracion
-
-                    // Verificar si ya existe una transacción global para este pedido y vendedor
-                    $existingTransaction = TransaccionGlobal::where('id_order', $order->id)
-                        ->where('id_seller', $order->users[0]->vendedores[0]->id_master)
-
-                        ->first();
-
-                    // Obtener la transacción global previa
-                    $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $order->users[0]->vendedores[0]->id_master)
-                        ->orderBy('id', 'desc')
-                        ->first();
-
-                    $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
-
-                    if ($existingTransaction === null) {
-                        $newTransactionGlobal = new TransaccionGlobal();
-
-                        $newTransactionGlobal->admission_date = $marcaT;
-                        $newTransactionGlobal->delivery_date = now()->format('Y-m-d');
-                        $newTransactionGlobal->status = "NOVEDAD";
-                        $newTransactionGlobal->return_state = $order->estado_devolucion;
-                        // $newTransactionGlobal->return_state = null;
-                        $newTransactionGlobal->id_order = $order->id;
-                        $newTransactionGlobal->code = $order->users[0]->vendedores[0]->nombre_comercial . "-" . $order->numero_orden;
-                        $newTransactionGlobal->origin = 'Pedido ' . 'NOVEDAD';
-                        $newTransactionGlobal->withdrawal_price = 0; // Ajusta según necesites
-                        $newTransactionGlobal->value_order = 0; // Ajusta según necesites
-                        $newTransactionGlobal->return_cost = $order->users[0]->vendedores[0]->costo_devolucion;
-                        $newTransactionGlobal->delivery_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->notdelivery_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->provider_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->referer_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->total_transaction =
-                            $newTransactionGlobal->value_order +
-                            $newTransactionGlobal->return_cost +
-                            $newTransactionGlobal->delivery_cost +
-                            $newTransactionGlobal->notdelivery_cost +
-                            $newTransactionGlobal->provider_cost +
-                            $newTransactionGlobal->referer_cost;
-                        $newTransactionGlobal->previous_value = $previousValue;
-                        $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
-                        $newTransactionGlobal->state = true;
-                        $newTransactionGlobal->id_seller = $order->users[0]->vendedores[0]->id_master;
-                        $newTransactionGlobal->internal_transportation_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->external_transportation_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->external_return_cost = 0;
-                        $newTransactionGlobal->save();
-
-                        $message = "Transacción con débito por estado " . $order->status;
-                    }
-                    // else {
-                    //     $existingTransaction->update([
-                    //         'status' => 'NOVEDAD',
-                    //         'return_state' => $order->estado_devolucion,
-                    //         'return_cost' => $order->users->vendedores->costo_devolucion,
-                    //         'origin' => 'Pedido ' . 'NOVEDAD',
-                    //         'previous_value' => $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0,
-                    //         'current_value' => $previousTransactionGlobal ? $previousTransactionGlobal->current_value + $existingTransaction->total_transaction : $existingTransaction->total_transaction,
-                    //     ]);
-                    // }
 
                     $message = "Transacción con débito por estado " . $order->status . " y " . $order->estado_devolucion;
                 } else {
@@ -1647,8 +1208,6 @@ class TransaccionesAPIController extends Controller
         try {
             $data = $request->json()->all();
             $order = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades'])->find($id);
-            $marcaT = Carbon::createFromFormat('d/m/Y H:i', $order->marca_t_i)->format('Y-m-d H:i:s');
-
             $order->estado_devolucion = "EN BODEGA";
             $order->dl = "EN BODEGA";
             $order->marca_t_d_l = date("d/m/Y H:i");
@@ -1676,29 +1235,6 @@ class TransaccionesAPIController extends Controller
                 );
             }
 
-            //new column
-            $user = UpUser::where('id', $data['generated_by'])->first();
-            $username = $user ? $user->username : null;
-
-            $newHistory = [
-                "area" => "estado_devolucion",
-                "status" => "EN BODEGA",
-                "timestap" => date('Y-m-d H:i:s'),
-                "comment" => "",
-                "path" => "",
-                "generated_by" => $data['generated_by'] . "_" . $username
-            ];
-
-            if ($order->status_history === null || $order->status_history === '[]') {
-                $order->status_history = json_encode([$newHistory]);
-            } else {
-                $existingHistory = json_decode($order->status_history, true);
-
-                $existingHistory[] = $newHistory;
-
-                $order->status_history = json_encode($existingHistory);
-            }
-
             // !
 
             if ($order->status == "NOVEDAD") {
@@ -1724,83 +1260,6 @@ class TransaccionesAPIController extends Controller
                     $newTrans->generated_by = $data['generated_by'];
                     $this->transaccionesRepository->create($newTrans);
                     $this->vendedorRepository->update($newSaldo, $order->users[0]->vendedores[0]->id);
-
-
-
-
-
-                    // ! integracion
-
-                    // Verificar si ya existe una transacción global para este pedido y vendedor
-                    $existingTransaction = TransaccionGlobal::where('id_order', $order->id)
-                        ->where('id_seller', $order->users[0]->vendedores[0]->id_master)
-
-                        ->first();
-
-
-                    if ($existingTransaction === null) {
-                        Log::info("encontro la anterior");
-                    }
-
-                    // Obtener la transacción global previa
-                    $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $order->users[0]->vendedores[0]->id_master)
-                        ->orderBy('id', 'desc')
-                        ->first();
-
-                    $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
-
-                    if ($existingTransaction === null) {
-                        $newTransactionGlobal = new TransaccionGlobal();
-
-                        $newTransactionGlobal->admission_date = $marcaT;
-                        $newTransactionGlobal->delivery_date = now()->format('Y-m-d');
-                        $newTransactionGlobal->status = $order->status;
-                        $newTransactionGlobal->return_state = 'EN BODEGA';
-                        // $newTransactionGlobal->return_state = null;
-                        $newTransactionGlobal->id_order = $order->id;
-                        $newTransactionGlobal->code = $order->users[0]->vendedores[0]->nombre_comercial . "-" . $order->numero_orden;
-                        $newTransactionGlobal->origin = 'Pedido ' . 'NOVEDAD';
-                        $newTransactionGlobal->withdrawal_price = 0; // Ajusta según necesites
-                        $newTransactionGlobal->value_order = 0; // Ajusta según necesites
-                        $newTransactionGlobal->return_cost = $order->users[0]->vendedores[0]->costo_devolucion;
-                        $newTransactionGlobal->delivery_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->notdelivery_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->provider_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->referer_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->total_transaction =
-                            $newTransactionGlobal->value_order +
-                            $newTransactionGlobal->return_cost +
-                            $newTransactionGlobal->delivery_cost +
-                            $newTransactionGlobal->notdelivery_cost +
-                            $newTransactionGlobal->provider_cost +
-                            $newTransactionGlobal->referer_cost;
-                        $newTransactionGlobal->previous_value = $previousValue;
-                        $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
-                        $newTransactionGlobal->state = true;
-                        $newTransactionGlobal->id_seller = $order->users[0]->vendedores[0]->id_master;
-                        $newTransactionGlobal->internal_transportation_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->external_transportation_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->external_return_cost = 0;
-                        $newTransactionGlobal->save();
-
-                        $message = "Transacción con débito por estado " . $order->status;
-                    }
-                    // else {
-                    //     $existingTransaction->update([
-                    //         'status' => 'NOVEDAD',
-                    //         'return_state' => $order->estado_devolucion,
-                    //         'return_cost' => $order->users->vendedores->costo_devolucion,
-                    //         'origin' => 'Pedido ' . 'NOVEDAD',
-                    //         'previous_value' => $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0,
-                    //         'current_value' => $previousTransactionGlobal ? $previousTransactionGlobal->current_value + $existingTransaction->total_transaction : $existingTransaction->total_transaction,
-                    //     ]);
-                    // }
-
-
-
-
-
-
 
                     $message = "Transacción con débito por estado " . $order->status . " y " . $order->estado_devolucion;
                 } else {
@@ -1834,9 +1293,6 @@ class TransaccionesAPIController extends Controller
         try {
             $data = $request->json()->all();
             $order = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades'])->find($id);
-            $marcaT = Carbon::createFromFormat('d/m/Y H:i', $order->marca_t_i)->format('Y-m-d H:i:s');
-
-
             if ($data["return_status"] == "ENTREGADO EN OFICINA") {
                 $order->estado_devolucion = $data["return_status"];
                 $order->dt = $data["return_status"];
@@ -1850,29 +1306,6 @@ class TransaccionesAPIController extends Controller
                 $order->received_by = $data['generated_by'];
             }
 
-
-            //new column
-            $user = UpUser::where('id', $data['generated_by'])->first();
-            $username = $user ? $user->username : null;
-
-            $newHistory = [
-                "area" => "estado_devolucion",
-                "status" => $data["return_status"],
-                "timestap" => date('Y-m-d H:i:s'),
-                "comment" => "",
-                "path" => "",
-                "generated_by" => $data['generated_by'] . "_" . $username
-            ];
-
-            if ($order->status_history === null || $order->status_history === '[]') {
-                $order->status_history = json_encode([$newHistory]);
-            } else {
-                $existingHistory = json_decode($order->status_history, true);
-
-                $existingHistory[] = $newHistory;
-
-                $order->status_history = json_encode($existingHistory);
-            }
 
             if ($order->status == "NOVEDAD") {
                 if ($order->costo_devolucion == null) { // Verifica si está vacío convirtiendo a un array
@@ -1896,78 +1329,6 @@ class TransaccionesAPIController extends Controller
 
                     $this->transaccionesRepository->create($newTrans);
                     $this->vendedorRepository->update($newSaldo, $order->users[0]->vendedores[0]->id);
-
-
-
-
-
-
-                    // ! integracion
-
-                    // Verificar si ya existe una transacción global para este pedido y vendedor
-                    $existingTransaction = TransaccionGlobal::where('id_order', $order->id)
-                        ->where('id_seller', $order->users[0]->vendedores[0]->id_master)
-
-                        ->first();
-
-                    // Obtener la transacción global previa
-                    $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $order->users[0]->vendedores[0]->id_master)
-                        ->orderBy('id', 'desc')
-                        ->first();
-
-                    $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
-
-                    if ($existingTransaction === null) {
-                        $newTransactionGlobal = new TransaccionGlobal();
-
-                        $newTransactionGlobal->admission_date = $marcaT;
-                        $newTransactionGlobal->delivery_date = now()->format('Y-m-d');
-                        $newTransactionGlobal->status = $order->status;
-                        $newTransactionGlobal->return_state = $data["return_status"];
-                        // $newTransactionGlobal->return_state = null;
-                        $newTransactionGlobal->id_order = $order->id;
-                        $newTransactionGlobal->code = $order->users[0]->vendedores[0]->nombre_comercial . "-" . $order->numero_orden;
-                        $newTransactionGlobal->origin = 'Pedido ' . 'NOVEDAD';
-                        $newTransactionGlobal->withdrawal_price = 0; // Ajusta según necesites
-                        $newTransactionGlobal->value_order = 0; // Ajusta según necesites
-                        $newTransactionGlobal->return_cost = $order->users[0]->vendedores[0]->costo_devolucion;
-                        $newTransactionGlobal->delivery_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->notdelivery_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->provider_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->referer_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->total_transaction =
-                            $newTransactionGlobal->value_order +
-                            $newTransactionGlobal->return_cost +
-                            $newTransactionGlobal->delivery_cost +
-                            $newTransactionGlobal->notdelivery_cost +
-                            $newTransactionGlobal->provider_cost +
-                            $newTransactionGlobal->referer_cost;
-                        $newTransactionGlobal->previous_value = $previousValue;
-                        $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
-                        $newTransactionGlobal->state = true;
-                        $newTransactionGlobal->id_seller = $order->users[0]->vendedores[0]->id_master;
-                        $newTransactionGlobal->internal_transportation_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->external_transportation_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->external_return_cost = 0;
-                        $newTransactionGlobal->save();
-
-                        $message = "Transacción con débito por estado " . $order->status;
-                    }
-                    // else {
-                    //     $existingTransaction->update([
-                    //         'status' => 'NOVEDAD',
-                    //         'return_state' => $order->estado_devolucion,
-                    //         'return_cost' => $order->users->vendedores->costo_devolucion,
-                    //         'origin' => 'Pedido ' . 'NOVEDAD',
-                    //         'previous_value' => $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0,
-                    //         'current_value' => $previousTransactionGlobal ? $previousTransactionGlobal->current_value + $existingTransaction->total_transaction : $existingTransaction->total_transaction,
-                    //     ]);
-                    // }
-
-
-
-
-
 
                     $message = "Transacción con débito por estado " . $order->status . " y " . $order->estado_devolucion;
                 } else {
@@ -2002,56 +1363,19 @@ class TransaccionesAPIController extends Controller
         try {
             $data = $request->json()->all();
             $order = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades'])->find($id);
-            $marcaT = Carbon::createFromFormat('d/m/Y H:i', $order->marca_t_i)->format('Y-m-d H:i:s');
-
-
-            // Verificar si ya existe una transacción global para este pedido y vendedor
-            $ETransG = TransaccionGlobal::where('id_order', $id)->first();
-
             if ($data["return_status"] == "ENTREGADO EN OFICINA") {
                 $order->estado_devolucion = $data["return_status"];
                 $order->do = $data["return_status"];
                 $order->marca_t_d = date("d/m/Y H:i");
                 $order->received_by = $data['generated_by'];
-
-                // ! update transaction-global
-                $ETransG->return_state = 'ENTREGADO EN OFICINA';
-                $ETransG->save();
             }
             if ($data["return_status"] == "EN BODEGA") {
                 $order->estado_devolucion = $data["return_status"];
                 $order->dl = $data["return_status"];
                 $order->marca_t_d_l = date("d/m/Y H:i");
                 $order->received_by = $data['generated_by'];
-
-                // ! update transaction-global
-                $ETransG->return_state = 'EN BODEGA';
-                $ETransG->save();
             }
 
-
-            //new column
-            $user = UpUser::where('id', $data['generated_by'])->first();
-            $username = $user ? $user->username : null;
-
-            $newHistory = [
-                "area" => "estado_devolucion",
-                "status" => $data["return_status"],
-                "timestap" => date('Y-m-d H:i:s'),
-                "comment" => "",
-                "path" => "",
-                "generated_by" => $data['generated_by'] . "_" . $username
-            ];
-
-            if ($order->status_history === null || $order->status_history === '[]') {
-                $order->status_history = json_encode([$newHistory]);
-            } else {
-                $existingHistory = json_decode($order->status_history, true);
-
-                $existingHistory[] = $newHistory;
-
-                $order->status_history = json_encode($existingHistory);
-            }
 
             if ($order->status == "NOVEDAD") {
 
@@ -2078,88 +1402,6 @@ class TransaccionesAPIController extends Controller
                     $this->transaccionesRepository->create($newTrans);
                     $this->vendedorRepository->update($newSaldo, $order->users[0]->vendedores[0]->id);
 
-
-
-
-
-
-
-                    // ! integracion
-
-                    // Verificar si ya existe una transacción global para este pedido y vendedor
-                    $existingTransaction = TransaccionGlobal::where('id_order', $order->id)
-                        ->where('id_seller', $order->users[0]->vendedores[0]->id_master)
-
-                        ->first();
-
-                    // Obtener la transacción global previa
-                    $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $order->users[0]->vendedores[0]->id_master)
-                        ->orderBy('id', 'desc')
-                        ->first();
-
-                    $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
-
-                    if ($existingTransaction === null) {
-                        $newTransactionGlobal = new TransaccionGlobal();
-
-                        $newTransactionGlobal->admission_date = $marcaT;
-                        $newTransactionGlobal->delivery_date = now()->format('Y-m-d');
-                        $newTransactionGlobal->status = $order->status;
-                        $newTransactionGlobal->return_state = $data["return_status"];
-                        // $newTransactionGlobal->return_state = null;
-                        $newTransactionGlobal->id_order = $order->id;
-                        $newTransactionGlobal->code = $order->users[0]->vendedores[0]->nombre_comercial . "-" . $order->numero_orden;
-                        $newTransactionGlobal->origin = 'Pedido ' . 'NOVEDAD';
-                        $newTransactionGlobal->withdrawal_price = 0; // Ajusta según necesites
-                        $newTransactionGlobal->value_order = 0; // Ajusta según necesites
-                        $newTransactionGlobal->return_cost = $order->users[0]->vendedores[0]->costo_devolucion;
-                        $newTransactionGlobal->delivery_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->notdelivery_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->provider_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->referer_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->total_transaction =
-                            $newTransactionGlobal->value_order +
-                            $newTransactionGlobal->return_cost +
-                            $newTransactionGlobal->delivery_cost +
-                            $newTransactionGlobal->notdelivery_cost +
-                            $newTransactionGlobal->provider_cost +
-                            $newTransactionGlobal->referer_cost;
-                        $newTransactionGlobal->previous_value = $previousValue;
-                        $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
-                        $newTransactionGlobal->state = true;
-                        $newTransactionGlobal->id_seller = $order->users[0]->vendedores[0]->id_master;
-                        $newTransactionGlobal->internal_transportation_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->external_transportation_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->external_return_cost = 0;
-                        $newTransactionGlobal->save();
-
-                        $message = "Transacción con débito por estado " . $order->status;
-                    }
-                    // else {
-                    //     $existingTransaction->update([
-                    //         'status' => 'NOVEDAD',
-                    //         'return_state' => $order->estado_devolucion,
-                    //         'return_cost' => $order->users->vendedores->costo_devolucion,
-                    //         'origin' => 'Pedido ' . 'NOVEDAD',
-                    //         'previous_value' => $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0,
-                    //         'current_value' => $previousTransactionGlobal ? $previousTransactionGlobal->current_value + $existingTransaction->total_transaction : $existingTransaction->total_transaction,
-                    //     ]);
-                    // }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
                     $message = "Transacción con débito por estado " . $order->status . " y " . $order->estado_devolucion;
                 } else {
                     $message = "Transacción sin débito, ya ha sido cobrada";
@@ -2183,6 +1425,7 @@ class TransaccionesAPIController extends Controller
             ], 500);
         }
     }
+
 
     public function updateFieldTime(Request $request, $id)
     {
@@ -2407,12 +1650,6 @@ class TransaccionesAPIController extends Controller
         return response()->json($transaccion);
     }
 
-    public function getTransactionGlobalToRollback($id)
-    {
-        $transaccion = TransaccionGlobal::where("id_order", $id)->where('state', '1')->whereNot("status", "ROLLBACK")->get();
-        return response()->json($transaccion);
-    }
-
     // public function rollbackTransaction(Request $request)
     // {
     //     DB::beginTransaction();
@@ -2605,7 +1842,6 @@ class TransaccionesAPIController extends Controller
     //     }
     // }
 
-
     public function rollbackTransaction(Request $request)
     {
         DB::beginTransaction();
@@ -2729,6 +1965,7 @@ class TransaccionesAPIController extends Controller
                         //     error_log("ok! er");
                         // }
 
+
                         array_push($reqTrans, $transaction);
                         $pedido = PedidosShopify::where("id", $transaction->id_origen)->first();
 
@@ -2764,37 +2001,6 @@ class TransaccionesAPIController extends Controller
                             $this->vendedorRepository->update($vendedor[0]->saldo, $vendedor[0]->id);
                         }
                     }
-                }
-
-                $transactionsGlobal = TransaccionGlobal::where('id_order', $pedido->id)->get();
-
-                // Actualizar el estado de las transacciones globales existentes a 0
-                foreach ($transactionsGlobal as $transaction) {
-                    $transaction->state = 0; // Cambiar el estado a 0  
-                    $transaction->save();
-                }
-
-                foreach ($transactionsGlobal as $transaction) {
-                    // Crear una nueva instancia de TransaccionGlobal para la transacción opuesta
-                    $newTransaction = $transaction->replicate(); // Clonar la transacción actual
-
-                    $newTransaction->status = 1;
-                    $newTransaction->status = 'ROLLBACK';
-                    $newTransaction->value_order = $transaction->value_order != 0 ? -$transaction->value_order : 0;
-                    $newTransaction->return_cost = $transaction->return_cost != 0 ? -$transaction->return_cost : 0;
-                    $newTransaction->delivery_cost = $transaction->delivery_cost != 0 ? -$transaction->delivery_cost : 0;
-                    $newTransaction->notdelivery_cost = $transaction->notdelivery_cost != 0 ? -$transaction->notdelivery_cost : 0;
-                    $newTransaction->provider_cost = $transaction->provider_cost != 0 ? -$transaction->provider_cost : 0;
-                    $newTransaction->referer_cost = $transaction->referer_cost != 0 ? -$transaction->referer_cost : 0;
-                    $newTransaction->total_transaction = $transaction->total_transaction != 0 ? -$transaction->total_transaction : 0;
-                    $newTransaction->previous_value = $transaction->current_value;
-                    $newTransaction->current_value = $transaction->current_value + $newTransaction->total_transaction;
-                    // ! last 3 columns in transactions_global
-                    $newTransaction->internal_transportation_cost = $transaction->internal_transportation_cost != 0 ? -$transaction->internal_transportation_cost : 0;
-                    $newTransaction->external_transportation_cost = $transaction->external_transportation_cost != 0 ? -$transaction->external_transportation_cost : 0;
-                    $newTransaction->external_return_cost = $transaction->external_return_cost != 0 ? -$transaction->external_return_cost : 0;
-
-                    $newTransaction->save();
                 }
             }
 
@@ -2946,282 +2152,6 @@ class TransaccionesAPIController extends Controller
         }
     }
 
-    public function rollbackTransactionGLobal(Request $request)
-    {
-        DB::beginTransaction();
-
-
-        $data = $request->json()->all();
-        $generated_by = $data['generated_by'];
-
-        $ids = $data['ids'];
-        $idOrigen = $data["id_origen"];
-        $reqTrans = [];
-        $reqPedidos = [];
-
-        // if (!empty($ids)) {
-        $firstIdTransaction = $ids[0];
-
-        if (!empty($firstIdTransaction)) {
-
-            $transactionFounded = Transaccion::where("id", $firstIdTransaction)->first();
-            $idTransFounded = $transactionFounded->id_origen;
-
-            // $providerTransaction = ProviderTransaction::where("origin_id", $idTransFounded)->first();
-            $providerTransactions = ProviderTransaction::where("origin_id", $idTransFounded)->get();
-            // $totalIds = count($ids);
-            error_log("-> pt -> $providerTransactions");
-        }
-        // ! ↓ esto se usa
-        // $shouldProcessProviderTransaction = $providerTransaction != null && $providerTransaction->state == 1;
-        // ! deberia dejarle pasar 
-
-        try {
-            //code...
-            $transaction = null;
-
-            if (empty($firstIdTransaction)) {
-                $order = PedidosShopify::find($idOrigen);
-                if ($order->status != "PEDIDO PROGRAMADO") {
-
-                    $order->status = "PEDIDO PROGRAMADO";
-                    $order->estado_devolucion = "PENDIENTE";
-                    $order->costo_devolucion = null;
-                    $order->costo_envio = null; //5.5
-                    $order->costo_transportadora = null; //2.75
-                    $order->value_product_warehouse = null;
-                    $order->value_referer = null;
-                    $order->costo_operador = null;
-
-                    $order->save();
-                }
-
-                // $pedidosShopifyRutaLink = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $order->id)->delete();
-                // $pedidosDhopifyTransportadoraLink = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $order->id)->delete();
-                // $pedidosDhopifySubrutaLink = PedidosShopifiesSubRutaLink::where('pedidos_shopify_id', $order->id)->delete();
-                // $pedidosDhopifyOperadoreLink = PedidosShopifiesOperadoreLink::where('pedidos_shopify_id', $order->id)->delete();
-
-
-                // if (
-                //     $pedidosShopifyRutaLink > 0 &&
-                //     $pedidosDhopifyTransportadoraLink > 0 &&
-                //     $pedidosDhopifySubrutaLink > 0 &&
-                //     $pedidosDhopifyOperadoreLink > 0
-                // ) {
-                //     error_log("ok! er");
-                // }
-            } else {
-                foreach ($ids as $id) {
-
-                    $transaction = Transaccion::where("id", $id)->first();
-                    if ($transaction->origen == "retiro") {
-                        $retiro = OrdenesRetiro::find($transaction->id_origen);
-                        $retiro->estado = "RECHAZADO";
-
-                        // if ($transaction->tipo == "debit") {
-                        //     $this->CreditLocal(
-                        //         $transaction->id_vendedor,
-                        //         $transaction->monto,
-                        //         $transaction->id_origen,
-                        //         $transaction->codigo,
-                        //         "reembolso",
-                        //         "reembolso por retiro cancelado",
-                        //         $generated_by
-                        //     );
-                        // }
-                    } else {
-
-                        $order = PedidosShopify::find($transaction->id_origen);
-                        if ($order->status != "PEDIDO PROGRAMADO") {
-
-                            $order->status = "PEDIDO PROGRAMADO";
-                            $order->estado_devolucion = "PENDIENTE";
-                            // $order->estado_interno = "PENDIENTE";
-                            // $order->estado_logistico = "PENDIENTE";
-
-                            $order->costo_devolucion = null;
-                            $order->costo_envio = null; //5.5
-                            $order->costo_transportadora = null; //2.75
-                            $order->value_product_warehouse = null;
-                            $order->value_referer = null;
-                            $order->costo_operador = null;
-
-                            $order->save();
-                        }
-
-
-
-                        // $pedidosShopifyRutaLink = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $order->id)->delete();
-                        // $pedidosDhopifyTransportadoraLink = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $order->id)->delete();
-                        // $pedidosDhopifySubrutaLink = PedidosShopifiesSubRutaLink::where('pedidos_shopify_id', $order->id)->delete();
-                        // $pedidosDhopifyOperadoreLink = PedidosShopifiesOperadoreLink::where('pedidos_shopify_id', $order->id)->delete();
-
-
-                        // if (
-                        //     $pedidosShopifyRutaLink > 0 &&
-                        //     $pedidosDhopifyTransportadoraLink > 0 &&
-                        //     $pedidosDhopifySubrutaLink > 0 &&
-                        //     $pedidosDhopifyOperadoreLink > 0
-                        // ) {
-                        //     error_log("ok! er");
-                        // }
-
-                        // array_push($reqTrans, $transaction);
-                        $pedido = PedidosShopify::where("id", $transaction->id_origen)->first();
-
-                        // if ($transaction->state == 1) {
-
-                        //     array_push($reqPedidos, $pedido);
-
-                        //     $vendedor = UpUser::find($transaction->id_vendedor)->vendedores;
-                        //     if ($transaction->tipo == "credit") {
-                        //         $this->DebitLocal(
-                        //             $transaction->id_vendedor,
-                        //             $transaction->monto,
-                        //             $transaction->id_origen,
-                        //             $transaction->codigo,
-                        //             "reembolso",
-                        //             "reembolso por restauracion de pedido",
-                        //             $generated_by
-                        //         );
-                        //     }
-                        //     if ($transaction->tipo == "debit") {
-                        //         $this->CreditLocal(
-                        //             $transaction->id_vendedor,
-                        //             $transaction->monto,
-                        //             $transaction->id_origen,
-                        //             $transaction->codigo,
-                        //             "reembolso",
-                        //             "reembolso por restauracion de pedido",
-                        //             $generated_by
-                        //         );
-                        //     }
-                        //     $transaction->state = 0;
-                        //     $transaction->save();
-                        //     $this->vendedorRepository->update($vendedor[0]->saldo, $vendedor[0]->id);
-                        // }
-                    }
-                }
-
-                $transactionsGlobal = TransaccionGlobal::where('id_order', $pedido->id)->get();
-
-                // Actualizar el estado de las transacciones globales existentes a 0
-                foreach ($transactionsGlobal as $transaction) {
-                    $transaction->state = 0; // Cambiar el estado a 0  
-                    $transaction->save();
-                }
-
-                foreach ($transactionsGlobal as $transaction) {
-                    // Crear una nueva instancia de TransaccionGlobal para la transacción opuesta
-                    $newTransaction = $transaction->replicate(); // Clonar la transacción actual
-
-                    $newTransaction->status = 1;
-                    $newTransaction->status = 'ROLLBACK';
-                    $newTransaction->value_order = $transaction->value_order != 0 ? -$transaction->value_order : 0;
-                    $newTransaction->return_cost = $transaction->return_cost != 0 ? -$transaction->return_cost : 0;
-                    $newTransaction->delivery_cost = $transaction->delivery_cost != 0 ? -$transaction->delivery_cost : 0;
-                    $newTransaction->notdelivery_cost = $transaction->notdelivery_cost != 0 ? -$transaction->notdelivery_cost : 0;
-                    $newTransaction->provider_cost = $transaction->provider_cost != 0 ? -$transaction->provider_cost : 0;
-                    $newTransaction->referer_cost = $transaction->referer_cost != 0 ? -$transaction->referer_cost : 0;
-                    $newTransaction->total_transaction = $transaction->total_transaction != 0 ? -$transaction->total_transaction : 0;
-                    $newTransaction->previous_value = $transaction->current_value;
-                    $newTransaction->current_value = $transaction->current_value + $newTransaction->total_transaction;
-                    // ! last 3 columns in transactions_global
-                    $newTransaction->internal_transportation_cost = $transaction->internal_transportation_cost != 0 ? -$transaction->internal_transportation_cost : 0;
-                    $newTransaction->external_transportation_cost = $transaction->external_transportation_cost != 0 ? -$transaction->external_transportation_cost : 0;
-                    $newTransaction->external_return_cost = $transaction->external_return_cost != 0 ? -$transaction->external_return_cost : 0;
-
-                    $newTransaction->save();
-                }
-            }
-
-
-            // $providerTransactions
-            if (!empty($providerTransactions)) {
-                foreach ($providerTransactions as $providerT) {
-                    $providerTransaction = ProviderTransaction::where("origin_id", $providerT->origin_id)
-                        ->where('sku_product_reference', $providerT->sku_product_reference)->first();
-
-                    if ($providerTransaction && $providerTransaction->state == 1) {
-                        $productId = substr($providerTransaction->sku_product_reference, strrpos($providerTransaction->sku_product_reference, 'C') + 1);
-
-                        // Buscar el producto por ID
-                        $product = Product::with('warehouse')->find($productId);
-
-                        $providerId = $product->warehouse->provider_id;
-
-                        $user = Provider::with("user")->where("id", $providerId)->first();
-                        $userId = $user->user->id;
-
-                        error_log("1.$providerTransaction->origin_id");
-                        error_log("2.$providerTransaction->origin_code");
-                        error_log("3.$userId");
-                        error_log("4.$providerTransaction->amount");
-
-                        $this->DebitLocalProvider(
-                            $providerTransaction->origin_id,
-                            $providerTransaction->origin_code,
-                            $userId,
-                            $providerTransaction->amount,
-                            "Restauracion",
-                            "Restauracion de Guia",
-                            "RESTAURACION",
-                            "Restauracion de Valores de Guia",
-                            $generated_by,
-                            $providerTransaction->sku_product_reference
-                        );
-                        $providerTransaction->state = 0;
-                        $providerTransaction->save();
-                    }
-                }
-            }
-
-            $transactionOrderCarrier = TransaccionPedidoTransportadora::where("id_pedido", $idOrigen)->first();
-            // error_log("transactionOrderCarrier");
-            if ($transactionOrderCarrier != null) {
-                error_log("exist data tpt");
-                // error_log("delete from tpt $transactionOrderCarrier->id");
-                $deliveredDate = $transactionOrderCarrier->fecha_entrega;
-                $tptCarrierId = $transactionOrderCarrier->id_transportadora;
-                $tpt = new TransaccionPedidoTransportadoraAPIController();
-                $tpt->destroy($transactionOrderCarrier->id);
-                // error_log("**** need to recal tsc ****");
-                $dateFormatted = Carbon::createFromFormat('j/n/Y', $deliveredDate)->format('Y-m-d');
-
-                $transportadoraShippingCost = TransportadorasShippingCost::where('id_transportadora', $tptCarrierId)
-                    ->whereDate('time_stamp', $dateFormatted)
-                    ->first();
-                // error_log("upt from tsc $transportadoraShippingCost");
-
-                if ($transportadoraShippingCost != null) {
-                    // error_log("exists data transShippingCost");
-                    $tsc = new TransportadorasShippingCostAPIController();
-                    $tsc->recalculateValues($transportadoraShippingCost->id, $deliveredDate, $tptCarrierId);
-                    // error_log("updated data transShippingCost");
-                } else {
-                    error_log("no data tsc");
-                }
-            } else {
-                error_log("no data tpt");
-            }
-            //  **
-            $pedidos = !empty($ids) ? $ids[0] : null;
-
-            DB::commit();
-            return response()->json([
-                "transacciones" => $transaction,
-                "pedidos" => $pedidos
-            ]);
-        } catch (\Exception $e) {
-            DB::rollback();
-            return response()->json([
-                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage(),
-                "req" => $reqTrans
-            ], 500);
-        }
-    }
-
-
     public function pedidoProgramado(Request $request)
     {
         DB::beginTransaction();
@@ -3277,29 +2207,6 @@ class TransaccionesAPIController extends Controller
 
                 $order->confirmed_at = null;
 
-                //new column
-                $user = UpUser::where('id', $data['generated_by'])->first();
-                $username = $user ? $user->username : null;
-
-                $newHistory = [
-                    "area" => "status",
-                    "status" => "PEDIDO PROGRAMADO",
-                    "timestap" => date('Y-m-d H:i:s'),
-                    "comment" => "",
-                    "path" => "",
-                    "generated_by" => $data['generated_by'] . "_" . $username
-                ];
-
-                if ($order->status_history === null || $order->status_history === '[]') {
-                    $order->status_history = json_encode([$newHistory]);
-                } else {
-                    $existingHistory = json_decode($order->status_history, true);
-
-                    $existingHistory[] = $newHistory;
-
-                    $order->status_history = json_encode($existingHistory);
-                }
-
                 $order->save();
             }
 
@@ -3338,7 +2245,7 @@ class TransaccionesAPIController extends Controller
     public function debitWithdrawal(Request $request, $id)
     {
         DB::beginTransaction();
-        error_log("debitWithdrawal_logistic");
+
         try {
             $data = $request->json()->all();
             // $pedido = PedidosShopify::findOrFail($data['id_origen']);
@@ -3351,12 +2258,8 @@ class TransaccionesAPIController extends Controller
                 $orden->fecha_transferencia = date("d/m/Y H:i:s");
                 $orden->updated_at = new DateTime();
                 $orden->monto = str_replace(',', '.', $orden->monto);
-                $orden->updated_by_id = $data['generated_by'];
-                $orden->paid_by = $data['generated_by'];
                 $orden->save();
 
-
-                $marcaT = Carbon::createFromFormat('d/m/Y H:i', $orden->fecha_transferencia)->format('Y-m-d H:i:s');
                 $rolInvoke = $data['rol_id'];
 
                 if ($rolInvoke != 5) {
@@ -3379,61 +2282,6 @@ class TransaccionesAPIController extends Controller
                             $lastTransaccion->comentario = 'debito por retiro ' . $orden->estado;
                             $lastTransaccion->save();
                         }
-                    }
-
-
-                    // ! integracion
-
-                    // // Verificar si ya existe una transacción global para este pedido y vendedor
-                    $existingTransaction = TransaccionGlobal::where('origin', 'Retiro de Efectivo')
-                        ->where('id_vendedor', $orden->id_vendedor)
-                        ->where('code', 'Retiro-' . $orden->id)
-                        ->first();
-
-                    // Obtener la transacción global previa
-                    $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $orden->id_vendedor)
-                        ->orderBy('id', 'desc')
-                        ->first();
-
-                    $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
-
-                    if ($existingTransaction === null) {
-                        $newTransactionGlobal = new TransaccionGlobal();
-
-                        $newTransactionGlobal->admission_date = $marcaT;
-                        $newTransactionGlobal->delivery_date = now()->format('Y-m-d');
-                        $newTransactionGlobal->status = "APROBADO";
-                        // $newTransactionGlobal->return_state = $order->estado_devolucion;
-                        $newTransactionGlobal->return_state = null;
-                        $newTransactionGlobal->id_order = $orden->id;
-                        $newTransactionGlobal->code = 'Retiro' . "-" . $orden->id;
-                        $newTransactionGlobal->origin = 'Retiro de ' . 'Efectivo';
-                        // $orden->monto = str_replace(',', '.', $orden->monto);
-                        $newTransactionGlobal->withdrawal_price = -$orden->monto; // Ajusta según necesites
-                        $newTransactionGlobal->value_order = 0; // Ajusta según necesites
-                        $newTransactionGlobal->return_cost = 0;
-                        $newTransactionGlobal->delivery_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->notdelivery_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->provider_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->referer_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->total_transaction =
-                            $newTransactionGlobal->value_order +
-                            $newTransactionGlobal->return_cost +
-                            $newTransactionGlobal->delivery_cost +
-                            $newTransactionGlobal->notdelivery_cost +
-                            $newTransactionGlobal->provider_cost +
-                            $newTransactionGlobal->referer_cost;
-                        $newTransactionGlobal->previous_value = $previousValue;
-                        $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
-                        $newTransactionGlobal->state = true;
-                        $newTransactionGlobal->id_seller = $orden->id_vendedor;
-                        $newTransactionGlobal->internal_transportation_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->external_transportation_cost = 0; // Ajusta según necesites
-                        $newTransactionGlobal->external_return_cost = 0;
-                        $newTransactionGlobal->save();
-                    } else {
-                        $existingTransaction->delivery_date = now()->format('Y-m-d');
-                        $existingTransaction->save();
                     }
                 } else {
                     $lastTransaccion = ProviderTransaction::where('origin_id', $id)
@@ -3497,7 +2345,7 @@ class TransaccionesAPIController extends Controller
 
         DB::beginTransaction();
         try {
-            error_log("postWhitdrawalProviderAproved");
+            // error_log("postWhitdrawalProviderAproved");
             //code...
 
             $data = $request->json()->all();
@@ -3511,7 +2359,6 @@ class TransaccionesAPIController extends Controller
             $withdrawal->account_id = $data["id_account"];
             $withdrawal->rol_id = 5;
             // $withdrawal->account_id = "EEEETEST";
-            $withdrawal->created_by_id = $data["generated_by"];
 
             $withdrawal->save();
 
@@ -3557,11 +2404,9 @@ class TransaccionesAPIController extends Controller
             $withdrawal->estado = "APROBADO";
             $withdrawal->updated_at = new DateTime();
             $withdrawal->codigo = $withdrawal->codigo_generado;
-            $withdrawal->updated_by_id = $data["generated_by"];
             $withdrawal->save();
             $monto = str_replace(',', '.', $withdrawal->monto);
-            // $this->DebitLocal($data["id_vendedor"], $monto, $withdrawal->id, "retiro-" . $withdrawal->id, "retiro", "debito por retiro solicitado", $data["id_vendedor"]);
-            $this->DebitLocal($data["id_vendedor"], $monto, $withdrawal->id, "retiro-" . $withdrawal->id, "retiro", "debito por retiro solicitado", $data["generated_by"]);
+            $this->DebitLocal($data["id_vendedor"], $monto, $withdrawal->id, "retiro-" . $withdrawal->id, "retiro", "debito por retiro solicitado", $data["id_vendedor"]);
 
             DB::commit();
             return response()->json(["response" => "cambio de estado y debit exitoso", "solicitud" => $withdrawal], 200);
