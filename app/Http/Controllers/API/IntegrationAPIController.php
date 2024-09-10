@@ -32,6 +32,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use setasign\Fpdi\PdfParser\StreamReader;
 use setasign\Fpdi\Tcpdf\Fpdi;
+use Illuminate\Support\Facades\Log;
+
 
 use function Laravel\Prompts\error;
 use TCPDF;
@@ -351,7 +353,6 @@ class IntegrationAPIController extends Controller
                 // ! for transaction_global
                 $existingTransaction = TransaccionGlobal::where('id_order', $order->id)
                     ->where('id_seller', $order->users[0]->vendedores[0]->id_master)
-
                     ->first();
 
                 $marcaT = "";
@@ -701,6 +702,7 @@ class IntegrationAPIController extends Controller
 
                                     // ! parte uno de la transaccion global
                                     $newTransactionGlobal = new TransaccionGlobal();
+                                    $previousValue = 0;
                                     // ! ****************************************
 
                                     $this->CreditInt(
@@ -806,7 +808,7 @@ class IntegrationAPIController extends Controller
 
                                         $newTransactionGlobalReferer = new TransaccionGlobal();
 
-                                        if ($existingTransaction === null) {
+                                        if ($existingTransaction->state == 0) {
 
                                             $newTransactionGlobalReferer->admission_date = $marcaT;
                                             $newTransactionGlobalReferer->delivery_date = now()->format('Y-m-d');
@@ -871,7 +873,7 @@ class IntegrationAPIController extends Controller
 
                                     // $newTransactionGlobal = new TransaccionGlobal();
 
-                                    if ($existingTransaction === null) {
+                                    if ($existingTransaction->state == 0) {
 
                                         $newTransactionGlobal->admission_date = $marcaT;
                                         $newTransactionGlobal->delivery_date = now()->format('Y-m-d');
@@ -1102,90 +1104,64 @@ class IntegrationAPIController extends Controller
                                     }
 
                                     if ($order->costo_devolucion == null) {
-                                        if ($order->costo_devolucion == null) {
-                                            //
-                                            $deliveryPrice = 0;
-                                            if ($prov_destiny == $prov_origen) {
-                                                error_log("Provincial");
-                                                if ($coverage_type == "Normal") {
-                                                    $deliveryPrice = (float)$costs['normal1'];
-                                                } else {
-                                                    $deliveryPrice = (float)$costs['especial1'];
-                                                }
+                                        //
+                                        $deliveryPrice = 0;
+                                        if ($prov_destiny == $prov_origen) {
+                                            error_log("Provincial");
+                                            if ($coverage_type == "Normal") {
+                                                $deliveryPrice = (float)$costs['normal1'];
                                             } else {
-                                                error_log("Nacional");
-                                                if ($coverage_type == "Normal") {
-                                                    $deliveryPrice = (float)$costs['normal2'];
-                                                } else {
-                                                    $deliveryPrice = (float)$costs['especial2'];
-                                                }
+                                                $deliveryPrice = (float)$costs['especial1'];
                                             }
-                                            $deliveryPrice = $deliveryPrice + ($deliveryPrice * $iva);
-                                            $deliveryPrice = round($deliveryPrice, 2);
-
-                                            error_log("after type + iva: $deliveryPrice");
-
-                                            $costo_seguro = (((float)$orderData['precio_total']) * ((float)$costs['costo_seguro'])) / 100;
-                                            $costo_seguro = round($costo_seguro, 2);
-                                            $costo_seguro =  $costo_seguro + ($costo_seguro * $iva);
-                                            $costo_seguro = round($costo_seguro, 2);
-
-                                            error_log("costo_seguro: $costo_seguro");
-
-                                            $deliveryPrice += $costo_seguro;
-                                            error_log("after costo_seguro: $deliveryPrice");
-                                            $costo_recaudo = 0;
-
-                                            $deliveryPrice += $costo_recaudo;
-                                            $deliveryPrice = round($deliveryPrice, 2);
-                                            $deliveryPriceSeller = $deliveryPrice + $costo_easy;
-                                            // $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
-                                            $deliveryPriceSeller = round($deliveryPriceSeller, 2);
-
-
-                                            error_log("costo entrega after recaudo: $deliveryPrice");
-                                            error_log("costo deliveryPriceSeller: $deliveryPriceSeller");
-
-                                            $order->costo_transportadora = strval($deliveryPrice);
-                                            $order->costo_envio = strval($deliveryPriceSeller);
-
-
-                                            $refundpercentage = $costs['costo_devolucion'];
-                                            $refound_seller = ($deliveryPriceSeller * ($refundpercentage)) / 100;
-                                            $refound_transp = ($deliveryPrice * ($refundpercentage)) / 100;
-
-                                            $order->costo_devolucion = round(((float)$refound_seller), 2);
-                                            // $order->cost_refound_external = round(((float)$refound_transp), 2);
-                                            $pedidoCarrier = PedidosShopifiesCarrierExternalLink::where('pedidos_shopify_id', $orderid)->first();
-                                            $pedidoCarrier->cost_refound_external = round(((float)$refound_transp), 2);
-                                            $pedidoCarrier->save();
-                                            /*
-                                        $comentarioDebitEnvio = 'Costo de envio por pedido en ' . $order->status . " y " . $order->estado_devolucion;
-                                        $this->DebitInt(
-                                            $order->id_comercial,
-                                            $deliveryPriceSeller,
-                                            $orderid,
-                                            'envio',
-                                            $codigo_order,
-                                            $comentarioDebitEnvio,
-                                            1   //cambiar
-                                        );
-
-                                        $comentarioDebitDev = 'Costo de devolución por pedido en ' . $order->status . " y " . $order->estado_devolucion;
-                                        $this->DebitInt(
-                                            $order->id_comercial,
-                                            round(((float)$refound_seller), 2),
-                                            $orderid,
-                                            'devolucion',
-                                            $codigo_order,
-                                            $comentarioDebitDev,
-                                            1   //cambiar
-                                        );
-                                        */
                                         } else {
-                                            //
-                                            error_log("ya existe registro costo_devolucion");
+                                            error_log("Nacional");
+                                            if ($coverage_type == "Normal") {
+                                                $deliveryPrice = (float)$costs['normal2'];
+                                            } else {
+                                                $deliveryPrice = (float)$costs['especial2'];
+                                            }
                                         }
+                                        $deliveryPrice = $deliveryPrice + ($deliveryPrice * $iva);
+                                        $deliveryPrice = round($deliveryPrice, 2);
+
+                                        error_log("after type + iva: $deliveryPrice");
+
+                                        $costo_seguro = (((float)$orderData['precio_total']) * ((float)$costs['costo_seguro'])) / 100;
+                                        $costo_seguro = round($costo_seguro, 2);
+                                        $costo_seguro =  $costo_seguro + ($costo_seguro * $iva);
+                                        $costo_seguro = round($costo_seguro, 2);
+
+                                        error_log("costo_seguro: $costo_seguro");
+
+                                        $deliveryPrice += $costo_seguro;
+                                        error_log("after costo_seguro: $deliveryPrice");
+                                        $costo_recaudo = 0;
+
+                                        $deliveryPrice += $costo_recaudo;
+                                        $deliveryPrice = round($deliveryPrice, 2);
+                                        $deliveryPriceSeller = $deliveryPrice + $costo_easy;
+                                        // $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
+                                        $deliveryPriceSeller = round($deliveryPriceSeller, 2);
+
+
+                                        error_log("costo entrega after recaudo: $deliveryPrice");
+                                        error_log("costo deliveryPriceSeller: $deliveryPriceSeller");
+
+                                        $order->costo_transportadora = strval($deliveryPrice);
+                                        $order->costo_envio = strval($deliveryPriceSeller);
+
+
+                                        $refundpercentage = $costs['costo_devolucion'];
+                                        $refound_seller = ($deliveryPriceSeller * ($refundpercentage)) / 100;
+                                        $refound_transp = ($deliveryPrice * ($refundpercentage)) / 100;
+
+                                        $order->costo_devolucion = round(((float)$refound_seller), 2);
+                                        // $order->cost_refound_external = round(((float)$refound_transp), 2);
+                                        $pedidoCarrier = PedidosShopifiesCarrierExternalLink::where('pedidos_shopify_id', $orderid)->first();
+                                        $pedidoCarrier->cost_refound_external = round(((float)$refound_transp), 2);
+                                        $pedidoCarrier->save();
+                                        /*
+                                        $comentarioDebitEnvio = 'Costo de envio por pedido en ' . $order->status . " y " . $order->estado_devolucion;
                                         /*
                                         $comentarioDebitEnvio = 'Costo de envio por pedido en ' . $order->status . " y " . $order->estado_devolucion;
                                         $this->DebitInt(
@@ -1228,8 +1204,16 @@ class IntegrationAPIController extends Controller
                                         // ! aqui deberia ir otra transaccion global pero seria (NOVEDAD, est_devolucion != pendiente para las externas)
 
                                         $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
+                                        
+                                        error_log("-----------");
+                                        error_log($existingTransaction);
+                                        error_log("-----------");
 
-                                        if ($existingTransaction === null) {
+
+                                        if ($existingTransaction->state == 0) {
+
+                                            error_log($existingTransaction);
+
                                             $newTransactionGlobal = new TransaccionGlobal();
 
                                             $newTransactionGlobal->admission_date = $marcaT;

@@ -9,6 +9,10 @@ use App\Models\OrdenesRetiro;
 use App\Models\OrdenesRetirosUsersPermissionsUserLink;
 use App\Models\UpUser;
 use App\Models\Vendedore;
+use App\Models\TransaccionGlobal;
+
+
+use Carbon\Carbon;
 use DateTime;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -541,6 +545,7 @@ class OrdenesRetiroAPIController extends Controller
             $withdrawal->save();
             
             $idSellerProv = $withdrawal->id_vendedor;//idSeller or provider
+            // $marcaTtransferencia = Carbon::createFromFormat('d/m/Y H:i:s', $withdrawal->fecha_transferencia)->format('Y-m-d');
 
             if ($withdrawal) {
                 if ($data["rol_id"] == 2) {
@@ -553,6 +558,53 @@ class OrdenesRetiroAPIController extends Controller
                         "reembolso orden retiro cancelada",
                         $userSesion
                     );
+
+                     // ! integracion
+
+                    // // Verificar si ya existe una transacción global para este pedido y vendedor
+                    $existingTransaction = TransaccionGlobal::where('origin', 'Retiro de Efectivo')
+                        ->where('id_seller', $withdrawal->id_vendedor)
+                        ->where('code', 'Retiro-' . $withdrawal->id)
+                        ->first();
+
+                    // Obtener la transacción global previa
+                    $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $withdrawal->id_vendedor)
+                        ->orderBy('id', 'desc')
+                        ->first();
+
+                    $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
+
+                    // error_log($existingTransaction);
+
+                    if ($existingTransaction) {
+                        $newTransactionGlobal = new TransaccionGlobal();
+
+                        $newTransactionGlobal->admission_date = now()->format('Y-m-d');
+                        // $newTransactionGlobal->delivery_date = $marcaTtransferencia;
+                        $newTransactionGlobal->status = "REEMBOLSO";
+                        // $newTransactionGlobal->return_state = $order->estado_devolucion;
+                        $newTransactionGlobal->return_state = null;
+                        $newTransactionGlobal->id_order = $withdrawal->id;
+                        $newTransactionGlobal->code = 'RETIRO' . "-" . $withdrawal->id;
+                        $newTransactionGlobal->origin = 'Retiro de ' . 'Efectivo';
+                        // $withdrawal->monto = str_replace(',', '.', $withdrawal->monto);
+                        $newTransactionGlobal->withdrawal_price = $withdrawal->monto; // Ajusta según necesites
+                        $newTransactionGlobal->value_order = 0; // Ajusta según necesites
+                        $newTransactionGlobal->return_cost = 0;
+                        $newTransactionGlobal->delivery_cost = 0; // Ajusta según necesites
+                        $newTransactionGlobal->notdelivery_cost = 0; // Ajusta según necesites
+                        $newTransactionGlobal->provider_cost = 0; // Ajusta según necesites
+                        $newTransactionGlobal->referer_cost = 0; // Ajusta según necesites
+                        $newTransactionGlobal->total_transaction = $withdrawal->monto;
+                        $newTransactionGlobal->previous_value = $previousValue;
+                        $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
+                        $newTransactionGlobal->state = true;
+                        $newTransactionGlobal->id_seller = $withdrawal->id_vendedor;
+                        $newTransactionGlobal->internal_transportation_cost = 0; // Ajusta según necesites
+                        $newTransactionGlobal->external_transportation_cost = 0; // Ajusta según necesites
+                        $newTransactionGlobal->external_return_cost = 0;
+                        $newTransactionGlobal->save();
+                    }
                 } else {
                     $transactionsController->CreditLocalProvider(
                         $idSellerProv,
@@ -571,7 +623,7 @@ class OrdenesRetiroAPIController extends Controller
         } catch (\Exception $e) {
             DB::rollback(); // En caso de error, revierte todos los cambios realizados en la transacción
             error_log("error_putRechazado: $e");
-            return response()->json(["response" => "edidted failed", "error" => $e], Response::HTTP_BAD_REQUEST);
+            return response()->json(["response" => "edited failed", "error" => $e], Response::HTTP_BAD_REQUEST);
         }
     }
 }
