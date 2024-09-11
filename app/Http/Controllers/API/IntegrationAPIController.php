@@ -359,7 +359,20 @@ class IntegrationAPIController extends Controller
 
                 if (!empty($order->marca_t_i)) {
                     try {
-                        $marcaT = Carbon::createFromFormat('d/m/Y H:i', $order->marca_t_i)->format('Y-m-d H:i:s');
+                        $marca_t_i = $order->marca_t_i;
+
+                        // Agregar ceros a las fechas/hora de un solo dígito en el formato 9/9/2024 9:9
+                        $marca_t_i = preg_replace_callback('/(\d{1,2})\/(\d{1,2})\/(\d{4}) (\d{1,2}):(\d{1,2})/', function ($matches) {
+                            $day = str_pad($matches[1], 2, '0', STR_PAD_LEFT);
+                            $month = str_pad($matches[2], 2, '0', STR_PAD_LEFT);
+                            $year = $matches[3];
+                            $hour = str_pad($matches[4], 2, '0', STR_PAD_LEFT);
+                            $minute = str_pad($matches[5], 2, '0', STR_PAD_LEFT);
+                            return "$day/$month/$year $hour:$minute";
+                        }, $marca_t_i);
+
+                        // Intentar crear la fecha con el formato esperado
+                        $marcaT = Carbon::createFromFormat('d/m/Y H:i', $marca_t_i)->format('Y-m-d');
                     } catch (\Exception $e) {
                         // Log::error('Error al convertir marca_t_i: ' . $pedido->marca_t_i . ' - ' . $e->getMessage());
                         // Asignar una fecha por defecto si la conversión falla
@@ -808,7 +821,7 @@ class IntegrationAPIController extends Controller
 
                                         $newTransactionGlobalReferer = new TransaccionGlobal();
 
-                                        if ($existingTransaction->state == 0) {
+                                        if ($existingTransaction == null) {
 
                                             $newTransactionGlobalReferer->admission_date = $marcaT;
                                             $newTransactionGlobalReferer->delivery_date = now()->format('Y-m-d');
@@ -873,7 +886,7 @@ class IntegrationAPIController extends Controller
 
                                     // $newTransactionGlobal = new TransaccionGlobal();
 
-                                    if ($existingTransaction->state == 0) {
+                                    if ($existingTransaction == null) {
 
                                         $newTransactionGlobal->admission_date = $marcaT;
                                         $newTransactionGlobal->delivery_date = now()->format('Y-m-d');
@@ -1103,6 +1116,33 @@ class IntegrationAPIController extends Controller
                                         // $order->received_by = $idUser;
                                     }
 
+                                    // ! integracion
+
+                                    // Verificar si ya existe una transacción global para este pedido y vendedor
+                                    $existingTransaction = TransaccionGlobal::where('id_order', $order->id)
+                                        ->where('id_seller', $order->users[0]->vendedores[0]->id_master)
+
+                                        ->first();
+
+                                    // Obtener la transacción global previa
+                                    $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $order->users[0]->vendedores[0]->id_master)
+                                        ->orderBy('id', 'desc')
+                                        ->first();
+
+
+                                    // ! aqui deberia ir otra transaccion global pero seria (NOVEDAD, est_devolucion != pendiente para las externas)
+
+                                    $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
+
+                                    error_log("-----------");
+                                    error_log($existingTransaction);
+                                    error_log("-----------");
+
+                                    if ($existingTransaction != null) {
+                                        $existingTransaction->return_state = $order->estado_devolucion;
+                                        $existingTransaction->save();
+                                    }
+
                                     if ($order->costo_devolucion == null) {
                                         //
                                         $deliveryPrice = 0;
@@ -1187,30 +1227,7 @@ class IntegrationAPIController extends Controller
                                         */
 
 
-                                        // ! integracion
-
-                                        // Verificar si ya existe una transacción global para este pedido y vendedor
-                                        $existingTransaction = TransaccionGlobal::where('id_order', $order->id)
-                                            ->where('id_seller', $order->users[0]->vendedores[0]->id_master)
-
-                                            ->first();
-
-                                        // Obtener la transacción global previa
-                                        $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $order->users[0]->vendedores[0]->id_master)
-                                            ->orderBy('id', 'desc')
-                                            ->first();
-
-
-                                        // ! aqui deberia ir otra transaccion global pero seria (NOVEDAD, est_devolucion != pendiente para las externas)
-
-                                        $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
-                                        
-                                        error_log("-----------");
-                                        error_log($existingTransaction);
-                                        error_log("-----------");
-
-
-                                        if ($existingTransaction->state == 0) {
+                                        if ($existingTransaction == null) {
 
                                             error_log($existingTransaction);
 
@@ -1226,7 +1243,7 @@ class IntegrationAPIController extends Controller
                                             $newTransactionGlobal->origin = 'Pedido ' . 'NOVEDAD';
                                             $newTransactionGlobal->withdrawal_price = 0; // Ajusta según necesites
                                             $newTransactionGlobal->value_order = 0; // Ajusta según necesites
-                                            $newTransactionGlobal->return_cost = -$order->users[0]->vendedores[0]->costo_devolucion;
+                                            $newTransactionGlobal->return_cost = -$order->costo_devolucion;
                                             $newTransactionGlobal->delivery_cost = -$order->costo_envio; // Ajusta según necesites
                                             $newTransactionGlobal->notdelivery_cost = 0; // Ajusta según necesites
                                             $newTransactionGlobal->provider_cost = 0; // Ajusta según necesites
@@ -1243,8 +1260,8 @@ class IntegrationAPIController extends Controller
                                             $newTransactionGlobal->state = true;
                                             $newTransactionGlobal->id_seller = $order->users[0]->vendedores[0]->id_master;
                                             $newTransactionGlobal->internal_transportation_cost = 0; // Ajusta según necesites
-                                            $newTransactionGlobal->external_transportation_cost = -$deliveryPriceSeller; // Ajusta según necesites
-                                            $newTransactionGlobal->external_return_cost = -round(((float)$refound_seller), 2);
+                                            $newTransactionGlobal->external_transportation_cost =  -$order->costo_transportadora; // Ajusta según necesites
+                                            $newTransactionGlobal->external_return_cost = -round(((float)$refound_transp), 2);
                                             $newTransactionGlobal->save();
                                         }
                                     } else {

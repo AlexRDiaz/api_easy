@@ -609,6 +609,9 @@ Route::middleware(['cors'])->group(function () {
 
     //  * 
     Route::post('upuserswarehouse', [App\Http\Controllers\API\UpUsersWarehouseLinkAPIController::class, 'store']);
+    Route::put('upuserswarehouse/update/{id}', [App\Http\Controllers\API\UpUsersWarehouseLinkAPIController::class, 'update']);
+
+
     Route::post('allbysubprov', [ProductAPIController::class, 'getBySubProvider']);
     Route::post('productwarehouse', [App\Http\Controllers\API\ProductWarehouseLinkAPIController::class, 'store']);
     Route::get('warehouses/specials', [WarehouseAPIController::class, 'getSpecials']);
@@ -651,9 +654,8 @@ Route::middleware(['cors'])->group(function () {
     Route::prefix('orderproduct')->group(function () {
         Route::post('create', [PedidosProductLinkAPIController::class, 'store']);
         Route::delete('delete', [PedidosProductLinkAPIController::class, 'destroy']);
-
     });
-
+    Route::post('sendemailconfirm/{idOrder}', [PedidosShopifyAPIController::class, 'sendEmailConfirmtoProvider']);
 });
 
 

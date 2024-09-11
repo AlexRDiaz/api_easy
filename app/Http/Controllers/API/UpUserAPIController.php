@@ -802,9 +802,13 @@ class UpUserAPIController extends Controller
         $upUser = UpUser::with([
             'roles_fronts',
             'providers',
-        ])->whereNot("id", $id)->where("blocked", 0)->whereHas('providers', function ($query) use ($id) {
-            $query->where('user_id', $id);
-        });
+            'warehouses',
+        ])->whereNot("id", $id)
+            ->where("blocked", 0)
+            ->where("active", 1)
+            ->whereHas('providers', function ($query) use ($id) {
+                $query->where('user_id', $id);
+            });
 
 
         if (!empty($search)) {

@@ -34,7 +34,8 @@ class UpUsersWarehouseLink extends Model
 
 	protected $fillable = [
 		'id_user',
-		'id_warehouse'
+		'id_warehouse',
+		'notify',
 	];
 
 	public function up_user()

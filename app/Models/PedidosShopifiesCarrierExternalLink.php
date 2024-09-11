@@ -45,6 +45,12 @@ class PedidosShopifiesCarrierExternalLink extends Model
         return $this->belongsTo(\App\Models\CarriersExternal::class, 'carrier_id')->select('id', 'name','novedades');
     }
 
+    public function carrierCosts(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        // return $this->belongsTo(\App\Models\CarriersExternal::class, 'carrier_id');
+        return $this->belongsTo(\App\Models\CarriersExternal::class, 'carrier_id')->select('id', 'name', 'costs');
+    }
+
     public function cityExternal(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(\App\Models\CoverageExternal::class, 'city_external_id');

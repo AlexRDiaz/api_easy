@@ -41,8 +41,9 @@ class UpUsersWarehouseLinkAPIController extends Controller
             $providerWarehouse->id_user = $id_user;
             $providerWarehouse->id_warehouse = $id_warehouse;
             $providerWarehouse->save();
+
         } catch (\Exception $e) {
-            error_log("ERROR: $e");
+            error_log("ERROR_storeUpUsersWarehouseLink: $e");
             return response()->json([
                 'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
             ], 500);
@@ -92,6 +93,23 @@ class UpUsersWarehouseLinkAPIController extends Controller
     public function update(Request $request, string $id)
     {
         //
+        try {
+            $upuserWare = UpUsersWarehouseLink::where("id_user", $id)->first();
+
+            if (!$upuserWare) {
+                return response()->json(['error' => 'No se encontró ningún UsersWarehouseLink con el ID especificado.'], 404);
+            }
+
+            $upuserWare->fill($request->all());
+            $upuserWare->save();
+
+            return response()->json(['message' => 'UserWarehouseLink actualizado con éxito'], 200);
+        } catch (\Exception $e) {
+            error_log("ERROR: $e");
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

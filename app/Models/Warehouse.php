@@ -79,6 +79,7 @@ class Warehouse extends Model
 	public function up_users()
 	{
 		return $this->belongsToMany(UpUser::class, 'up_users_warehouse_link', 'id_warehouse', 'id_user')
-			->select('id_user','username');
+			->select('id_user','username','email')
+			->withPivot('notify');
 	}
 }

@@ -244,7 +244,7 @@ class UpUser extends Model implements Authenticatable, JWTSubject
 	public function warehouses()
 	{
 		return $this->belongsToMany(Warehouse::class, 'up_users_warehouse_link', 'id_user', 'id_warehouse')
-					->withPivot('id')
+					->withPivot('id','notify')
 					->withTimestamps();
 	}
 }

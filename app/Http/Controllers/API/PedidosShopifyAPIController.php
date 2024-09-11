@@ -35,6 +35,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use PhpParser\Node\Stmt\TryCatch;
 
 use function Laravel\Prompts\error;
@@ -1631,20 +1632,16 @@ class PedidosShopifyAPIController extends Controller
             $estado = $row->status;
             // $stateTotals[$estado] = $row->count;
             if ($estado === 'NOVEDAD') {
-                if ($row->estado_devolucion === 'PENDIENTE') {
-                    $stateTotals[$estado] += $row->count;
-                } elseif ($row->estado_devolucion != 'PENDIENTE') {
+                if ($row->estado_devolucion != 'PENDIENTE') {
                     $stateTotals['DEVOLUCION'] += $row->count;
                 }
             } else if ($estado === 'NO ENTREGADO') {
-                if ($row->estado_devolucion === 'PENDIENTE') {
-                    $stateTotals[$estado] += $row->count;
-                } elseif ($row->estado_devolucion != 'PENDIENTE') {
+                if ($row->estado_devolucion != 'PENDIENTE') {
                     $stateTotals['DEVOLUCION'] += $row->count;
                 }
-            } else {
-                $stateTotals[$estado] += $row->count;
             }
+            $stateTotals[$estado] += $row->count;
+
 
             $stateTotals['TOTAL'] += $row->count;
         }
@@ -2935,74 +2932,84 @@ class PedidosShopifyAPIController extends Controller
 
     public function getByDateRangeAll(Request $request)
     {
-        $data = $request->json()->all();
+        error_log("getByDateRangeAll");
+        try {
 
-        $startDate = $data['start'];
-        $endDate = $data['end'];
-        $startDateFormatted = Carbon::createFromFormat('j/n/Y', $startDate)->format('Y-m-d');
-        $endDateFormatted = Carbon::createFromFormat('j/n/Y', $endDate)->format('Y-m-d');
-        $and = $data['and'];
-        $dateFilter = $data["date_filter"];
+            $data = $request->json()->all();
 
-        $selectedFilter = "fecha_entrega";
-        if ($dateFilter != "FECHA ENTREGA") {
-            $selectedFilter = "marca_tiempo_envio";
-        }
-        $status = $data['status'];
-        // $internal = $data['internal'];
-        // ! ordenamiento ↓
-        $orderBy = null;
-        if (isset($data['sort'])) {
-            $sort = $data['sort'];
-            $sortParts = explode(':', $sort);
-            if (count($sortParts) === 2) {
-                $field = $sortParts[0];
-                $direction = strtoupper($sortParts[1]) === 'DESC' ? 'DESC' : 'ASC';
-                $orderBy = [$field => $direction];
+            $startDate = $data['start'];
+            $endDate = $data['end'];
+            $startDateFormatted = Carbon::createFromFormat('j/n/Y', $startDate)->format('Y-m-d');
+            $endDateFormatted = Carbon::createFromFormat('j/n/Y', $endDate)->format('Y-m-d');
+            $and = $data['and'];
+            $dateFilter = $data["date_filter"];
+
+            $selectedFilter = "fecha_entrega";
+            if ($dateFilter != "FECHA ENTREGA") {
+                $selectedFilter = "marca_tiempo_envio";
             }
-        }
+            $status = $data['status'];
+            // $internal = $data['internal'];
+            // ! ordenamiento ↓
+            $orderBy = null;
+            if (isset($data['sort'])) {
+                $sort = $data['sort'];
+                $sortParts = explode(':', $sort);
+                if (count($sortParts) === 2) {
+                    $field = $sortParts[0];
+                    $direction = strtoupper($sortParts[1]) === 'DESC' ? 'DESC' : 'ASC';
+                    $orderBy = [$field => $direction];
+                }
+            }
 
-        $pedidos = PedidosShopify::with([
-            'operadore.up_users',
-            'transportadora',
-            'users.vendedores',
-            'novedades',
-            'pedidoFecha',
-            'ruta',
-            'subRuta',
-            'product.warehouse.provider',
-            "pedidoCarrier",
-        ])
-            //select('marca_t_i', 'fecha_entrega', DB::raw('concat(tienda_temporal, "-", numero_orden) as codigo'), 'nombre_shipping', 'ciudad_shipping', 'direccion_shipping', 'telefono_shipping', 'cantidad_total', 'producto_p', 'producto_extra', 'precio_total', 'comentario', 'estado_interno', 'status', 'estado_logistico', 'estado_devolucion', 'costo_envio', 'costo_devolucion')
-            // ->whereRaw("STR_TO_DATE(marca_t_i, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
-            ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
-            ->where((function ($pedidos) use ($and) {
-                foreach ($and as $condition) {
-                    foreach ($condition as $key => $valor) {
-                        if (strpos($key, '.') !== false) {
-                            $relacion = substr($key, 0, strpos($key, '.'));
-                            $propiedad = substr($key, strpos($key, '.') + 1);
-                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
-                        } else {
-                            $pedidos->where($key, '=', $valor);
+            $pedidos = PedidosShopify::with([
+                'operadore.up_users',
+                'transportadora',
+                'users.vendedores',
+                'novedades',
+                'pedidoFecha',
+                'ruta',
+                'subRuta',
+                'product.warehouse.provider',
+                "pedidoCarrier",
+            ])
+                //select('marca_t_i', 'fecha_entrega', DB::raw('concat(tienda_temporal, "-", numero_orden) as codigo'), 'nombre_shipping', 'ciudad_shipping', 'direccion_shipping', 'telefono_shipping', 'cantidad_total', 'producto_p', 'producto_extra', 'precio_total', 'comentario', 'estado_interno', 'status', 'estado_logistico', 'estado_devolucion', 'costo_envio', 'costo_devolucion')
+                // ->whereRaw("STR_TO_DATE(marca_t_i, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
+                ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
+                ->where((function ($pedidos) use ($and) {
+                    foreach ($and as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            if (strpos($key, '.') !== false) {
+                                $relacion = substr($key, 0, strpos($key, '.'));
+                                $propiedad = substr($key, strpos($key, '.') + 1);
+                                $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                            } else {
+                                $pedidos->where($key, '=', $valor);
+                            }
                         }
                     }
-                }
-            }));
-        if (!empty($status)) {
-            $pedidos->whereIn('status', $status);
-        }
-        // if (!empty($internal)) {
-        //     $pedidos->whereIn('estado_interno', $internal);
-        // }
-        // ! Ordena
-        if ($orderBy !== null) {
-            $pedidos->orderBy(key($orderBy), reset($orderBy));
-        }
+                }));
+            if (!empty($status)) {
+                $pedidos->whereIn('status', $status);
+            }
+            // if (!empty($internal)) {
+            //     $pedidos->whereIn('estado_interno', $internal);
+            // }
+            // ! Ordena
+            if ($orderBy !== null) {
+                $pedidos->orderBy(key($orderBy), reset($orderBy));
+            }
 
-        $response = $pedidos->get();
+            $response = $pedidos->get();
 
-        return response()->json($response);
+            return response()->json($response);
+        } catch (\Exception $e) {
+            error_log("ERROR_getByDateRangeAll: $e");
+            DB::rollback();
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
 
@@ -3499,8 +3506,6 @@ class PedidosShopifyAPIController extends Controller
                 if ($value == "CONFIRMADO") {
                     $name_comercial = $pedido->tienda_temporal;
 
-
-
                     if (empty($datarequest)) {
                         error_log("no tiene carrier");
                     } else {
@@ -3520,6 +3525,8 @@ class PedidosShopifyAPIController extends Controller
                             $transpNombre = $transp ? $transp->name : 'Desconocida';
                         }
                         $commentHist = "Transportadora asignada: " . $idCarr . "_" . $transpNombre;
+                        //send email
+
                     }
                 }
                 if (
@@ -4630,7 +4637,7 @@ class PedidosShopifyAPIController extends Controller
             // IF ORDER NOT EXIST CREATE ORDER
             if ($search->isEmpty()) {
 
-                error_log("$variant_details");
+                // error_log("$variant_details");
                 $productsList = json_decode($variant_details, true);
 
                 // $uniqueNames = [];
@@ -4867,5 +4874,123 @@ class PedidosShopifyAPIController extends Controller
                 'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+
+    public function sendEmailConfirmtoProvider($idOrder)
+    {
+        try {
+            error_log("sendEmailConfirmtoProvider");
+            $pedido = PedidosShopify::with('users.vendedores')
+                ->where('id', $idOrder)->first();
+
+            $numeroOrden = $pedido->numero_orden;
+            $nameComercial = $pedido->tienda_temporal;
+
+            if ($pedido->variant_details == null || $pedido->variant_details == "[]") {
+                error_log("No existe variant_details");
+                return response()->json(['message' => 'No existe variant_details'], 200);
+            }
+
+            if ($pedido->users->isNotEmpty() && $pedido->users[0]->vendedores->isNotEmpty()) {
+                $nameComercial = $pedido->users[0]->vendedores[0]->nombre_comercial;
+            }
+
+            $variantDetails = json_decode($pedido->variant_details, true);
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($variantDetails)) {
+                return response()->json(['message' => 'Error al decodificar variant_details'], 400);
+            }
+
+            $uniqueIds = $this->extractUniqueIds($variantDetails);
+            if (empty($uniqueIds)) {
+                return response()->json(['message' => 'No se encontraron unique IDs'], 400);
+            }
+
+            $firstUniqueId = $uniqueIds[0];
+            $prodNames = "";
+
+            if (count($uniqueIds) === 1) {
+                $prodNames = $pedido->producto_p;
+            } else {
+                $prodNames = $pedido->producto_p . " " . $pedido->producto_extra;
+            }
+
+            $mainProduct = Product::with(['warehouse.provider.user', 'warehouse.up_users'])
+                ->select('product_id', 'product_name', 'warehouse_id')
+                ->find($firstUniqueId);
+
+            $emailsToNotify = [];
+            if (!empty($mainProduct->warehouse)) {
+                if (!empty($mainProduct->warehouse->provider)) {
+                    $provName = $mainProduct->warehouse->provider->name;
+                }
+
+                if (!empty($mainProduct->warehouse->up_users)) {
+                    foreach ($mainProduct->warehouse->up_users as $user) {
+                        if (!empty($user->pivot->notify) && $user->pivot->notify == 1) {
+                            $emailsToNotify[] = $user->email;
+                        }
+                    }
+                }
+            }
+
+            $subject = 'Nueva orden: ' . $nameComercial . '-' . $numeroOrden;
+            $message = "Nueva Orden\nProveedor: $provName\nID Producto/s: " . implode(',', $uniqueIds) . "\nCantidad: $pedido->cantidad_total\nProducto: $prodNames\n\n";
+
+            // Envío de correos
+            if (!empty($emailsToNotify)) {
+                foreach ($emailsToNotify as $email) {
+                    Mail::raw($message, function ($mail) use ($email, $subject) {
+                        $mail->to($email)->subject($subject);
+                    });
+                }
+            } else if (!empty($mainProduct->warehouse->provider->user)) {
+                $providerUserEmail = $mainProduct->warehouse->provider->user->email;
+                Mail::raw($message, function ($mail) use ($providerUserEmail, $subject) {
+                    $mail->to($providerUserEmail)->subject($subject);
+                });
+            } else {
+                error_log("No se encontró un correo del proveedor para enviar.");
+            }
+
+            return response()->json(['message' => 'Correo/s enviado/s'], 200);
+        } catch (\Exception $e) {
+            error_log("ERROR_sendEmailConfirmtoProvider: $e");
+            return response()->json(['error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()], 500);
+        }
+    }
+
+
+    function extractUniqueIds(array $variantDetails): array
+    {
+        $uniqueSkus = [];
+        $pattern = '/^(.*[^C])C\d+$/';
+
+        foreach ($variantDetails as $item) {
+            $sku = $item['sku'] ?? null;
+
+            if (!empty($sku) && preg_match($pattern, $sku)) {
+                $uniqueSkus[] = $sku;
+            }
+        }
+
+        $uniqueSkus = array_unique($uniqueSkus);
+
+        $digitsList = [];
+        foreach ($uniqueSkus as $sku) {
+            $indexOfC = strrpos($sku, 'C');
+            if ($indexOfC !== false && $indexOfC + 1 < strlen($sku)) {
+                $digits = substr($sku, $indexOfC + 1);
+
+                if (is_numeric($digits)) {
+                    $product = Product::find($digits);
+                    if ($product != null) {
+                        $digitsList[] = (int) $digits;
+                    }
+                }
+            }
+        }
+
+        return $digitsList;
     }
 }
