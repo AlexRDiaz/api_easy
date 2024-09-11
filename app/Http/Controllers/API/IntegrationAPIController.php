@@ -865,23 +865,18 @@ class IntegrationAPIController extends Controller
                                     $order->status_last_modified_at = $currentDateTime;
 
 
-                                    // * inicio de la transaccion global
-                                    // Log::info("inicio trans global");
 
 
-                                    // // Verificar si ya existe una transacción global para este pedido y vendedor
-                                    // $existingTransaction = TransaccionGlobal::where('id_order', $order->id)
-                                    //     ->where('id_seller', $order->users[0]->vendedores[0]->id_master)
+                                    $existingTransaction = TransaccionGlobal::where('id_order', $order->id)
+                                        ->where('id_seller', $order->users[0]->vendedores[0]->id_master)
 
-                                    //     ->first();
+                                        ->first();
 
-                                    // // Obtener la transacción global previa
-                                    // $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $order->users[0]->vendedores[0]->id_master)
-                                    //     ->orderBy('id', 'desc')
-                                    //     ->first();
+                                    $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $order->users[0]->vendedores[0]->id_master)
+                                        ->orderBy('id', 'desc')
+                                        ->first();
 
-                                    // $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
-
+                                    $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
 
 
                                     // $newTransactionGlobal = new TransaccionGlobal();
@@ -918,6 +913,7 @@ class IntegrationAPIController extends Controller
                                         $newTransactionGlobal->internal_transportation_cost = 0; // Ajusta según necesites
                                         $newTransactionGlobal->external_transportation_cost = -strval($deliveryPrice); // Ajusta según necesites
                                         $newTransactionGlobal->external_return_cost = 0;
+                                        $newTransactionGlobal->save();
                                     }
                                 } else if ($name_local == "NOVEDAD") {
                                     //
