@@ -968,8 +968,8 @@ class TransaccionesAPIController extends Controller
                 //     $newTransactionGlobal->notdelivery_cost +
                 //     $newTransactionGlobal->provider_cost +
                 //     $newTransactionGlobal->referer_cost;
-                $newTransactionGlobal->previous_value = $previousValue;
-                $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
+                // $newTransactionGlobal->previous_value = $previousValue;
+                // $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
                 $newTransactionGlobal->state = true;
                 $newTransactionGlobal->id_seller = $pedido->users[0]->vendedores[0]->id_master;
                 $newTransactionGlobal->internal_transportation_cost = -$costoTransportadora; // Ajusta según necesites
@@ -1201,6 +1201,8 @@ class TransaccionesAPIController extends Controller
             $newTransactionGlobal->notdelivery_cost +
             $newTransactionGlobal->provider_cost +
             $newTransactionGlobal->referer_cost;
+            $newTransactionGlobal->previous_value = $previousValue;
+            $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
             $newTransactionGlobal->save();
 
             Log::info("fin creacion nueva transaccion global");
