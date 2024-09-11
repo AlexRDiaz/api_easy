@@ -961,13 +961,13 @@ class TransaccionesAPIController extends Controller
                 $newTransactionGlobal->notdelivery_cost = 0; // Ajusta según necesites
                 // $newTransactionGlobal->provider_cost = 0; // Ajusta según necesites
                 $newTransactionGlobal->referer_cost = 0; // Ajusta según necesites
-                $newTransactionGlobal->total_transaction =
-                    $newTransactionGlobal->value_order +
-                    $newTransactionGlobal->return_cost +
-                    $newTransactionGlobal->delivery_cost +
-                    $newTransactionGlobal->notdelivery_cost +
-                    $newTransactionGlobal->provider_cost +
-                    $newTransactionGlobal->referer_cost;
+                // $newTransactionGlobal->total_transaction =
+                //     $newTransactionGlobal->value_order +
+                //     $newTransactionGlobal->return_cost +
+                //     $newTransactionGlobal->delivery_cost +
+                //     $newTransactionGlobal->notdelivery_cost +
+                //     $newTransactionGlobal->provider_cost +
+                //     $newTransactionGlobal->referer_cost;
                 $newTransactionGlobal->previous_value = $previousValue;
                 $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
                 $newTransactionGlobal->state = true;
@@ -1194,6 +1194,13 @@ class TransaccionesAPIController extends Controller
             // // $newTransGlobal->external_return_cost = $pedido['pedidoCarrier'][0]['cost_refound_external'];
             // $newTransGlobal->external_return_cost = 0;
             // $newTransGlobal->save();
+            $newTransactionGlobal->total_transaction =
+            $newTransactionGlobal->value_order +
+            $newTransactionGlobal->return_cost +
+            $newTransactionGlobal->delivery_cost +
+            $newTransactionGlobal->notdelivery_cost +
+            $newTransactionGlobal->provider_cost +
+            $newTransactionGlobal->referer_cost;
             $newTransactionGlobal->save();
 
             Log::info("fin creacion nueva transaccion global");
