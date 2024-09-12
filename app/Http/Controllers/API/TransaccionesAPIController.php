@@ -662,11 +662,11 @@ class TransaccionesAPIController extends Controller
                         $newTransactionGlobal->referer_cost = 0; // Ajusta según necesites
                         $newTransactionGlobal->total_transaction =
                             $newTransactionGlobal->value_order +
-                                $newTransactionGlobal->return_cost +
-                                $newTransactionGlobal->delivery_cost +
-                                $newTransactionGlobal->notdelivery_cost +
-                                $newTransactionGlobal->provider_cost +
-                                $newTransactionGlobal->referer_cost;
+                            $newTransactionGlobal->return_cost +
+                            $newTransactionGlobal->delivery_cost +
+                            $newTransactionGlobal->notdelivery_cost +
+                            $newTransactionGlobal->provider_cost +
+                            $newTransactionGlobal->referer_cost;
                         $newTransactionGlobal->previous_value = $previousValue;
                         $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
                         $newTransactionGlobal->state = true;
@@ -1118,7 +1118,7 @@ class TransaccionesAPIController extends Controller
 
                 error_log($existingTransaction);
 
-                if ($existingTransaction->state  == 0) {
+                if ($existingTransaction  == null) {
 
                     $newTransactionGlobalReferer->admission_date = $marcaT;
                     $newTransactionGlobalReferer->delivery_date = now()->format('Y-m-d');
@@ -1195,12 +1195,12 @@ class TransaccionesAPIController extends Controller
             // $newTransGlobal->external_return_cost = 0;
             // $newTransGlobal->save();
             $newTransactionGlobal->total_transaction =
-            $newTransactionGlobal->value_order +
-            $newTransactionGlobal->return_cost +
-            $newTransactionGlobal->delivery_cost +
-            $newTransactionGlobal->notdelivery_cost +
-            $newTransactionGlobal->provider_cost +
-            $newTransactionGlobal->referer_cost;
+                $newTransactionGlobal->value_order +
+                $newTransactionGlobal->return_cost +
+                $newTransactionGlobal->delivery_cost +
+                $newTransactionGlobal->notdelivery_cost +
+                $newTransactionGlobal->provider_cost +
+                $newTransactionGlobal->referer_cost;
             $newTransactionGlobal->previous_value = $previousValue;
             $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
             $newTransactionGlobal->save();
@@ -1244,7 +1244,7 @@ class TransaccionesAPIController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollback(); // En caso de error, revierte todos los cambios realizados en la transacción
-            // Maneja el error aquí si es necesario
+            error_log("error_paymentOrderDelivered: $e");
             return response()->json([
                 'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
             ], 500);
@@ -1536,11 +1536,11 @@ class TransaccionesAPIController extends Controller
                         $newTransactionGlobal->referer_cost = 0; // Ajusta según necesites
                         $newTransactionGlobal->total_transaction =
                             $newTransactionGlobal->value_order +
-                                $newTransactionGlobal->return_cost +
-                                $newTransactionGlobal->delivery_cost +
-                                $newTransactionGlobal->notdelivery_cost +
-                                $newTransactionGlobal->provider_cost +
-                                $newTransactionGlobal->referer_cost;
+                            $newTransactionGlobal->return_cost +
+                            $newTransactionGlobal->delivery_cost +
+                            $newTransactionGlobal->notdelivery_cost +
+                            $newTransactionGlobal->provider_cost +
+                            $newTransactionGlobal->referer_cost;
                         $newTransactionGlobal->previous_value = $previousValue;
                         $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
                         $newTransactionGlobal->state = true;
@@ -1760,11 +1760,11 @@ class TransaccionesAPIController extends Controller
                         $newTransactionGlobal->referer_cost = 0; // Ajusta según necesites
                         $newTransactionGlobal->total_transaction =
                             $newTransactionGlobal->value_order +
-                                $newTransactionGlobal->return_cost +
-                                $newTransactionGlobal->delivery_cost +
-                                $newTransactionGlobal->notdelivery_cost +
-                                $newTransactionGlobal->provider_cost +
-                                $newTransactionGlobal->referer_cost;
+                            $newTransactionGlobal->return_cost +
+                            $newTransactionGlobal->delivery_cost +
+                            $newTransactionGlobal->notdelivery_cost +
+                            $newTransactionGlobal->provider_cost +
+                            $newTransactionGlobal->referer_cost;
                         $newTransactionGlobal->previous_value = $previousValue;
                         $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
                         $newTransactionGlobal->state = true;
@@ -1959,11 +1959,11 @@ class TransaccionesAPIController extends Controller
                             $newTransactionGlobal->referer_cost = 0; // Ajusta según necesites
                             $newTransactionGlobal->total_transaction =
                                 $newTransactionGlobal->value_order +
-                                    $newTransactionGlobal->return_cost +
-                                    $newTransactionGlobal->delivery_cost +
-                                    $newTransactionGlobal->notdelivery_cost +
-                                    $newTransactionGlobal->provider_cost +
-                                    $newTransactionGlobal->referer_cost;
+                                $newTransactionGlobal->return_cost +
+                                $newTransactionGlobal->delivery_cost +
+                                $newTransactionGlobal->notdelivery_cost +
+                                $newTransactionGlobal->provider_cost +
+                                $newTransactionGlobal->referer_cost;
                             $newTransactionGlobal->previous_value = $previousValue;
                             $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
                             $newTransactionGlobal->state = true;
@@ -2250,11 +2250,11 @@ class TransaccionesAPIController extends Controller
                         $newTransactionGlobal->referer_cost = 0; // Ajusta según necesites
                         $newTransactionGlobal->total_transaction =
                             $newTransactionGlobal->value_order +
-                                $newTransactionGlobal->return_cost +
-                                $newTransactionGlobal->delivery_cost +
-                                $newTransactionGlobal->notdelivery_cost +
-                                $newTransactionGlobal->provider_cost +
-                                $newTransactionGlobal->referer_cost;
+                            $newTransactionGlobal->return_cost +
+                            $newTransactionGlobal->delivery_cost +
+                            $newTransactionGlobal->notdelivery_cost +
+                            $newTransactionGlobal->provider_cost +
+                            $newTransactionGlobal->referer_cost;
                         $newTransactionGlobal->previous_value = $previousValue;
                         $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
                         $newTransactionGlobal->state = true;
@@ -2457,11 +2457,11 @@ class TransaccionesAPIController extends Controller
                             $newTransactionGlobal->referer_cost = 0; // Ajusta según necesites
                             $newTransactionGlobal->total_transaction =
                                 $newTransactionGlobal->value_order +
-                                    $newTransactionGlobal->return_cost +
-                                    $newTransactionGlobal->delivery_cost +
-                                    $newTransactionGlobal->notdelivery_cost +
-                                    $newTransactionGlobal->provider_cost +
-                                    $newTransactionGlobal->referer_cost;
+                                $newTransactionGlobal->return_cost +
+                                $newTransactionGlobal->delivery_cost +
+                                $newTransactionGlobal->notdelivery_cost +
+                                $newTransactionGlobal->provider_cost +
+                                $newTransactionGlobal->referer_cost;
                             $newTransactionGlobal->previous_value = $previousValue;
                             $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
                             $newTransactionGlobal->state = true;
