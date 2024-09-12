@@ -2231,9 +2231,9 @@ class PedidosShopifyAPIController extends Controller
             $listOfProducts = [];
             $id_shopify = $request->input('id');
             $order_number = $request->input('order_number');
-            error_log("********dataID: $id-$id_shopify-$order_number");
+            error_log("********dataID: " . $id_shopify . "_" . $id  . "_" . $order_number);
             $created_at_shopify = $request->input('created_at');
-            error_log("********created_at_shopify: $created_at_shopify***");
+            // error_log("********created_at_shopify: $created_at_shopify***");
 
             $name = $request->input('shipping_address.name');
             $address1 = $request->input('shipping_address.address1');
@@ -2260,28 +2260,34 @@ class PedidosShopifyAPIController extends Controller
                 ];
             }
 
-            $ahora = now();
+            // $ahora = now();
 
             $fechaLimite = Carbon::createFromFormat('Y-m-d', '2024-06-26');
 
-            // Verificar si createdAtShopify es menor que 26/06/2024
-            /*
-        if ($created_at_shopify->lessThan($fechaLimite)) {
-            error_log("createdAtShopify es menor que el 26 de junio de 2024.");
-            // $search = PedidosShopify::where([
-            //     'numero_orden' => $order_number,
-            //     'tienda_temporal' => $productos[0]['vendor'],
-            //     'id_comercial' => $id,
-            // ])->get();
-        } else {
-            error_log("createdAtShopify no es menor que el 26 de junio de 2024.");
-            // $search = PedidosShopify::where([
-            //     'numero_orden' => $order_number,
-            //     'tienda_temporal' => $productos[0]['vendor'],
-            //     'id_comercial' => $id,
-            // ])->get();
-        }
-        */
+            $orderExists = PedidosShopify::where([
+                'id_shopify' => $id_shopify,
+                'id_comercial' => $id,
+            ])->get();
+
+            if ($orderExists->isNotEmpty()) {
+                error_log("Esta_orden_ya_existe_" . $id . "_" . $id_shopify);
+                error_log("Orden_existente: " . $orderExists);
+
+                return response()->json([
+                    'error' => 'Esta orden ya existe',
+                    'orden_a_ingresar' => [
+                        'numero_orden' => $order_number,
+                        'nombre' => $name,
+                        'direccion' => $address1,
+                        'telefono' => $phone,
+                        'precio_total' => $total_price,
+                        'nota_cliente' => $customer_note,
+                        'ciudad' => $city,
+                        'producto' => $listOfProducts
+                    ],
+                    'orden_existente' => $orderExists,
+                ], 200);
+            }
 
             $search = PedidosShopify::where([
                 'numero_orden' => $order_number,
@@ -2313,15 +2319,15 @@ class PedidosShopifyAPIController extends Controller
 
 
                 // Obtener la fecha y hora actual
-                $dia = $ahora->day;
-                $mes = $ahora->month;
-                $anio = $ahora->year;
-                $hora = $ahora->hour;
-                $minuto = $ahora->minute;
+                // $dia = $ahora->day;
+                // $mes = $ahora->month;
+                // $anio = $ahora->year;
+                // $hora = $ahora->hour;
+                // $minuto = $ahora->minute;
 
                 // Formatear la fecha y hora actual
-                $fechaHoraActual = "$dia/$mes/$anio $hora:$minuto";
-
+                // $fechaHoraActual = "$dia/$mes/$anio $hora:$minuto";
+                $fechaHoraActual = date("d/m/Y H:i");
                 // Crear una nueva orden
                 $formattedPrice = str_replace(["$", ",", " "], "", $total_price);
 
@@ -2345,7 +2351,7 @@ class PedidosShopifyAPIController extends Controller
                 $variants = implode(', ', array_column(array_slice($listOfProducts, 0), 'variant_title'));
 
                 error_log("******************proceso 2 terminado************************\n");
-                error_log("********numero_orden: $order_number-$id: " . json_encode($productos));
+                // error_log("********numero_orden: $order_number-$id: " . json_encode($productos));
                 // error_log("******************variantes: . $variants. ************************\n");
 
                 // error_log("lastIdProduct: $lastIdProduct");
@@ -2402,7 +2408,7 @@ class PedidosShopifyAPIController extends Controller
                     }
                 }
 
-                error_log("" . json_encode($uniqueIds));
+                // error_log("" . json_encode($uniqueIds));
 
                 foreach ($uniqueIds as $idProd) {
 
@@ -2463,11 +2469,11 @@ class PedidosShopifyAPIController extends Controller
 
                 DB::commit();
 
-                error_log("order created ID: $createOrder->id");
+                error_log("order_created_ID_$id: $createOrder->id");
                 return response()->json([
                     'message' => 'La orden se ha registrado con éxito.',
                     'orden_ingresada' => $createOrder,
-                    'search' => 'MANDE',
+                    // 'search' => 'MANDE',
                     // 'and' => [],
                     //  'id_product' => $id_product
                 ], 200);
