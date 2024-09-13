@@ -754,7 +754,7 @@ class IntegrationAPIController extends Controller
                                             $sumatoria += $valueProduct;
                                         }
 
-                                        $newTransactionGlobal->provider_cost = $sumatoria;
+                                        $newTransactionGlobal->provider_cost = -$sumatoria;
                                     } else {
                                         $newTransactionGlobal->provider_cost = 0;
                                     }
