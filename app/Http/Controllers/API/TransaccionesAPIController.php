@@ -3430,22 +3430,6 @@ class TransaccionesAPIController extends Controller
                         }
 
 
-
-                        // $pedidosShopifyRutaLink = PedidosShopifiesRutaLink::where('pedidos_shopify_id', $order->id)->delete();
-                        // $pedidosDhopifyTransportadoraLink = PedidosShopifiesTransportadoraLink::where('pedidos_shopify_id', $order->id)->delete();
-                        // $pedidosDhopifySubrutaLink = PedidosShopifiesSubRutaLink::where('pedidos_shopify_id', $order->id)->delete();
-                        // $pedidosDhopifyOperadoreLink = PedidosShopifiesOperadoreLink::where('pedidos_shopify_id', $order->id)->delete();
-
-
-                        // if (
-                        //     $pedidosShopifyRutaLink > 0 &&
-                        //     $pedidosDhopifyTransportadoraLink > 0 &&
-                        //     $pedidosDhopifySubrutaLink > 0 &&
-                        //     $pedidosDhopifyOperadoreLink > 0
-                        // ) {
-                        //     error_log("ok! er");
-                        // }
-
                         array_push($reqTrans, $transaction);
                         $pedido = PedidosShopify::where("id", $transaction->id_origen)->first();
 
@@ -3542,6 +3526,8 @@ class TransaccionesAPIController extends Controller
                         ->where('state', 1)
                         ->whereNot("status", "REEMBOLSO")
                         ->get();
+
+
                     $idSeller = $transactionsGlobal->first()->id_seller;
 
                     // Obtener la última transacción del mismo vendedor
@@ -3559,6 +3545,13 @@ class TransaccionesAPIController extends Controller
                     foreach ($transactionsGlobal as $transaction) {
                         // Crear una nueva instancia de TransaccionGlobal para la transacción opuesta
                         $newTransaction = $transaction->replicate(); // Clonar la transacción actual
+
+                        if ($transaction->origin == 'Referenciado') {
+                            // Obtener la última transacción del mismo vendedor
+                            $ultimaTransaccion = TransaccionGlobal::where('id_seller', $transaction->id_seller)
+                                ->orderBy('id', 'desc')
+                                ->first();
+                        }
 
                         $newTransaction->state = 1;
                         $newTransaction->status = 'REEMBOLSO';
