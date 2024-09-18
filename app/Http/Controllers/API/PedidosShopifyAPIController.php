@@ -33,6 +33,7 @@ use DateTime;
 use GuzzleHttp\Client;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -2213,8 +2214,56 @@ class PedidosShopifyAPIController extends Controller
 
     public function shopifyPedidos(Request $request, $id)
     {
+        $startTime = microtime(true);
+
         DB::beginTransaction();
         try {
+
+            // $input = $request->getContent();
+            // error_log('Request Body: ');
+            // error_log($input);
+
+            $id_shopify = $request->input('id');
+            $order_number = $request->input('order_number');
+            $name = $request->input('shipping_address.name');
+
+            //solucion 2
+            $cacheKey = "shopify_order_{$id_shopify}_{$id}";
+
+            // Verificar si la orden ya está siendo procesada o fue procesada previamente
+            if (Cache::has($cacheKey)) {
+                error_log("orden_procesada_" . $cacheKey);
+                return response()->json([
+                    'error' => 'Esta orden ya ha sido procesada',
+                    'orden_existente' => Cache::get($cacheKey),
+                ], 200);
+            }
+
+            // Almacenar temporalmente en cache como señal de que está siendo procesada
+            Cache::put($cacheKey, 'processing', now()->addMinutes(1));
+
+            error_log("********dataID: " . $id_shopify . "_" . $id  . "_" . $order_number);
+
+            $orderExists = PedidosShopify::where([
+                'id_shopify' => $id_shopify,
+                'id_comercial' => $id,
+            ])->get();
+
+            if ($orderExists->isNotEmpty()) {
+                error_log("Esta_orden_ya_existe_" . $id_shopify . "_" . $id);
+                // error_log("Orden_existente: " . $orderExists);
+
+                return response()->json([
+                    'error' => 'Esta orden ya existe',
+                    'orden_a_ingresar' => [
+                        'numero_orden' => $order_number,
+                        'nombre' => $name,
+                    ],
+                    'orden_existente' => $orderExists,
+                ], 200);
+            }
+
+
             //GENERATE DATE
             $currentDate = now();
             $fechaActual = $currentDate->format('d/m/Y');
@@ -2222,20 +2271,12 @@ class PedidosShopifyAPIController extends Controller
             // ID DATE ORDER FOR RELATION
             $dateOrder = "";
 
-            // $input = $request->getContent();
-            // error_log('Request Body: ');
-            // error_log($input);
 
-
-            //VARIABLES FOR ENTITY
-            $listOfProducts = [];
-            $id_shopify = $request->input('id');
-            $order_number = $request->input('order_number');
-            error_log("********dataID: " . $id_shopify . "_" . $id  . "_" . $order_number);
             $created_at_shopify = $request->input('created_at');
             // error_log("********created_at_shopify: $created_at_shopify***");
 
-            $name = $request->input('shipping_address.name');
+            //VARIABLES FOR ENTITY
+            $listOfProducts = [];
             $address1 = $request->input('shipping_address.address1');
             $phone = $request->input('shipping_address.phone');
             $total_price = $request->input('total_price');
@@ -2263,31 +2304,6 @@ class PedidosShopifyAPIController extends Controller
             // $ahora = now();
 
             $fechaLimite = Carbon::createFromFormat('Y-m-d', '2024-06-26');
-
-            $orderExists = PedidosShopify::where([
-                'id_shopify' => $id_shopify,
-                'id_comercial' => $id,
-            ])->get();
-
-            if ($orderExists->isNotEmpty()) {
-                error_log("Esta_orden_ya_existe_" . $id . "_" . $id_shopify);
-                error_log("Orden_existente: " . $orderExists);
-
-                return response()->json([
-                    'error' => 'Esta orden ya existe',
-                    'orden_a_ingresar' => [
-                        'numero_orden' => $order_number,
-                        'nombre' => $name,
-                        'direccion' => $address1,
-                        'telefono' => $phone,
-                        'precio_total' => $total_price,
-                        'nota_cliente' => $customer_note,
-                        'ciudad' => $city,
-                        'producto' => $listOfProducts
-                    ],
-                    'orden_existente' => $orderExists,
-                ], 200);
-            }
 
             $search = PedidosShopify::where([
                 'numero_orden' => $order_number,
@@ -2467,9 +2483,19 @@ class PedidosShopifyAPIController extends Controller
 
                 error_log("******************proceso 5 terminado************************\n");
 
+                Cache::put($cacheKey, $createOrder, now()->addMinutes(1));
+
                 DB::commit();
 
                 error_log("order_created_ID_$id: $createOrder->id");
+
+                // Captura el tiempo al final
+                $endTime = microtime(true);
+
+                // Calcular la duración total en segundos
+                $executionTime = $endTime - $startTime;
+                error_log("Tiempo total de ejecución: " . $executionTime . " segundos");
+
                 return response()->json([
                     'message' => 'La orden se ha registrado con éxito.',
                     'orden_ingresada' => $createOrder,

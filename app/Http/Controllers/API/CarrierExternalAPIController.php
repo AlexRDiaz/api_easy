@@ -394,7 +394,7 @@ class CarrierExternalAPIController extends Controller
             return response()->json(["message" => "Se creo con exito"], 200);
         } catch (\Exception $e) {
             DB::rollback();
-            error_log("$e");
+            error_log("carrierExternalAPI_newCoverage: $e");
             return response()->json([
                 'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
             ], 500);
