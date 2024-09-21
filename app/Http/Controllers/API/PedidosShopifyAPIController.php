@@ -2969,6 +2969,7 @@ class PedidosShopifyAPIController extends Controller
 
             $data = $request->json()->all();
 
+            $populate = $data['populate'];
             $startDate = $data['start'];
             $endDate = $data['end'];
             $startDateFormatted = Carbon::createFromFormat('j/n/Y', $startDate)->format('Y-m-d');
@@ -2994,17 +2995,18 @@ class PedidosShopifyAPIController extends Controller
                 }
             }
 
-            $pedidos = PedidosShopify::with([
-                'operadore.up_users',
-                'transportadora',
-                'users.vendedores',
-                'novedades',
-                'pedidoFecha',
-                'ruta',
-                'subRuta',
-                'product.warehouse.provider',
-                "pedidoCarrier",
-            ])
+            // $pedidos = PedidosShopify::with([
+            //     'operadore.up_users',
+            //     'transportadora',
+            //     'users.vendedores',
+            //     'novedades',
+            //     'pedidoFecha',
+            //     'ruta',
+            //     'subRuta',
+            //     'product.warehouse.provider',
+            //     "pedidoCarrier",
+            // ])
+            $pedidos = PedidosShopify::with($populate)
                 //select('marca_t_i', 'fecha_entrega', DB::raw('concat(tienda_temporal, "-", numero_orden) as codigo'), 'nombre_shipping', 'ciudad_shipping', 'direccion_shipping', 'telefono_shipping', 'cantidad_total', 'producto_p', 'producto_extra', 'precio_total', 'comentario', 'estado_interno', 'status', 'estado_logistico', 'estado_devolucion', 'costo_envio', 'costo_devolucion')
                 // ->whereRaw("STR_TO_DATE(marca_t_i, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
                 ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
@@ -4918,6 +4920,7 @@ class PedidosShopifyAPIController extends Controller
 
             $numeroOrden = $pedido->numero_orden;
             $nameComercial = $pedido->tienda_temporal;
+            $code = $nameComercial . '-' . $numeroOrden;
 
             if ($pedido->variant_details == null || $pedido->variant_details == "[]") {
                 error_log("No existe variant_details");
@@ -4966,8 +4969,8 @@ class PedidosShopifyAPIController extends Controller
                 }
             }
 
-            $subject = 'Nueva orden: ' . $nameComercial . '-' . $numeroOrden;
-            $message = "Nueva Orden\nProveedor: $provName\nID Producto/s: " . implode(',', $uniqueIds) . "\nCantidad: $pedido->cantidad_total\nProducto: $prodNames\n\n";
+            $subject = 'Nueva orden: ' . $code;
+            $message = "Nueva Orden: $code\nProveedor: $provName\nID Producto/s: " . implode(',', $uniqueIds) . "\nCantidad: $pedido->cantidad_total\nProducto: $prodNames\n\n";
 
             // Envío de correos
             if (!empty($emailsToNotify)) {

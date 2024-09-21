@@ -369,4 +369,9 @@ class PedidosShopify extends Model
 	{
 		return $this->hasMany(PedidosProductLink::class);
 	}
+
+	public function provTransactions()
+	{
+		return $this->hasMany(ProviderTransaction::class, 'origin_id', 'id');
+	}
 }

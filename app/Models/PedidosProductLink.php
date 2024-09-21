@@ -46,4 +46,11 @@ class PedidosProductLink extends Model
 	{
 		return $this->belongsTo(Product::class, 'product_id', 'product_id');
 	}
+
+	public function productSimple()
+	{
+		return $this->belongsTo(Product::class, 'product_id', 'product_id')
+			->select('product_id', 'product_name', 'price');
+	}
+
 }
