@@ -145,6 +145,10 @@ Route::middleware(['cors'])->group(function () {
 
     Route::post('pedidos-shopify/filter', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getByDateRange']);
 
+    Route::post('pedidos-shopify/referer-value', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getRefererTotalValue']);
+
+    
+
 
     Route::post('pedidos-shopify/update-gestioned-novelty/{id}', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'updateGestionedNovelty']);
 
@@ -403,15 +407,16 @@ Route::middleware(['cors'])->group(function () {
 
 
     Route::prefix('seller/ordenesretiro')->group(function () {
-        Route::get('/retiro/{id}', [OrdenesRetiroAPIController::class, 'getOrdenesRetiroNew']);
+        Route::post('/retiro/{id}', [OrdenesRetiroAPIController::class, 'getOrdenesRetiroNew']);
         Route::get('/ret-count/{id}', [OrdenesRetiroAPIController::class, 'getOrdenesRetiroCount']);
         Route::post('/{id}', [OrdenesRetiroAPIController::class, 'getOrdenesRetiro']);
         Route::post('/withdrawal/{id}', [OrdenesRetiroAPIController::class, 'withdrawal']);
         Route::post('/withdrawal-provider/{id}', [OrdenesRetiroAPIController::class, 'withdrawalProvider']);
-        Route::post('/withdrawal-provider-aproved/{id}', [OrdenesRetiroAPIController::class, 'postWhitdrawalProviderAproved']);
+        Route::post('/withdrawal-provider-aproved-n/{id}', [TransaccionesAPIController::class, 'postWhitdrawalSellerAproved']);
         Route::put('/withdrawal/update-intern/{id}', [OrdenesRetiroAPIController::class, 'putIntern']);
         Route::put('/withdrawal/denied/{id}', [OrdenesRetiroAPIController::class, 'putRechazado']);
         Route::get('/count-a-r/{id}', [OrdenesRetiroAPIController::class, 'getCountOrders']);
+        Route::post('/withdrawal-n/generate-code', [OrdenesRetiroAPIController::class, 'postWithdrawalProvider']);
     });
 
     /* for new version
