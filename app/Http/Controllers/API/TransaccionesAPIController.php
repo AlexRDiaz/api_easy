@@ -929,7 +929,7 @@ class TransaccionesAPIController extends Controller
                 ->orderBy('id', 'desc')
                 ->first();
 
-            $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
+            $previousValuePrincipal = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
 
 
             $newTransactionGlobal = new TransaccionGlobal();
@@ -1213,8 +1213,8 @@ class TransaccionesAPIController extends Controller
                 $newTransactionGlobal->notdelivery_cost +
                 $newTransactionGlobal->provider_cost +
                 $newTransactionGlobal->referer_cost;
-            $newTransactionGlobal->previous_value = $previousValue;
-            $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
+            $newTransactionGlobal->previous_value = $previousValuePrincipal;
+            $newTransactionGlobal->current_value = $previousValuePrincipal + $newTransactionGlobal->total_transaction;
             $newTransactionGlobal->save();
 
             Log::info("fin creacion nueva transaccion global");
