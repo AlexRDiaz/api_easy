@@ -155,16 +155,47 @@ class OrdenesRetiroAPIController extends Controller
 
     public function getOrdenesRetiroNew($id, Request $request)
     {
+        // Recibir el número de registros por página desde el frontend o usar un valor por defecto (10 en este caso)
+        $perPage = $request->input('per_page', 10);  // Si no se envía el parámetro, usa 10 por defecto
+        $pageNumber = $request->input('current_page');  // Si no se envía el parámetro, usa 10 por defecto
 
-        $retiros = OrdenesRetiro::with('users_permissions_user')->whereHas('users_permissions_user', function ($query) use ($id) {
-            $query->where('up_users.id', $id);
-        })
+        // Obtener los retiros con la relación y aplicar paginación
+        $retiros = OrdenesRetiro::with('users_permissions_user')
+            ->whereHas('users_permissions_user', function ($query) use ($id) {
+                $query->where('up_users.id', $id);
+            })
             ->orderBy('id', 'desc')
-            ->get();
-
+            ->paginate($perPage, ['*'], 'page', $pageNumber);
 
         return response()->json($retiros);
     }
+
+
+    // public function getOrdenesRetiroNew($id, Request $request)
+    // {
+    //     // Recibir el número de registros por página desde el frontend o usar un valor por defecto (10 en este caso)
+    //     $perPage = $request->input('per_page', 10);  // Si no se envía el parámetro, usa 10 por defecto
+
+    //     // Obtener los retiros con la relación y aplicar paginación
+    //     $retiros = OrdenesRetiro::with('users_permissions_user')
+    //         ->whereHas('users_permissions_user', function ($query) use ($id) {
+    //             $query->where('up_users.id', $id);
+    //         })
+    //         ->orderBy('id', 'desc')
+    //         ->paginate($perPage); // Usamos paginate en lugar de get para aplicar la paginación
+
+    //     // Retornar la respuesta JSON incluyendo los datos necesarios para el frontend
+    //     return response()->json([
+    //         'data' => $retiros->items(),  // Los registros paginados
+    //         'current_page' => $retiros->currentPage(),  // Página actual
+    //         'per_page' => $retiros->perPage(),  // Número de registros por página
+    //         'total' => $retiros->total(),  // Total de registros
+    //         'last_page' => $retiros->lastPage(),  // Última página
+    //         'from' => $retiros->firstItem(),  // Primer ítem mostrado
+    //         'to' => $retiros->lastItem()  // Último ítem mostrado
+    //     ]);
+    // }
+
 
     public function getOrdenesRetiro($id, Request $request)
 
@@ -256,7 +287,7 @@ class OrdenesRetiroAPIController extends Controller
         $total_retiros = $ordenes->sum('o.monto');
 
         $pedidos['total_retiros'] = number_format($total_retiros, 2, '.', '');
-        
+
         error_log($pedidos['total_retiros']);
 
         return response()->json($pedidos);
@@ -312,16 +343,16 @@ class OrdenesRetiroAPIController extends Controller
             $user = UpUser::where("id", $request->input('user_id'))->with('vendedores')->first();
 
 
-            $data = $request->validate([
-                'monto' => 'required',
-                'email' => 'required|email',
+            // $data = $request->validate([
+            //     'monto' => 'required',
+            //     'email' => 'required|email',
 
-            ]);
+            // ]);
 
 
             $monto = $request->input('monto');
-            // $email = $request->input('email');
-            $email = "easyecommercetest@gmail.com";
+            $email = $request->input('email');
+            // $email = "easyecommercetest@gmail.com";
             $user_id = $request->input('user_id');
             $user = UpUser::where("id", $user_id)->with('vendedores')->first();
 
@@ -543,8 +574,8 @@ class OrdenesRetiroAPIController extends Controller
             $withdrawal->updated_by_id = $userSesion;
             $withdrawal->paid_by = $userSesion;
             $withdrawal->save();
-            
-            $idSellerProv = $withdrawal->id_vendedor;//idSeller or provider
+
+            $idSellerProv = $withdrawal->id_vendedor; //idSeller or provider
             // $marcaTtransferencia = Carbon::createFromFormat('d/m/Y H:i:s', $withdrawal->fecha_transferencia)->format('Y-m-d');
 
             if ($withdrawal) {
@@ -559,7 +590,7 @@ class OrdenesRetiroAPIController extends Controller
                         $userSesion
                     );
 
-                     // ! integracion
+                    // ! integracion
 
                     // // Verificar si ya existe una transacción global para este pedido y vendedor
                     $existingTransaction = TransaccionGlobal::where('origin', 'Retiro de Efectivo')

@@ -4321,6 +4321,97 @@ class TransaccionesAPIController extends Controller
         }
     }
 
+    public function postWhitdrawalSellerAproved(Request $request, $id)
+    {
+
+        DB::beginTransaction();
+        try {
+            error_log("postWhitdrawalProviderAproved");
+            //code...
+
+            $data = $request->json()->all();
+            $withdrawal = new OrdenesRetiro();
+            $withdrawal->monto = $data["monto"];
+            // $withdrawal->fecha = new  DateTime();
+            $withdrawal->fecha = date("d/m/Y H:i:s");
+            // $withdrawal->codigo_generado = $data["codigo"];
+            $withdrawal->estado = 'APROBADO';
+            $withdrawal->id_vendedor = $data["id_vendedor"];
+            // $withdrawal->account_id = $data["id_account"];
+            $withdrawal->rol_id = 2;
+            // $withdrawal->account_id = "EEEETEST";
+            $withdrawal->created_by_id = $data["id_vendedor"];
+
+            $withdrawal->save();
+
+            $ordenUser = new OrdenesRetirosUsersPermissionsUserLink();
+            $ordenUser->ordenes_retiro_id = $withdrawal->id;
+            $ordenUser->user_id = $id;
+            $ordenUser->save();
+
+            // $this->DebitLocal($data["id_vendedor"], $data["monto"], $withdrawal->id, "retiro-" . $withdrawal->id, "retiro", "debito por retiro solicitado", $data["id_vendedor"]);
+
+            $monto = str_replace(',', '.', $withdrawal->monto);
+            $this->DebitLocal($data["id_vendedor"], $monto, $withdrawal->id, "retiro-" . $withdrawal->id, "retiro", "debito por retiro solicitado", $data["id_vendedor"]);
+
+            $marcaT = Carbon::createFromFormat('d/m/Y H:i:s', $withdrawal->fecha)->format('Y-m-d H:i:s');
+
+            // ! integracion
+
+            // // Verificar si ya existe una transacción global para este pedido y vendedor
+            $existingTransaction = TransaccionGlobal::where('origin', 'Retiro de Efectivo')
+                ->where('id_seller', $withdrawal->id_vendedor)
+                ->where('code', 'Retiro-' . $withdrawal->id)
+                ->first();
+
+            // Obtener la transacción global previa
+            $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $withdrawal->id_vendedor)
+                ->orderBy('id', 'desc')
+                ->first();
+
+            $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
+
+            if ($existingTransaction === null) {
+                $newTransactionGlobal = new TransaccionGlobal();
+
+                $newTransactionGlobal->admission_date = $marcaT;
+                // $newTransactionGlobal->delivery_date = now()->format('Y-m-d');
+                $newTransactionGlobal->status = "APROBADO";
+                // $newTransactionGlobal->return_state = $order->estado_devolucion;
+                $newTransactionGlobal->return_state = null;
+                $newTransactionGlobal->id_order = $withdrawal->id;
+                $newTransactionGlobal->code = 'Retiro' . "-" . $withdrawal->id;
+                $newTransactionGlobal->origin = 'Retiro de ' . 'Efectivo';
+                // $withdrawal->monto = str_replace(',', '.', $withdrawal->monto);
+                $newTransactionGlobal->withdrawal_price = -$withdrawal->monto; // Ajusta según necesites
+                $newTransactionGlobal->value_order = 0; // Ajusta según necesites
+                $newTransactionGlobal->return_cost = 0;
+                $newTransactionGlobal->delivery_cost = 0; // Ajusta según necesites
+                $newTransactionGlobal->notdelivery_cost = 0; // Ajusta según necesites
+                $newTransactionGlobal->provider_cost = 0; // Ajusta según necesites
+                $newTransactionGlobal->referer_cost = 0; // Ajusta según necesites
+                $newTransactionGlobal->total_transaction = -$withdrawal->monto;
+                $newTransactionGlobal->previous_value = $previousValue;
+                $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
+                $newTransactionGlobal->state = true;
+                $newTransactionGlobal->id_seller = $withdrawal->id_vendedor;
+                $newTransactionGlobal->internal_transportation_cost = 0; // Ajusta según necesites
+                $newTransactionGlobal->external_transportation_cost = 0; // Ajusta según necesites
+                $newTransactionGlobal->external_return_cost = 0;
+                $newTransactionGlobal->save();
+            }
+
+
+
+            DB::commit();
+            return response()->json(["response" => "solicitud generada exitosamente", "solicitud" => $withdrawal], Response::HTTP_OK);
+        } catch (\Exception $e) {
+            DB::rollback();
+            error_log("postWhitdrawalProviderAproved_error: $e");
+            return response()->json(["response" => "error al cambiar de estado", "error" => $e], Response::HTTP_BAD_REQUEST);
+        }
+    }
+
     public function approveWhitdrawal(Request $request, $id)
     {
         //for old version: approve and debit

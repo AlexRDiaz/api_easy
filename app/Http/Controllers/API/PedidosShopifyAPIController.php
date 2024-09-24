@@ -964,6 +964,79 @@ class PedidosShopifyAPIController extends Controller
         return response()->json($pedidos);
     }
 
+    public function getRefererTotalValue(Request $request)
+    {
+        $data = $request->json()->all();
+        $startDate = $data['start'];
+        $endDate = $data['end'];
+        $startDateFormatted = Carbon::createFromFormat('j/n/Y', $startDate)->format('Y-m-d');
+        $endDateFormatted = Carbon::createFromFormat('j/n/Y', $endDate)->format('Y-m-d');
+    
+        $populate = $data['populate'];
+        $searchTerm = $data['search'];
+        $dateFilter = $data["date_filter"];
+        // $pageNumber = $data['page_number'];
+
+    
+        $selectedFilter = "fecha_entrega";
+        if ($dateFilter != "FECHA ENTREGA") {
+            $selectedFilter = "marca_tiempo_envio";
+        }
+    
+        if ($searchTerm != "") {
+            $filteFields = $data['or'];
+        } else {
+            $filteFields = [];
+        }
+    
+        $Map = $data['and'];
+        $not = $data['not'];
+    
+        $pedidos = PedidosShopify::with($populate)
+            ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
+            ->where(function ($pedidos) use ($searchTerm, $filteFields) {
+                foreach ($filteFields as $field) {
+                    if (strpos($field, '.') !== false) {
+                        $relacion = substr($field, 0, strpos($field, '.'));
+                        $propiedad = substr($field, strpos($field, '.') + 1);
+                        $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $searchTerm);
+                    } else {
+                        $pedidos->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                    }
+                }
+            })
+            ->where(function ($pedidos) use ($Map) {
+                foreach ($Map as $condition) {
+                    foreach ($condition as $key => $valor) {
+                        if (strpos($key, '.') !== false) {
+                            $relacion = substr($key, 0, strpos($key, '.'));
+                            $propiedad = substr($key, strpos($key, '.') + 1);
+                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                        } else {
+                            if ($key === 'gestioned_payment_cost_delivery') {
+                                $pedidos->whereJsonContains('gestioned_payment_cost_delivery->state', $valor);
+                            } else {
+                                $pedidos->where($key, '=', $valor);
+                            }
+                        }
+                    }
+                }
+            })
+            ->where(function ($pedidos) use ($not) {
+                foreach ($not as $condition) {
+                    foreach ($condition as $key => $valor) {
+                        $pedidos->where($key, '!=', $valor);
+                    }
+                }
+            });
+    
+        // Calcular la suma total de `value_referer`
+        $totalValueReferer = $pedidos->sum('value_referer');
+    
+        // Retornar la suma total
+        return response()->json(['total_value_referer' => $totalValueReferer]);
+    }
+
     public function getOrderbyId(Request $req, $id)
     {
         error_log("getOrderbyId");
@@ -1539,7 +1612,7 @@ class PedidosShopifyAPIController extends Controller
         $countProductWarehouseNotNull = PedidosShopify::with(['operadore.up_users', 'pedidoCarrier'])
             ->with('subRuta')
             ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
-            ->whereNotNull('value_product_warehouse')
+            ->where('value_product_warehouse', '>', 0)
             ->where("status", "ENTREGADO")
             ->where((function ($pedidos) use ($Map) {
                 foreach ($Map as $condition) {
@@ -1582,21 +1655,6 @@ class PedidosShopifyAPIController extends Controller
                     }
                 }
             }))
-            // ->where((function ($pedidos) use ($not) {
-
-            //     foreach ($not as $condition) {
-            //         foreach ($condition as $key => $valor) {
-            //             if (strpos($key, '.') !== false) {
-            //                 $relacion = substr($key, 0, strpos($key, '.'));
-            //                 $propiedad = substr($key, strpos($key, '.') + 1);
-            //                 $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
-            //             } else {
-            //                 $pedidos->where($key, '!=', $valor);
-            //             }
-            //         }
-            //     }
-            // }
-            // ))
             ->where((function ($pedidos) use ($not) {
                 foreach ($not as $condition) {
                     foreach ($condition as $key => $valor) {
@@ -1625,7 +1683,7 @@ class PedidosShopifyAPIController extends Controller
             'P. PROVEEDOR' => 0,
             'DEVOLUCION' => 0,
         ];
-        $stateTotals['P. PROVEEDOR'] += $countProductWarehouseNotNull;
+        $stateTotals['P. PROVEEDOR'] = $countProductWarehouseNotNull;
 
         $counter = 0;
         foreach ($result as $row) {
