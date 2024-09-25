@@ -354,10 +354,10 @@ class OrdenesRetiroAPIController extends Controller
             $email = $request->input('email');
             // $email = "easyecommercetest@gmail.com";
             $user_id = $request->input('user_id');
-            $user = UpUser::where("id", $user_id)->with('vendedores')->first();
+            // $user = UpUser::where("id", $user_id)->with('vendedores')->first();
 
 
-            if ($user->vendedores[0]->saldo >= $monto) {
+            // if ($user->vendedores[0]->saldo >= $monto) {
 
 
                 //     // Generar código único
@@ -376,11 +376,12 @@ class OrdenesRetiroAPIController extends Controller
 
 
                 return response()->json(["response" => "code generated succesfully", "code" => $resultCode], Response::HTTP_OK);
-            } else {
-                error_log("saldo insuficiente");
+            // } 
+            // else {
+            //     error_log("saldo insuficiente");
 
-                return response()->json(["response" => "saldo insuficiente"], Response::HTTP_BAD_REQUEST);
-            }
+            //     return response()->json(["response" => "saldo insuficiente"], Response::HTTP_BAD_REQUEST);
+            // }
         } catch (\Exception $e) {
             error_log("ERROR: $e");
 
