@@ -848,10 +848,10 @@ class ProductAPIController extends Controller
             }
 
             if ($pageSize == null) {
-                error_log("NO paginate");
+                // error_log("NO paginate");
                 $products = $products->get();
             } else {
-                error_log("is paginate");
+                // error_log("is paginate");
                 $products = $products->paginate($pageSize, ['*'], 'page', $pageNumber);
             }
 

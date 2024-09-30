@@ -34,15 +34,18 @@ class Reserve extends Model
         return $this->belongsTo(\App\Models\Product::class, 'product_id');
     }
 
+    // public function seller(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    // {
+    //     // return $this->belongsTo(\App\Models\UpUser::class, 'id_comercial');
+    //     // return $this->belongsTo(UpUser::class, 'id_comercial', 'id')
+    //     //     ->select('id', 'username', 'email');
+    //     return $this->belongsTo(UpUser::class, 'id_comercial', 'id')
+    //         ->with('vendor');
+    // }
     public function seller(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        // return $this->belongsTo(\App\Models\UpUser::class, 'id_comercial');
-        // return $this->belongsTo(UpUser::class, 'id_comercial', 'id')
-        //     ->select('id', 'username', 'email');
         return $this->belongsTo(UpUser::class, 'id_comercial', 'id')
-			->select('id', 'username', 'email')
-			->with(['vendedores' => function ($query) {
-				$query->select('vendedores.id', 'nombre_comercial', 'id_master');
-			}]);
+            ->select(['id', 'username', 'email'])
+            ->with('vendor');
     }
 }

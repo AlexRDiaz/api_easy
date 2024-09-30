@@ -221,7 +221,7 @@ class StockHistoryAPIController extends Controller
         $pageNumber = $request->input('page_number', 1); // Número de página, por defecto 1
 
         $history = StockHistory::where('product_id', $id)
-            ->orderBy('created_at', 'desc')
+            ->orderBy('id', 'desc')
             ->paginate($pageSize, ['*'], 'page', $pageNumber);
 
         if ($history->isEmpty()) {

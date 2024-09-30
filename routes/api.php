@@ -550,7 +550,9 @@ Route::middleware(['cors'])->group(function () {
     //  *
     Route::prefix('reserve')->group(function () {
         Route::post('/', [ReserveAPIController::class, 'store']);
-        Route::put('/editstock', [ReserveAPIController::class, 'editStock']);
+        Route::put('/editstock', [ReserveAPIController::class, 'editStock']);        
+        Route::put('/admin', [ReserveAPIController::class, 'admin']);
+
     });
 
     //  *

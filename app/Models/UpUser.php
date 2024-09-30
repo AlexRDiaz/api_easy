@@ -96,6 +96,12 @@ class UpUser extends Model implements Authenticatable, JWTSubject
 		return 'remember_token'; // El nombre del campo de token de recuerdo (si lo tienes)
 	}
 
+	public function vendor()
+	{
+		return $this->belongsTo(Vendedore::class, 'id', 'id_master')
+		->select(['id', 'nombre_comercial','telefono_1','telefono_2', 'id_master']);
+	}
+
 
 
 
