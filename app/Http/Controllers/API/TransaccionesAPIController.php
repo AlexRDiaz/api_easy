@@ -1922,7 +1922,7 @@ class TransaccionesAPIController extends Controller
         DB::beginTransaction();
         $message = "";
         $repetida = null;
-
+        // error_log("paymentLogisticInWarehouse");
         try {
             $data = $request->json()->all();
             // $order = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades'])->find($id);
@@ -2021,7 +2021,10 @@ class TransaccionesAPIController extends Controller
 
                 if ($order->costo_devolucion == null) { // Verifica si está vacío convirtiendo a un array
 
-                    if (empty($order->pedido_carrier_city)) {
+                    $orderData = json_decode($order, true);
+
+                    if ($orderData["pedido_carrier_city"] == []) {
+                        // error_log("with transpInterna");
                         $order->costo_devolucion = $order->users[0]->vendedores[0]->costo_devolucion;
 
                         $newSaldo = $order->users[0]->vendedores[0]->saldo - $order->users[0]->vendedores[0]->costo_devolucion;
@@ -2121,13 +2124,11 @@ class TransaccionesAPIController extends Controller
 
                         $message = "Transacción con débito por estado " . $order->status . " y " . $order->estado_devolucion;
                     } else {
-                        // El campo pedidoCarrier no está vacío
-                        error_log("El campo pedidoCarrierCity tiene datos.");
+                        // error_log("with carrierExternal");
 
                         $warehouses = $order['product']['warehouses'];
                         $prov_origen = $this->getWarehouseProv($warehouses);
 
-                        $orderData = json_decode($order, true);
                         $prov_destiny = $orderData["pedido_carrier_city"][0]["city_external"]['id_provincia'];
                         $city_destiny = $orderData["pedido_carrier_city"][0]["city_external"]['id'];
 
@@ -2295,6 +2296,7 @@ class TransaccionesAPIController extends Controller
             ]);
         } catch (\Exception $e) {
             DB::rollback();
+            error_log("error_paymentLogisticInWarehouse: $e");
             return response()->json([
                 'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
             ], 500);
@@ -2617,7 +2619,10 @@ class TransaccionesAPIController extends Controller
 
                 if ($order->costo_devolucion == null) { // Verifica si está vacío convirtiendo a un array
 
-                    if (empty($order->pedido_carrier_city)) {
+                    $orderData = json_decode($order, true);
+
+                    if ($orderData["pedido_carrier_city"] == []) {
+                        // error_log("with transpInterna");
 
                         $order->costo_devolucion = $order->users[0]->vendedores[0]->costo_devolucion;
 
@@ -2722,13 +2727,11 @@ class TransaccionesAPIController extends Controller
                         $message = "Transacción con débito por estado " . $order->status . " y " . $order->estado_devolucion;
                         // Log::info("ingreso");
                     } else {
-                        // El campo pedidoCarrier no está vacío
-                        error_log("El campo pedidoCarrierCity tiene datos.");
+                        // error_log("with carrierExternal");
 
                         $warehouses = $order['product']['warehouses'];
                         $prov_origen = $this->getWarehouseProv($warehouses);
 
-                        $orderData = json_decode($order, true);
                         $prov_destiny = $orderData["pedido_carrier_city"][0]["city_external"]['id_provincia'];
                         $city_destiny = $orderData["pedido_carrier_city"][0]["city_external"]['id'];
 

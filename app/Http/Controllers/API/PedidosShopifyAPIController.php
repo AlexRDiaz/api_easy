@@ -971,27 +971,27 @@ class PedidosShopifyAPIController extends Controller
         $endDate = $data['end'];
         $startDateFormatted = Carbon::createFromFormat('j/n/Y', $startDate)->format('Y-m-d');
         $endDateFormatted = Carbon::createFromFormat('j/n/Y', $endDate)->format('Y-m-d');
-    
+
         $populate = $data['populate'];
         $searchTerm = $data['search'];
         $dateFilter = $data["date_filter"];
         // $pageNumber = $data['page_number'];
 
-    
+
         $selectedFilter = "fecha_entrega";
         if ($dateFilter != "FECHA ENTREGA") {
             $selectedFilter = "marca_tiempo_envio";
         }
-    
+
         if ($searchTerm != "") {
             $filteFields = $data['or'];
         } else {
             $filteFields = [];
         }
-    
+
         $Map = $data['and'];
         $not = $data['not'];
-    
+
         $pedidos = PedidosShopify::with($populate)
             ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
             ->where(function ($pedidos) use ($searchTerm, $filteFields) {
@@ -1029,10 +1029,10 @@ class PedidosShopifyAPIController extends Controller
                     }
                 }
             });
-    
+
         // Calcular la suma total de `value_referer`
         $totalValueReferer = $pedidos->sum('value_referer');
-    
+
         // Retornar la suma total
         return response()->json(['total_value_referer' => $totalValueReferer]);
     }
@@ -4973,11 +4973,15 @@ class PedidosShopifyAPIController extends Controller
     {
         try {
             error_log("sendEmailConfirmtoProvider");
-            $pedido = PedidosShopify::with('users.vendedores')
+            $pedido = PedidosShopify::with('vendor')
                 ->where('id', $idOrder)->first();
 
             $numeroOrden = $pedido->numero_orden;
             $nameComercial = $pedido->tienda_temporal;
+            if ($pedido->vendor) {
+                $nameComercial = $pedido->vendor->nombre_comercial;
+            }
+
             $code = $nameComercial . '-' . $numeroOrden;
 
             if ($pedido->variant_details == null || $pedido->variant_details == "[]") {
