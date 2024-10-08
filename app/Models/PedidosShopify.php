@@ -303,7 +303,8 @@ class PedidosShopify extends Model
 
 	public function receivedBy()
 	{
-		return $this->belongsTo(UpUser::class, 'received_by', 'id');
+		return $this->belongsTo(UpUser::class, 'received_by', 'id')
+		->select('id', 'username', 'email');
 	}
 	public function confirmedBy()
 	{
@@ -358,6 +359,11 @@ class PedidosShopify extends Model
 	public function pedidoCarrierNov()
 	{
 		return $this->hasMany(PedidosShopifiesCarrierExternalLink::class, 'pedidos_shopify_id')->with('carrier_nov', 'cityExternal');
+	}
+
+	public function pedidoCarrierSimple()
+	{
+		return $this->hasMany(PedidosShopifiesCarrierExternalLink::class, 'pedidos_shopify_id')->with('carrierSimple');
 	}
 
 	public function vendor()

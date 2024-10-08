@@ -56,6 +56,11 @@ class PedidosShopifiesCarrierExternalLink extends Model
         return $this->belongsTo(\App\Models\CoverageExternal::class, 'city_external_id');
     }
 
+    public function carrierSimple(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\App\Models\CarriersExternal::class, 'carrier_id')->select('id', 'name');
+    }
+
     public function pedidosShopify(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(\App\Models\PedidosShopify::class, 'pedidos_shopify_id');
