@@ -374,37 +374,44 @@ class ProductAPIController extends Controller
             $orderByText = null;
             $orderByDate = null;
             $sort = $data['sort'];
-            $sortParts = explode(':', $sort);
+            if ($sort != "") {
+                $sortParts = explode(':', $sort);
 
-            $pt1 = $sortParts[0];
+                $pt1 = $sortParts[0];
 
-            $type = (stripos($pt1, 'fecha') !== false || stripos($pt1, 'marca') !== false) ? 'date' : 'text';
+                $type = (stripos($pt1, 'fecha') !== false || stripos($pt1, 'marca') !== false) ? 'date' : 'text';
 
-            $dataSort = [
-                [
-                    'field' => $sortParts[0],
-                    'type' => $type,
-                    'direction' => $sortParts[1],
-                ],
-            ];
+                $dataSort = [
+                    [
+                        'field' => $sortParts[0],
+                        'type' => $type,
+                        'direction' => $sortParts[1],
+                    ],
+                ];
 
-            foreach ($dataSort as $value) {
-                $field = $value['field'];
-                $direction = $value['direction'];
-                $type = $value['type'];
+                foreach ($dataSort as $value) {
+                    $field = $value['field'];
+                    $direction = $value['direction'];
+                    $type = $value['type'];
 
-                if ($type === "text") {
-                    $orderByText = [$field => $direction];
-                } else {
-                    $orderByDate = [$field => $direction];
+                    if ($type === "text") {
+                        $orderByText = [$field => $direction];
+                    } else {
+                        $orderByDate = [$field => $direction];
+                    }
                 }
+
+                if ($orderByText !== null) {
+                    $products->orderBy(key($orderByText), reset($orderByText));
+                } else {
+                    $products->orderBy(DB::raw("STR_TO_DATE(" . key($orderByDate) . ", '%e/%c/%Y')"), reset($orderByDate));
+                }
+            } else {
+                // Si no hay criterio de orden, aplicar orden aleatorio
+                $products->inRandomOrder();
             }
 
-            if ($orderByText !== null) {
-                $products->orderBy(key($orderByText), reset($orderByText));
-            } else {
-                $products->orderBy(DB::raw("STR_TO_DATE(" . key($orderByDate) . ", '%e/%c/%Y')"), reset($orderByDate));
-            }
+
             // ! ******
             $products = $products->paginate($pageSize, ['*'], 'page', $pageNumber);
 
