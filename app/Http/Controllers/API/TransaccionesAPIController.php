@@ -3534,7 +3534,7 @@ class TransaccionesAPIController extends Controller
                     $idSeller = $transactionsGlobal->first()->id_seller;
 
                     // Obtener la última transacción del mismo vendedor
-                    $ultimaTransaccion = TransaccionGlobal::where('id_seller', $idSeller)
+                    $ultimaTransaccionE = TransaccionGlobal::where('id_seller', $idSeller)
                         ->orderBy('id', 'desc')
                         ->first();
 
@@ -3551,28 +3551,50 @@ class TransaccionesAPIController extends Controller
 
                         if ($transaction->origin == 'Referenciado') {
                             // Obtener la última transacción del mismo vendedor
+                            
+
+                            $newTransaction->state = 1;
+                            $newTransaction->status = 'REEMBOLSO';
+                            $newTransaction->value_order = $transaction->value_order != 0 ? -$transaction->value_order : 0;
+                            $newTransaction->return_cost = $transaction->return_cost != 0 ? -$transaction->return_cost : 0;
+                            $newTransaction->delivery_cost = $transaction->delivery_cost != 0 ? -$transaction->delivery_cost : 0;
+                            $newTransaction->notdelivery_cost = $transaction->notdelivery_cost != 0 ? -$transaction->notdelivery_cost : 0;
+                            $newTransaction->provider_cost = $transaction->provider_cost != 0 ? -$transaction->provider_cost : 0;
+                            $newTransaction->referer_cost = $transaction->referer_cost != 0 ? -$transaction->referer_cost : 0;
+                            $newTransaction->total_transaction = $transaction->total_transaction != 0 ? -$transaction->total_transaction : 0;
+                            $newTransaction->previous_value = $ultimaTransaccionE->current_value;
+                            $newTransaction->current_value = $ultimaTransaccionE->current_value + $newTransaction->total_transaction;
+                            // ! last 3 columns in transactions_global
+                            $newTransaction->internal_transportation_cost = $transaction->internal_transportation_cost != 0 ? -$transaction->internal_transportation_cost : 0;
+                            $newTransaction->external_transportation_cost = $transaction->external_transportation_cost != 0 ? -$transaction->external_transportation_cost : 0;
+                            $newTransaction->external_return_cost = $transaction->external_return_cost != 0 ? -$transaction->external_return_cost : 0;
+
+                            $newTransaction->save();
+                        }else{
                             $ultimaTransaccion = TransaccionGlobal::where('id_seller', $transaction->id_seller)
                                 ->orderBy('id', 'desc')
                                 ->first();
+
+                            $newTransaction->state = 1;
+                            $newTransaction->status = 'REEMBOLSO';
+                            $newTransaction->value_order = $transaction->value_order != 0 ? -$transaction->value_order : 0;
+                            $newTransaction->return_cost = $transaction->return_cost != 0 ? -$transaction->return_cost : 0;
+                            $newTransaction->delivery_cost = $transaction->delivery_cost != 0 ? -$transaction->delivery_cost : 0;
+                            $newTransaction->notdelivery_cost = $transaction->notdelivery_cost != 0 ? -$transaction->notdelivery_cost : 0;
+                            $newTransaction->provider_cost = $transaction->provider_cost != 0 ? -$transaction->provider_cost : 0;
+                            $newTransaction->referer_cost = $transaction->referer_cost != 0 ? -$transaction->referer_cost : 0;
+                            $newTransaction->total_transaction = $transaction->total_transaction != 0 ? -$transaction->total_transaction : 0;
+                            $newTransaction->previous_value = $ultimaTransaccion->current_value;
+                            $newTransaction->current_value = $ultimaTransaccion->current_value + $newTransaction->total_transaction;
+                            // ! last 3 columns in transactions_global
+                            $newTransaction->internal_transportation_cost = $transaction->internal_transportation_cost != 0 ? -$transaction->internal_transportation_cost : 0;
+                            $newTransaction->external_transportation_cost = $transaction->external_transportation_cost != 0 ? -$transaction->external_transportation_cost : 0;
+                            $newTransaction->external_return_cost = $transaction->external_return_cost != 0 ? -$transaction->external_return_cost : 0;
+    
+                            $newTransaction->save();
                         }
 
-                        $newTransaction->state = 1;
-                        $newTransaction->status = 'REEMBOLSO';
-                        $newTransaction->value_order = $transaction->value_order != 0 ? -$transaction->value_order : 0;
-                        $newTransaction->return_cost = $transaction->return_cost != 0 ? -$transaction->return_cost : 0;
-                        $newTransaction->delivery_cost = $transaction->delivery_cost != 0 ? -$transaction->delivery_cost : 0;
-                        $newTransaction->notdelivery_cost = $transaction->notdelivery_cost != 0 ? -$transaction->notdelivery_cost : 0;
-                        $newTransaction->provider_cost = $transaction->provider_cost != 0 ? -$transaction->provider_cost : 0;
-                        $newTransaction->referer_cost = $transaction->referer_cost != 0 ? -$transaction->referer_cost : 0;
-                        $newTransaction->total_transaction = $transaction->total_transaction != 0 ? -$transaction->total_transaction : 0;
-                        $newTransaction->previous_value = $ultimaTransaccion->current_value;
-                        $newTransaction->current_value = $ultimaTransaccion->current_value + $newTransaction->total_transaction;
-                        // ! last 3 columns in transactions_global
-                        $newTransaction->internal_transportation_cost = $transaction->internal_transportation_cost != 0 ? -$transaction->internal_transportation_cost : 0;
-                        $newTransaction->external_transportation_cost = $transaction->external_transportation_cost != 0 ? -$transaction->external_transportation_cost : 0;
-                        $newTransaction->external_return_cost = $transaction->external_return_cost != 0 ? -$transaction->external_return_cost : 0;
-
-                        $newTransaction->save();
+                      
                     }
                 }
             }
