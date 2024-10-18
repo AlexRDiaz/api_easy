@@ -147,7 +147,7 @@ Route::middleware(['cors'])->group(function () {
 
     Route::post('pedidos-shopify/referer-value', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getRefererTotalValue']);
 
-    
+
 
 
     Route::post('pedidos-shopify/update-gestioned-novelty/{id}', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'updateGestionedNovelty']);
@@ -157,7 +157,7 @@ Route::middleware(['cors'])->group(function () {
     Route::post('pedidos-shopify/update-gestioned-payment-cost-delivery-unique/{id}', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'updateGestionedPaymentCostDeliveryU']);
 
 
-    
+
 
     Route::post('pedidos-shopify/update-prop-gestioned-novelty/{id}', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'updateOrCreatePropertyGestionedNovelty']);
 
@@ -207,6 +207,8 @@ Route::middleware(['cors'])->group(function () {
             Route::put('/{id}', [OrdenesRetiroAPIController::class, 'update']);
             Route::post('/', [OrdenesRetiroAPIController::class, 'store']);
         });
+
+        Route::post('/laarcourier/updatestate', [IntegrationAPIController::class, 'requestUpdateStateLaar']);
     });
 
 
@@ -245,7 +247,7 @@ Route::middleware(['cors'])->group(function () {
     Route::get('/vendedores-principals', [App\Http\Controllers\API\VendedoreAPIController::class, 'obtenerUsuariosPrincipales']);
 
     // ! transacciones_globales
-    
+
     Route::post("transacciones-global/saldo", [\App\Http\Controllers\API\TransaccionesGlobalAPIController::class, 'getSaldoActualSellerTG']);
 
 
@@ -296,8 +298,8 @@ Route::middleware(['cors'])->group(function () {
     Route::post("transacciones/by-date", [\App\Http\Controllers\API\TransaccionesAPIController::class, 'getTransactionsByDate']);
     // ! GetTransacctions To rollback
     Route::get("transacciones/to-rollback/{id}", [\App\Http\Controllers\API\TransaccionesAPIController::class, 'getTransactionToRollback']);
-     // ! GetTransacctionsGlobal To rollback
-     Route::get("transacciones-global/to-rollback/{id}", [\App\Http\Controllers\API\TransaccionesAPIController::class, 'getTransactionGlobalToRollback']);
+    // ! GetTransacctionsGlobal To rollback
+    Route::get("transacciones-global/to-rollback/{id}", [\App\Http\Controllers\API\TransaccionesAPIController::class, 'getTransactionGlobalToRollback']);
 
     Route::post("transacciones/cleanTransactionsFailed/{id}", [\App\Http\Controllers\API\TransaccionesAPIController::class, 'cleanTransactionsFailed']);
 
@@ -657,12 +659,20 @@ Route::middleware(['cors'])->group(function () {
     Route::post('easywp/newuser', [UpUserAPIController::class, 'storeUserWP']);
     //*
     Route::post('bystorage', [ProductAPIController::class, 'getByStorage']);
-    //  *
     Route::prefix('orderproduct')->group(function () {
         Route::post('create', [PedidosProductLinkAPIController::class, 'store']);
         Route::delete('delete', [PedidosProductLinkAPIController::class, 'destroy']);
     });
     Route::post('sendemailconfirm/{idOrder}', [PedidosShopifyAPIController::class, 'sendEmailConfirmtoProvider']);
+
+    //  *
+    Route::prefix('integration')->group(function () {
+        Route::post('orderlaar', [IntegrationAPIController::class, 'postOrderLaar']);
+    });
+
+    //******** */
+    Route::post('/authenticate', [IntegrationAPIController::class, 'authenticate']);
+
 });
 
 

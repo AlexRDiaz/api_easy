@@ -11,6 +11,7 @@ use App\Http\Controllers\Controller;
 use App\Models\TransaccionGlobal;
 use App\Models\CarrierCoverage;
 use App\Models\CarriersExternal;
+use App\Models\IntegrationUser;
 use App\Models\Novedade;
 use App\Models\NovedadesPedidosShopifyLink;
 use App\Models\PedidosShopifiesCarrierExternalLink;
@@ -28,7 +29,9 @@ use Carbon\Carbon;
 use DateTime;
 use Fpdf\Fpdf;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use setasign\Fpdi\PdfParser\StreamReader;
 use setasign\Fpdi\Tcpdf\Fpdi;
@@ -37,6 +40,8 @@ use Illuminate\Support\Facades\Log;
 
 use function Laravel\Prompts\error;
 use TCPDF;
+use Tymon\JWTAuth\Exceptions\JWTException;
+use Tymon\JWTAuth\Facades\JWTAuth;
 
 /**
  * Class IntegrationAPIController
@@ -1526,6 +1531,306 @@ class IntegrationAPIController extends Controller
             // La solicitud falló
             error_log("La solicitud a la API externa falló $response");
             return response()->json(['error' => 'La solicitud a la API externa falló'], $response->status());
+        }
+    }
+
+    //******************** LAARCOURIER */
+
+    public function getTokenLaar()
+    {
+        error_log("getTokenLaar");
+
+        $response = Http::post('https://api.laarcourier.com:9727/authenticate', [
+            'username' => 'prueba.easy.ecommerce.api',
+            'password' => 'J(s{GC]4',
+        ]);
+
+        if ($response->successful()) {
+            $token = $response->json('token');
+            return $token;
+        }
+
+        return response()->json(['error' => 'No se pudo obtener el token'], 401);
+    }
+
+    public function postOrderLaar(Request $request)
+    {
+        error_log("postOrderLaar");
+
+        $data = $request->all();
+        $apiUrl = 'https://api.laarcourier.com:9727/guias/contado';
+
+        $token = $this->getTokenLaar();
+
+        if (!$token) {
+            return response()->json(['error' => 'Token no encontrado'], 401);
+        }
+
+        $response = Http::withToken($token)
+            ->post($apiUrl, $data);
+
+        if ($response->successful()) {
+            error_log("postOrderLaar_successful: $response");
+            return $response->json();
+        } else {
+            $errorMessage = $response->json('Message') ?? 'No se pudo obtener la información';
+
+            error_log("postOrderLaar_error: " . json_encode($response->json()));
+
+            return response()->json(['error' => $errorMessage], $response->status());
+        }
+    }
+
+
+    public function authenticate(Request $request)
+    {
+        $credentials = $request->only('username', 'password');
+
+        // Buscar al usuario por su correo electrónico en la tabla UpUser
+        $user = UpUser::where('username', $credentials['username'])->first();
+
+        $upUser = UpUser::with([
+            'roles_fronts',
+        ])
+            ->where('username', $credentials['username'])->first();
+
+        // error_log($upUser);
+
+        if (!$user) {
+            error_log("1");
+            return response()->json(['error' => 'Usuario no encontrado'], Response::HTTP_NOT_FOUND);
+        }
+
+        // Validar la contraseña proporcionada por el usuario con el hash almacenado en la base de datos
+        if (!Hash::check($credentials['password'], $user->password)) {
+            error_log("2");
+
+            return response()->json(['error' => 'Credenciales inválidas'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        if ($user->blocked == 1 && $user->active == 1) {
+            error_log("3");
+
+            return response()->json(['error' => 'Usuario Bloqueado'], Response::HTTP_UNAUTHORIZED);
+        }
+        if ($user->active == 0) {
+            error_log("3");
+
+            return response()->json(['error' => 'Usuario Eliminado'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        try {
+            $isIntegration = collect($user->roles_fronts)->contains('id', 6);
+
+            if ($isIntegration) {
+                // $ttl = 1440;//24hrs
+                $ttl = 3; //test 3 min
+                // Configura el TTL específico para el token
+                JWTAuth::factory()->setTTL($ttl);
+
+                // Genera el token
+                $token = JWTAuth::fromUser($user);
+            } else {
+                return response()->json(['error' => 'Acceso denegado: rol no autorizado'], Response::HTTP_FORBIDDEN);
+            }
+        } catch (JWTException $e) {
+            return response()->json(['error' => 'No se pudo crear el token'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        error_log("usuario logueado>  $user->username ");
+
+        return response()->json([
+            'jwt' => $token,
+            // 'user' => $user
+
+            'user' => $user->username
+        ], Response::HTTP_OK);
+        /*
+            $credentials = $request->only('username', 'password');
+
+            // Buscar al usuario por su correo electrónico en la tabla UpUser
+            $user = IntegrationUser::where('username', $credentials['username'])->first();
+
+            if (!$user) {
+                error_log("1");
+                return response()->json(['error' => 'Usuario no encontrado'], Response::HTTP_NOT_FOUND);
+            }
+
+            // Validar la contraseña proporcionada por el usuario con el hash almacenado en la base de datos
+            if (!Hash::check($credentials['password'], $user->password)) {
+                error_log("2");
+
+                return response()->json(['error' => 'Credenciales inválidas'], Response::HTTP_UNAUTHORIZED);
+            }
+
+            if ($user->active == 0) {
+                error_log("3");
+
+                return response()->json(['error' => 'Usuario Eliminado'], Response::HTTP_UNAUTHORIZED);
+            }
+
+            try {
+                // Indica que el guard a utilizar es integration_user
+                $token = JWTAuth::fromUser($user); // Usa fromUser en lugar de attempt
+
+            } catch (JWTException $e) {
+                return response()->json(['error' => 'No se pudo crear el token'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            }
+
+            error_log("usuario logueado>  $user->username ");
+            return response()->json([
+                'jwt' => $token,
+                'user' => $user
+            ], Response::HTTP_OK);
+        */
+    }
+
+    public function requestUpdateStateLaar(Request $request)
+    {
+        error_log("requestUpdateState");
+        try {
+            // Obtener el usuario autenticado mediante el token
+            $user = JWTAuth::parseToken()->authenticate();
+
+            error_log("requestUpdateState ");
+            $request_body = file_get_contents('php://input');
+            $data = json_decode($request_body, true);
+            // error_log(print_r($data, true));
+
+            // Verificar si los campos obligatorios están presentes y no están vacíos
+            $required_fields = ['noGuia', 'estadoActualCodigo'];
+            $missing_fields = [];
+            foreach ($required_fields as $field) {
+                if (!isset($data[$field]) || empty($data[$field])) {
+                    $missing_fields[] = $field;
+                }
+            }
+
+            // Si faltan campos, enviar un mensaje indicando qué campos faltan
+            if (!empty($missing_fields)) {
+                $missing_fields_str = implode(', ', $missing_fields);
+                $error_message = "Missing required fields: $missing_fields_str";
+                error_log($error_message);
+                return response()->json(['message' => $error_message], 400);
+            } else {
+                //
+                $guia = $data['noGuia'];
+                $estado = $data['estadoActualCodigo'];
+
+                $currentDateTime = date('Y-m-d H:i:s');
+                $date = now()->format('j/n/Y');
+                $currentDateTimeText = date("d/m/Y H:i");
+
+                error_log("guia input: $guia ");
+                error_log("estado input: $estado ");
+            /*
+                $order = PedidosShopify::with(['users.vendedores', 'product.warehouses', 'pedidoCarrier'])
+                    ->whereHas('pedidoCarrier', function ($query) use ($guia) {
+                        $query->where('carrier_id', 2)
+                            ->where('external_id', $guia);
+                    })->first();
+
+                error_log("pedido: $order");
+
+                // ! for transaction_global
+                $existingTransaction = TransaccionGlobal::where('id_order', $order->id)
+                    ->where('id_seller', $order->users[0]->vendedores[0]->id_master)
+                    ->first();
+
+                $marcaT = "";
+
+                // Obtener los bodegas del producto
+                $warehouses = $order['product']['warehouses'];
+                $prov_origen = $this->getWarehouseProv($warehouses);
+                // error_log("Remitente product provincia: $prov_origen");
+
+                $orderData = json_decode($order, true);
+                $prov_destiny = $orderData["pedido_carrier"][0]["city_external"]['id_provincia'];
+                $city_destiny = $orderData["pedido_carrier"][0]["city_external"]['id'];
+
+                // error_log("prov_destiny: $prov_destiny");
+                // error_log("city_destiny: $city_destiny");
+
+                $carrierExternal = CarriersExternal::where('id', 1)->first();
+                // error_log("carrierExternal: $carrierExternal");
+
+                $status_array = json_decode($carrierExternal->status, true);
+
+                // Decodificar la cadena JSON en un arreglo asociativo
+                $costs = json_decode($carrierExternal->costs, true);
+
+                // Acceder a los valores de costs
+                $costo_seguro = $costs['costo_seguro'];
+
+                $city_type = CarrierCoverage::where('id_carrier', 1)->where('id_coverage', $city_destiny)->first();
+                $coverage_type = $city_type['type'];
+
+                $orderid = $orderData['id'];
+                $nombreComercial = $order->users[0]->vendedores[0]->nombre_comercial;
+                $codigo_order = $nombreComercial . "-" . $order->numero_orden;
+                // error_log("codigo_order: $codigo_order");
+            */
+
+                DB::beginTransaction();
+                try {
+                    //
+                    DB::commit();
+                    return response()->json(['message' => 'Order updated successfully.'], 200);
+                } catch (\Exception $e) {
+                    DB::rollback();
+                    error_log("ErrorRequestUpdateState: $e ");
+                    return response()->json([
+                        'error' => "There was an error processing your request. " . $e->getMessage()
+                    ], 500);
+                }
+            }
+            // Procesa aquí los datos protegidos, este usuario ya ha sido autenticado con el token
+            /*
+            {
+                "noGuia": "LC40965616",
+                "estadoActualCodigo": 14,
+                "tracking": {
+                    "2.00": {
+                        "nombre": "Por Recolectar",
+                        "fecha": "2023-01-26T16:30:25.547"
+                    },
+                    "4.00": {
+                        "nombre": "En Bodega",
+                        "fecha": "2023-01-26T20:35:06.63"
+                    },
+                    "6.00": {
+                        "nombre": "Zona de Entrega",
+                        "fecha": "2023-01-30T09:24:56.273"
+                    },
+                    "14.00": {
+                        "nombre": "Con Novedad",
+                        "fecha": "2023-01-28T12:01:19.227"
+                    },
+                    "7.00": {
+                        "nombre": "Entregado",
+                        "fecha": "2023-01-30T14:35:00"
+                    }
+                },
+                "novedades": [
+                    {
+                        "codigoTipoNovedad": 12.0,
+                        "nombreTipoNovedad": "Telemercadeo Dirección Incorrecta",
+                        "codigoDetalleNovedad": 86,
+                        "nombreDetalleNovedad": "Excepción de entrega",
+                        "numeroMaximo": 3,
+                        "observacion": null,
+                        "fechaNovedad": "2019-08-15T11:11:59"
+                    }
+                ]
+            }
+            */
+            return response()->json([
+                'mensaje' => 'Acceso permitido',
+                'user' => $user,
+                'data' => 'Esta es la información protegida'
+            ], 200);
+        } catch (JWTException $e) {
+            return response()->json([], 401);
         }
     }
 }
