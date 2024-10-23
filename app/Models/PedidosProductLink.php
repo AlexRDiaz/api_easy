@@ -53,4 +53,9 @@ class PedidosProductLink extends Model
 			->select('product_id', 'product_name', 'price');
 	}
 
+	public function orderSimple()
+	{
+		return $this->belongsTo(PedidosShopify::class, 'pedidos_shopify_id', 'id')
+			->select('id', 'numero_orden', 'id_comercial', 'variant_details', 'estado_interno', 'estado_logistico','status', 'estado_devolucion');
+	}
 }

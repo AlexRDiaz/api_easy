@@ -699,6 +699,8 @@ Route::prefix('products')->group(function () {
     Route::put('/{id}', [ProductAPIController::class, 'update']);
     Route::put('delete/{id}', [ProductAPIController::class, 'destroy']);
     Route::put('update/{id}', [ProductAPIController::class, 'updateRequest']);
+    Route::get('avaliabledelete/{id}', [ProductAPIController::class, 'avaliableDelete']);
+
 });
 
 Route::prefix('stockhistory')->group(function () {

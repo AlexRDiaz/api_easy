@@ -104,6 +104,11 @@ class Product extends Model
 			->select('warehouse_id', 'branch_name', 'id_provincia', 'city', 'address', 'provider_id');
 	}
 
+	public function orders()
+	{
+		return $this->hasMany(PedidosProductLink::class, 'product_id', 'product_id');
+	}
+
 	public function changeStock($skuProduct, $quantity)
 	{
 		$lastCPosition = strrpos($skuProduct, 'C');
