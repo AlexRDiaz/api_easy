@@ -721,7 +721,6 @@ class PedidosShopifyAPIController extends Controller
             // ! **************************************************
             $pedidos = $pedidos->paginate($pageSize, ['*'], 'page', $pageNumber);
             return response()->json($pedidos);
-            
         } catch (\Exception $e) {
             error_log("getOrdersForPrintedGuidesLaravel_error: $e");
             DB::rollback();
@@ -2433,16 +2432,20 @@ class PedidosShopifyAPIController extends Controller
 
                 $sku = $productos[0]['sku'];
                 $lastIdProduct = 0;
+                // error_log('sku:' . $sku);
 
-                if ($sku != null) {
+                if ($sku != null && preg_match('/^(.*C*)C\d+$/', $sku)) {
                     $parts = explode('C', $sku);
                     $id_product = end($parts);
+
                     if (is_numeric($id_product)) {
                         $product = Product::find($id_product);
                         if ($product != null) {
                             $lastIdProduct = $id_product; //firstId
                         }
                     }
+                } else {
+                    // error_log($sku . ' SKU inválido o nulo');
                 }
 
 
@@ -2493,7 +2496,8 @@ class PedidosShopifyAPIController extends Controller
 
                 foreach ($listOfProducts as $item) {
                     $skuVar = $item['sku'];
-                    if ($skuVar != null) {
+                    // error_log('skuVar:' . $skuVar);
+                    if ($skuVar != null && preg_match('/^(.*C*)C\d+$/', $skuVar)) {
                         $parts = explode('C', $skuVar);
                         $id_prod = end($parts);
                         if (is_numeric($id_prod)) {
@@ -2504,10 +2508,12 @@ class PedidosShopifyAPIController extends Controller
                                 }
                             }
                         }
+                    } else {
+                        // error_log($skuVar . ' SKU inválido o nulo');
                     }
                 }
 
-                // error_log("" . json_encode($uniqueIds));
+                // error_log("uniqueIds: " . json_encode($uniqueIds));
 
                 foreach ($uniqueIds as $idProd) {
 

@@ -1285,6 +1285,8 @@ class ProductAPIController extends Controller
 
                                 // error_log("$productIdFromSKU");
                                 $product = Product::find($productIdFromSKU);
+                                // error_log($product);
+                                $active = $product->active;
 
                                 // if ($idProductMain == $productIdFromSKU) {
 
@@ -1295,6 +1297,13 @@ class ProductAPIController extends Controller
                                     $responses[] = "$productIdFromSKU|3|0|0";
                                 }
                                 if ($product) {
+                                    if ($active == 0) {
+                                        error_log("Product deleted");
+                                        // return null;
+                                        //idProduct|isAvaliable|#currentStock|#requested
+                                        $responses[] = "$productIdFromSKU|5|0|0";
+                                        continue;
+                                    }
                                     error_log("Id Product found");
 
                                     $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
@@ -1577,6 +1586,52 @@ class ProductAPIController extends Controller
             */
         } catch (\Exception $e) {
             error_log("Error in getByStorage: " . $e->getMessage());
+            return response()->json(['error' => 'An error occurred'], 500);
+        }
+    }
+
+
+    public function avaliableDelete($id)
+    {
+        // error_log("avaliableDelete");
+        try {
+
+            // $prodWithorders = Product::with('orders.orderSimple')
+            //     ->where('product_id', $id)
+            //     ->get();
+
+            $prodWithorders = Product::with(['orders' => function ($query) {
+                $query->whereHas('orderSimple', function ($q) {
+                    $q->where('estado_interno', 'CONFIRMADO')
+                        // ->where('estado_logistico', 'IMPRESO')
+                        ->whereNotIn('estado_logistico', ['PENDIENTE'])
+                        ->whereNotIn('status', ['ENTREGADO'])
+                        ->whereNotIn('estado_devolucion', ['EN BODEGA']);
+                })->with('orderSimple');
+            }])
+                ->where('product_id', $id)
+                ->get();
+
+            // error_log($prodWithorders);
+            $avaliable = true;
+            foreach ($prodWithorders as $product) {
+                if ($product->orders->isEmpty()) {
+                    // error_log("El producto con ID {$product->product_id} no tiene órdenes pendientes asociadas.");
+                    $message = "Este producto no tiene órden/es en tránsito";
+                } else {
+                    // error_log("El producto con ID {$product->product_id} tiene " . $product->orders->count() . " órdenes pendientes asociadas.");
+                    $message = "No se puede eliminar, este producto tiene " . $product->orders->count() . " órden/es en tránsito.";
+                    $avaliable = false;
+                }
+            }
+
+            // return response()->json($prodWithorders);
+            return response()->json([
+                "res" => $message,
+                "status" => $avaliable
+            ]);
+        } catch (\Exception $e) {
+            error_log("avaliableDelete_error: " . $e->getMessage());
             return response()->json(['error' => 'An error occurred'], 500);
         }
     }
