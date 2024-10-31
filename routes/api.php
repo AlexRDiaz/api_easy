@@ -655,7 +655,6 @@ Route::middleware(['cors'])->group(function () {
 
     //*
     Route::post('easywp/newuser', [UpUserAPIController::class, 'storeUserWP']);
-    //*
     Route::post('bystorage', [ProductAPIController::class, 'getByStorage']);
     //  *
     Route::prefix('orderproduct')->group(function () {
