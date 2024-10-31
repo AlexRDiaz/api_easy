@@ -220,6 +220,7 @@ Route::middleware(['cors'])->group(function () {
     Route::post('transportadoras-novelties', [App\Http\Controllers\API\TransportadorasAPIController::class, 'getTransportadorasNovelties']);
     Route::get('active/transportadoras', [App\Http\Controllers\API\TransportadorasAPIController::class, 'getActiveTransportadoras']);
     Route::post('generaldata', [App\Http\Controllers\API\TransportadorasAPIController::class, 'generalData']);
+    Route::post('generaldata-optimized', [App\Http\Controllers\API\TransportadorasAPIController::class, 'generalDataOptimized']);
     Route::post('generalspecific-data', [App\Http\Controllers\API\TransportadorasAPIController::class, 'getSpecificDataGeneral']);
     Route::post('transportadoras/update-supervisor', [App\Http\Controllers\API\TransportadorasAPIController::class, 'updateSupervisor']);
     Route::get('transportadoras/get-supervisors', [App\Http\Controllers\API\TransportadorasAPIController::class, 'getSupervisors']);
