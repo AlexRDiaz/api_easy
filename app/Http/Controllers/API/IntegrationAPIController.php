@@ -1894,7 +1894,7 @@ class IntegrationAPIController extends Controller
                 // error_log("prov_destiny: $prov_destiny");
                 // error_log("city_destiny: $city_destiny");
 
-                $carrierExternal = CarriersExternal::where('id', 3)->first();
+                $carrierExternal = CarriersExternal::where('id', 5)->first();
                 // error_log("carrierExternal: $carrierExternal");
 
                 $status_array = json_decode($carrierExternal->status, true);
@@ -2855,7 +2855,7 @@ class IntegrationAPIController extends Controller
                         }
                     }
 
-                    DB::commit();
+                    // DB::commit();
                     return response()->json(['message' => 'Order updated successfully.'], 200);
                 } catch (\Exception $e) {
                     DB::rollback();
