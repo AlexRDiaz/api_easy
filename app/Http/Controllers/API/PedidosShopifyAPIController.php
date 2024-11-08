@@ -40,6 +40,10 @@ use Illuminate\Support\Facades\Mail;
 use PhpParser\Node\Stmt\TryCatch;
 
 use function Laravel\Prompts\error;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+// use PhpOffice\PhpSpreadsheet\IOFactory;
+// use PhpOffice\PhpSpreadsheet\CachedObjectStorage\MemoryGZip;
 
 class PedidosShopifyAPIController extends Controller
 {
@@ -408,89 +412,274 @@ class PedidosShopifyAPIController extends Controller
         return response()->json($pedidos);
     }
     // ! for generate pdfs without pagination 
-    public function getByDateRangeOrdersforAudit(Request $request)
+    // public function getByDateRangeOrdersforAudit(Request $request)
+    // {
+    //     $data = $request->json()->all();
+    //     $startDate = $data['start'];
+    //     $endDate = $data['end'];
+    //     $startDateFormatted = Carbon::createFromFormat('j/n/Y', $startDate)->format('Y-m-d');
+    //     $endDateFormatted = Carbon::createFromFormat('j/n/Y', $endDate)->format('Y-m-d');
+
+    //     $searchTerm = $data['search'];
+
+    //     if ($searchTerm != "") {
+    //         $filteFields = $data['or'];
+    //     } else {
+    //         $filteFields = [];
+    //     }
+
+    //     $Map = $data['and'];
+    //     $not = $data['not'];
+
+    //     $orderBy = null;
+    //     if (isset($data['sort'])) {
+    //         $sort = $data['sort'];
+    //         $sortParts = explode(':', $sort);
+    //         if (count($sortParts) === 2) {
+    //             $field = $sortParts[0];
+    //             $direction = strtoupper($sortParts[1]) === 'DESC' ? 'DESC' : 'ASC';
+    //             $orderBy = [$field => $direction];
+    //         }
+    //     }
+
+    //     $pedidos = PedidosShopify::with(['operadore.up_users'])
+    //         ->with('transportadora')
+    //         ->with('users.vendedores')
+    //         ->with('novedades')
+    //         ->with('pedidoFecha')
+    //         ->with('ruta')
+    //         ->with('subRuta')
+    //         ->with('confirmedBy')
+    //         ->with('pedidoCarrier')
+    //         ->whereRaw("STR_TO_DATE(fecha_entrega, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
+    //         ->where(function ($pedidos) use ($searchTerm, $filteFields) {
+    //             foreach ($filteFields as $field) {
+    //                 if (strpos($field, '.') !== false) {
+    //                     $relacion = substr($field, 0, strpos($field, '.'));
+    //                     $propiedad = substr($field, strpos($field, '.') + 1);
+    //                     $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $searchTerm);
+    //                 } else {
+    //                     $pedidos->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+    //                 }
+    //             }
+    //         })
+    //         ->where(function ($pedidos) use ($Map) {
+    //             foreach ($Map as $condition) {
+    //                 foreach ($condition as $key => $valor) {
+    //                     $this->applyCondition($pedidos, $key, $valor);
+    //                 }
+    //             }
+    //         })
+    //         ->where(function ($pedidos) use ($not) {
+    //             foreach ($not as $condition) {
+    //                 foreach ($condition as $key => $valor) {
+    //                     $this->applyCondition($pedidos, $key, $valor, '!=');
+    //                 }
+    //             }
+    //         });
+
+    //     if ($orderBy !== null) {
+    //         $pedidos->orderBy(key($orderBy), reset($orderBy));
+    //     }
+
+    //     $pedidos = $pedidos->get();
+    //     // // Antes de devolver la respuesta, carga los nombres de los usuarios correspondientes a 'order_by'
+    //     // $pedidos->each(function ($pedido) {
+    //     //     if ($pedido->confirmedBy) {
+    //     //         $pedido->confirmed_by_user = $pedido->confirmedBy->username; // Ajusta según tu estructura real
+    //     //     }
+    //     // });
+
+    //     return response()->json([
+    //         'data' => $pedidos,
+    //         'total' => $pedidos->count(),
+    //     ]);
+    // }
+
+    public function exportOrdersToExcel(Request $request)
     {
         $data = $request->json()->all();
         $startDate = $data['start'];
         $endDate = $data['end'];
         $startDateFormatted = Carbon::createFromFormat('j/n/Y', $startDate)->format('Y-m-d');
         $endDateFormatted = Carbon::createFromFormat('j/n/Y', $endDate)->format('Y-m-d');
-
         $searchTerm = $data['search'];
-
-        if ($searchTerm != "") {
-            $filteFields = $data['or'];
-        } else {
-            $filteFields = [];
-        }
-
+        $filteFields = $searchTerm != "" ? $data['or'] : [];
         $Map = $data['and'];
         $not = $data['not'];
+        $orderBy = isset($data['sort']) ? explode(':', $data['sort']) : null;
 
-        $orderBy = null;
-        if (isset($data['sort'])) {
-            $sort = $data['sort'];
-            $sortParts = explode(':', $sort);
-            if (count($sortParts) === 2) {
-                $field = $sortParts[0];
-                $direction = strtoupper($sortParts[1]) === 'DESC' ? 'DESC' : 'ASC';
-                $orderBy = [$field => $direction];
-            }
-        }
-
-        $pedidos = PedidosShopify::with(['operadore.up_users'])
-            ->with('transportadora')
-            ->with('users.vendedores')
-            ->with('novedades')
-            ->with('pedidoFecha')
-            ->with('ruta')
-            ->with('subRuta')
-            ->with('confirmedBy')
-            ->with('pedidoCarrier')
+        // Fetch orders with filters applied
+        $pedidos = PedidosShopify::with([
+            'operadore.up_users',
+            'transportadora',
+            'users.vendedores',
+            'novedades',
+            'pedidoFecha',
+            'ruta',
+            'subRuta',
+            'confirmedBy',
+            'pedidoCarrier'
+        ])
             ->whereRaw("STR_TO_DATE(fecha_entrega, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
-            ->where(function ($pedidos) use ($searchTerm, $filteFields) {
-                foreach ($filteFields as $field) {
-                    if (strpos($field, '.') !== false) {
-                        $relacion = substr($field, 0, strpos($field, '.'));
-                        $propiedad = substr($field, strpos($field, '.') + 1);
-                        $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $searchTerm);
-                    } else {
-                        $pedidos->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+            ->when($searchTerm, function ($query) use ($filteFields, $searchTerm) {
+                $query->where(function ($query) use ($filteFields, $searchTerm) {
+                    foreach ($filteFields as $field) {
+                        $query->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
                     }
-                }
+                });
             })
-            ->where(function ($pedidos) use ($Map) {
+            ->when($Map, function ($query) use ($Map) {
                 foreach ($Map as $condition) {
                     foreach ($condition as $key => $valor) {
-                        $this->applyCondition($pedidos, $key, $valor);
+                        $this->applyCondition($query, $key, $valor);
                     }
                 }
             })
-            ->where(function ($pedidos) use ($not) {
+            ->when($not, function ($query) use ($not) {
                 foreach ($not as $condition) {
                     foreach ($condition as $key => $valor) {
-                        $this->applyCondition($pedidos, $key, $valor, '!=');
+                        $this->applyCondition($query, $key, $valor, '!=');
                     }
                 }
             });
 
-        if ($orderBy !== null) {
-            $pedidos->orderBy(key($orderBy), reset($orderBy));
+        // Apply sorting if specified
+        if ($orderBy) {
+            $field = $orderBy[0];
+            $direction = strtoupper($orderBy[1]) === 'DESC' ? 'DESC' : 'ASC';
+            $pedidos->orderBy($field, $direction);
         }
 
         $pedidos = $pedidos->get();
-        // // Antes de devolver la respuesta, carga los nombres de los usuarios correspondientes a 'order_by'
-        // $pedidos->each(function ($pedido) {
-        //     if ($pedido->confirmedBy) {
-        //         $pedido->confirmed_by_user = $pedido->confirmedBy->username; // Ajusta según tu estructura real
-        //     }
-        // });
 
-        return response()->json([
-            'data' => $pedidos,
-            'total' => $pedidos->count(),
+        // Create Excel document
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Add title row
+        $sheet->setCellValue('A1', 'EASY ECOMMERCE - REPORTE AUDITORIA');
+        $sheet->mergeCells('A1:U1');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+        $sheet->getRowDimension('1')->setRowHeight(25);
+
+        // Leave a blank row for spacing
+        $sheet->setCellValue('A2', '');
+
+        // Define headers
+        $headers = [
+            'ID Pedido',
+            'Tienda',
+            'Fecha Ingreso Pedido',
+            'Fecha de Confirmación',
+            'Fecha Entrega',
+            'Marca Tiempo Envio',
+            'Código',
+            'Nombre Cliente',
+            'Ciudad',
+            'Status',
+            'Transportadora',
+            'Ruta',
+            'Subruta',
+            'Operador',
+            'Observación',
+            'Comentario',
+            'Estado Interno',
+            'Estado Logístico',
+            'Estado Devolución',
+            'Costo Transportadora',
+            'Costo EasyEcommerce'
+        ];
+
+        $columnWidths = [12, 15, 20, 20, 20, 18, 15, 25, 15, 12, 20, 15, 15, 15, 25, 25, 18, 18, 18, 20, 20];
+
+        foreach ($headers as $key => $header) {
+            $column = chr(65 + $key); 
+            $sheet->setCellValue($column . '3', $header);
+            $sheet->getColumnDimension($column)->setWidth($columnWidths[$key]); 
+        }
+        $sheet->getStyle('A3:U3')->getFont()->setBold(true);
+
+        // Start filling data from row 4
+        $row = 4;
+        foreach ($pedidos as $pedido) {
+            $numeroOrden = $pedido->numero_orden;
+
+            if (isset($pedido['Users']) && count($pedido['Users']) > 0 && isset($pedido['Users'][0]["vendedores"]) && count($pedido['Users'][0]["vendedores"]) > 0) {
+                $nombreComercial = $pedido["Users"][0]["vendedores"][0]["nombre_comercial"];
+            } else {
+                $nombreComercial = $pedido->tienda_temporal;
+            }
+
+            $codigoPedido = "{$nombreComercial}-{$numeroOrden}";
+
+            if (isset($pedido['subRuta']) && count($pedido['subRuta']) > 0) {
+                $subRutaTitulo = $pedido['subRuta'][0]['titulo'];
+            } else {
+                $subRutaTitulo = 'No disponible';
+            }
+
+
+            if (isset($pedido['transportadora']) && count($pedido['transportadora']) > 0) {
+                $transportadora = $pedido['transportadora'][0]['nombre'];
+            }
+            if (isset($pedido['pedidoCarrier']) && count($pedido['pedidoCarrier']) > 0) {
+                $transportadora = $pedido['pedidoCarrier'][0]["Carrier"]["name"];
+            }
+
+            if (isset($pedido['operadore']) && count($pedido['operadore']) > 0 && isset($pedido['operadore'][0]["up_users"]) && count($pedido['operadore'][0]["up_users"]) > 0) {
+                $operador = $pedido['operadore'][0]['up_users'][0]['username'];
+            } else {
+                $operador = 'No disponible';
+            }
+
+            if (isset($pedido['Ruta']) && count($pedido['Ruta']) > 0) {
+                $rutaTitulo = $pedido['Ruta'][0]['titulo'];
+            } else {
+                $rutaTitulo = 'No disponible';
+            }
+
+            // Fill each row with data
+            $sheet->fromArray([
+                $pedido->id,
+                $nombreComercial,
+                $pedido->marca_t_i,
+                $pedido->fecha_confirmacion,
+                $pedido->fecha_entrega,
+                $pedido->marca_tiempo_envio,
+                $codigoPedido,
+                $pedido->nombre_shipping,
+                $pedido->ciudad_shipping,
+                $pedido->status,
+                $transportadora,
+                $rutaTitulo,
+                $subRutaTitulo,
+                $operador,
+                $pedido->observacion,
+                $pedido->comentario,
+                $pedido->estado_interno,
+                $pedido->estado_logistico,
+                $pedido->estado_devolucion,
+                $pedido->costo_transportadora,
+                $pedido->costo_envio
+            ], null, 'A' . $row);
+
+            $row++;
+        }
+
+        // Set filename
+        $filename = "test.xlsx";
+        $writer = new Xlsx($spreadsheet);
+
+        // Configure response for download
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
         ]);
     }
+
 
     private function applyCondition($pedidos, $key, $valor, $operator = '=')
     {
@@ -2056,10 +2245,10 @@ class PedidosShopifyAPIController extends Controller
 
             $summary = [
                 'totalValoresRecibidos' => $totalValoresRecibidos,
-                'totalShippingCost' =>     $totalShippingCost,
-                'totalCostoDevolucion' =>  $totalCostoDevolucion,
+                'totalShippingCost' => $totalShippingCost,
+                'totalCostoDevolucion' => $totalCostoDevolucion,
                 'totalProductWarehouse' => $totalProductWarehouse,
-                'totalReferer' =>          $sumRefererValue,
+                'totalReferer' => $sumRefererValue,
             ];
 
             /*
@@ -2275,13 +2464,13 @@ class PedidosShopifyAPIController extends Controller
                 })
                 +
                 $query3
-                ->where('estado_interno', "CONFIRMADO")
-                ->where('estado_logistico', "ENVIADO")
-                ->where(function ($query) {
-                    $query->where('status', 'NOVEDAD')
-                        ->orWhere('status', 'NO ENTREGADO');
-                })
-                ->sum(DB::raw('REPLACE(costo_transportadora, ",", "")'))
+                    ->where('estado_interno', "CONFIRMADO")
+                    ->where('estado_logistico', "ENVIADO")
+                    ->where(function ($query) {
+                        $query->where('status', 'NOVEDAD')
+                            ->orWhere('status', 'NO ENTREGADO');
+                    })
+                    ->sum(DB::raw('REPLACE(costo_transportadora, ",", "")'))
 
             // *************************************************************************************
 
@@ -2324,7 +2513,7 @@ class PedidosShopifyAPIController extends Controller
             // Almacenar temporalmente en cache como señal de que está siendo procesada
             Cache::put($cacheKey, 'processing', now()->addMinutes(1));
 
-            error_log("********dataID: " . $id_shopify . "_" . $id  . "_" . $order_number);
+            error_log("********dataID: " . $id_shopify . "_" . $id . "_" . $order_number);
 
             $orderExists = PedidosShopify::where([
                 'id_shopify' => $id_shopify,
@@ -2518,8 +2707,8 @@ class PedidosShopifyAPIController extends Controller
                 foreach ($uniqueIds as $idProd) {
 
                     $newPedidoProduct = new PedidosProductLink();
-                    $newPedidoProduct->pedidos_shopify_id =  $createOrder->id;
-                    $newPedidoProduct->product_id =   $idProd;
+                    $newPedidoProduct->pedidos_shopify_id = $createOrder->id;
+                    $newPedidoProduct->product_id = $idProd;
                     // $newPedidoProduct->variant_sku =  $item['sku']; //skuGen o skuVar
                     // $newPedidoProduct->units =  $item['quantity'];
                     $newPedidoProduct->save();
@@ -4595,7 +4784,7 @@ class PedidosShopifyAPIController extends Controller
                         : [];
 
                     if ($noveltyState == 1) {
-                        $edited_payment["state"] =       1;
+                        $edited_payment["state"] = 1;
                         $edited_payment["id_user"] = $id_user;
                         $edited_payment["m_t_g"] = $startDateFormatted;
                     }
@@ -4854,10 +5043,10 @@ class PedidosShopifyAPIController extends Controller
                     $createOrder->confirmed_by = $generatedBy;
                     $createOrder->confirmed_at = $currentDateTime;
                     //new column
-                    $user = UpUser::where('id',  $generatedBy)->first();
+                    $user = UpUser::where('id', $generatedBy)->first();
                     $username = $user ? $user->username : null;
 
-                    $transp = Transportadora::where('id',  $newtransportadoraId)->first();
+                    $transp = Transportadora::where('id', $newtransportadoraId)->first();
                     $transpNombre = $transp ? $transp->nombre : null;
 
                     $newHistory = [
@@ -4879,8 +5068,8 @@ class PedidosShopifyAPIController extends Controller
                 foreach ($uniqueIds as $idProd) {
 
                     $newPedidoProduct = new PedidosProductLink();
-                    $newPedidoProduct->pedidos_shopify_id =  $createOrder->id;
-                    $newPedidoProduct->product_id =   $idProd;
+                    $newPedidoProduct->pedidos_shopify_id = $createOrder->id;
+                    $newPedidoProduct->product_id = $idProd;
                     // $newPedidoProduct->variant_sku =  $item['sku']; //skuGen o skuVar
                     // $newPedidoProduct->units =  $item['quantity'];
                     $newPedidoProduct->save();
