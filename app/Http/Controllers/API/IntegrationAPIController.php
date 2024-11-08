@@ -1841,7 +1841,7 @@ class IntegrationAPIController extends Controller
                     'pedidoCarrier',
                 ])
                     ->whereHas('pedidoCarrier', function ($query) use ($guia) {
-                        $query->where('carrier_id', 3)
+                        $query->where('carrier_id', 5)
                             ->where('external_id', $guia);
                     })->first();
 
