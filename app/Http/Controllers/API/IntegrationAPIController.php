@@ -2859,7 +2859,7 @@ class IntegrationAPIController extends Controller
                     return response()->json(['message' => 'Order updated successfully.'], 200);
                 } catch (\Exception $e) {
                     DB::rollback();
-                    error_log("ErrorRequestUpdateState_laar: $e ");
+                    error_log("requestUpdateStateLaar_error: $e ");
                     return response()->json([
                         'error' => "There was an error processing your request. " . $e->getMessage()
                     ], 500);
