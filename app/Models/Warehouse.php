@@ -17,6 +17,7 @@ class Warehouse extends Model
 		'description',
 		'url_image',
 		'id_provincia',
+		'id_city',
 		'city',
 		'collection',
 		'active',
@@ -32,6 +33,7 @@ class Warehouse extends Model
 		'description' => 'string',
 		'url_image' => 'string',
 		'id_provincia' => 'int',
+		'id_city' => 'int',
 		'city' => 'string',
 		'collection' => 'json', // Campo 'collection' como tipo JSON
 		'active' => 'int', // Cambiado de 'int' a 'boolean'
@@ -45,6 +47,7 @@ class Warehouse extends Model
 		'description' => 'nullable|string|max:65535',
 		'url_image' => 'nullable|string|max:150',
 		'id_provincia' => 'nullable|int',
+		'id_city' => 'nullable|int',
 		'city' => 'nullable|string|max:80',
 		'collection' => 'nullable|json',
 		'active' => 'nullable|int', // Cambiado de 'int' a 'boolean'

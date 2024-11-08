@@ -133,6 +133,7 @@ class PedidosShopify extends Model
 		'producto_extra',
 		'variant_details',
 		'cantidad_total',
+		'peso_total',
 		'status',
 		'estado_logistico',
 		'ruta',

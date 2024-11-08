@@ -667,6 +667,9 @@ Route::middleware(['cors'])->group(function () {
     //  *
     Route::prefix('integration')->group(function () {
         Route::post('orderlaar', [IntegrationAPIController::class, 'postOrderLaar']);
+        Route::post('laar/getlabel', [IntegrationAPIController::class, 'getLabelLaar']);
+        Route::post('multilabel', [IntegrationAPIController::class, 'getMultiLabelsGeneral']);
+
     });
 
     //******** */

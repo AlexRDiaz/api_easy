@@ -4706,7 +4706,7 @@ class PedidosShopifyAPIController extends Controller
             }
             // $sku = $request->input('sku');
             $recaudo = $data['recaudo'];
-            // $apertura = $data['apertura'];
+            $apertura = $data['apertura'];
             // $productId = $data['product_id'];
             $variant_details = $data['variant_details'];
             //transp
@@ -4716,6 +4716,7 @@ class PedidosShopifyAPIController extends Controller
             $carrierExternalId = $data["carrier_id"];
             $ciudadDes = $data["ciudad_des"];
             $firstIdProduct = 0; //mainProduct
+            $peso_total = $data['peso_total'];
 
 
             $numOrderstart = 1001; // Número inicial sin ceros a la izquierda
@@ -4844,7 +4845,8 @@ class PedidosShopifyAPIController extends Controller
                 $createOrder->id_product = $firstIdProduct;
                 $createOrder->variant_details = $variant_details;
                 $createOrder->recaudo = $recaudo;
-                // $createOrder->apertura = $apertura;
+                $createOrder->apertura = $apertura;
+                $createOrder->peso_total = $peso_total;
                 $createOrder->estado_interno = "PENDIENTE";
 
                 if ($newrouteId != 0) {

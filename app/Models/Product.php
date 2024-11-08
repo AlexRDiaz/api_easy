@@ -37,6 +37,7 @@ class Product extends Model
 	protected $casts = [
 		'stock' => 'int',
 		'price' => 'float',
+		'weight' => 'float',
 		'isvariable' => 'int',
 		'approved' => 'int',
 		'active' => 'int',
@@ -49,6 +50,7 @@ class Product extends Model
 		'product_name',
 		'stock',
 		'price',
+		'weight',
 		'url_img',
 		'isvariable',
 		'features',
@@ -71,7 +73,7 @@ class Product extends Model
 		// ->withPivot('id')
 		// ->withTimestamps();
 		return $this->belongsToMany(Warehouse::class, 'product_warehouse_link', 'id_product', 'id_warehouse')
-			->select('warehouse_id', 'branch_name', 'id_provincia', 'city', 'address', 'customer_service_phone', 'provider_id')
+			->select('warehouse_id', 'branch_name', 'id_provincia','id_city', 'city', 'address', 'customer_service_phone', 'provider_id')
 			->with('up_users');
 	}
 

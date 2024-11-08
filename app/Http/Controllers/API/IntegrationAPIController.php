@@ -1337,6 +1337,27 @@ class IntegrationAPIController extends Controller
         return $name;
     }
 
+    function getWarehouseCity($warehousesJson)
+    {
+        $name = "";
+
+        $warehousesList = json_decode($warehousesJson, true);
+
+        foreach ($warehousesList as $warehouseJson) {
+            if (is_array($warehouseJson)) {
+                if (count($warehousesList) == 1) {
+                    $name = $warehouseJson['id_city'];
+                } else {
+                    $lastWarehouse = end($warehousesList);
+                    $name = $lastWarehouse['id_city'];
+                }
+            } else {
+                error_log("El elemento de la lista no es un mapa válido: ");
+            }
+        }
+        return $name;
+    }
+
     public function updateProductAndProviderBalanceInt($variants, $totalPrice, $generated_by, $id_origin, $orderStatus, $codeOrder)
     {
         DB::beginTransaction();
@@ -1623,8 +1644,8 @@ class IntegrationAPIController extends Controller
             $isIntegration = collect($user->roles_fronts)->contains('id', 6);
 
             if ($isIntegration) {
-                // $ttl = 1440;//24hrs
-                $ttl = 3; //test 3 min
+                $ttl = 1440; //24hrs
+                // $ttl = 3; //test 3 min
                 // Configura el TTL específico para el token
                 JWTAuth::factory()->setTTL($ttl);
 
@@ -1685,20 +1706,104 @@ class IntegrationAPIController extends Controller
         */
     }
 
+    public function getLabelLaar(Request $request)
+    {
+        error_log("getLabelLaar");
+
+        // Obtener los datos del formulario
+        $data = $request->all();
+        $guia = $data['guia'];
+
+        $apiUrl = 'https://api.laarcourier.com:9727/guias/';
+
+        // Realizar la solicitud POST a la API externa con autenticación básica
+        $response = Http::get($apiUrl . $guia . '/etiquetas');
+
+
+        // Verificar el estado de la respuesta
+        if ($response->successful()) {
+            // La solicitud fue exitosa
+            error_log("La solicitud fue exitosa");
+            if ($response->header('content-type') === 'application/pdf') {
+                return response($response->body())
+                    ->header('Content-Type', 'application/pdf');
+            } else {
+                return $response->json();
+            }
+        } else {
+            // La solicitud falló
+            error_log("La solicitud a la API externa falló $response");
+            return response()->json(['error' => 'La solicitud a la API externa falló'], $response->status());
+        }
+    }
+
+    public function getMultiLabelsGeneral(Request $request)
+    {
+        error_log("getMultiLabelsGeneral");
+        try {
+            $data = $request->all();
+            $ids = $data['ids'];
+
+            $pdfFinal = new Fpdi();
+
+            foreach ($ids as $id) {
+                $idCarrier = $id['id_carrier'];
+                $guia = $id['guia'];
+
+                if (empty($guia)) {
+                    throw new \Exception("Guía no proporcionada.");
+                }
+
+                $res = null;
+
+                // Asignar la respuesta dependiendo del id_carrier
+                if ($idCarrier == 1) {
+                    error_log("gtm: $guia");
+                    $res = $this->getLabelGTM($request->merge(['guia' => $guia]));
+                } elseif ($idCarrier == 5) {
+                    error_log("laar: $guia");
+                    $res = $this->getLabelLaar($request->merge(['guia' => $guia]));
+                }
+
+                if (!$res) {
+                    throw new \Exception("No se pudo obtener la etiqueta para la guía $guia y transportista $idCarrier.");
+                }
+
+                $content = $res->getContent();
+
+                // Incorporar la página en el PDF final
+                $pdfFinal->setSourceFile(StreamReader::createByString($content));
+                $templateId = $pdfFinal->importPage(1); // Importar la primera página del PDF
+                $pdfFinal->addPage();
+                $pdfFinal->useTemplate($templateId, 0, 0, $pdfFinal->GetPageWidth(), $pdfFinal->GetPageHeight(), true);
+            }
+
+            $pdfContent = $pdfFinal->Output('', 'S');
+
+            return response($pdfContent)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'attachment; filename="pdftotal.pdf"');
+        } catch (\Exception $e) {
+            error_log("Error: " . $e->getMessage());
+
+            return response()->json(['Error' => $e->getMessage()], 500);
+        }
+    }
+
+
     public function requestUpdateStateLaar(Request $request)
     {
-        error_log("requestUpdateState");
         try {
             // Obtener el usuario autenticado mediante el token
             $user = JWTAuth::parseToken()->authenticate();
 
-            error_log("requestUpdateState ");
+            error_log("requestUpdateStateLaar");
             $request_body = file_get_contents('php://input');
             $data = json_decode($request_body, true);
             // error_log(print_r($data, true));
 
             // Verificar si los campos obligatorios están presentes y no están vacíos
-            $required_fields = ['noGuia', 'estadoActualCodigo'];
+            $required_fields = ['noGuia', 'estadoActualCodigo', 'estadoActual', 'pesoKilos'];
             $missing_fields = [];
             foreach ($required_fields as $field) {
                 if (!isset($data[$field]) || empty($data[$field])) {
@@ -1706,7 +1811,6 @@ class IntegrationAPIController extends Controller
                 }
             }
 
-            // Si faltan campos, enviar un mensaje indicando qué campos faltan
             if (!empty($missing_fields)) {
                 $missing_fields_str = implode(', ', $missing_fields);
                 $error_message = "Missing required fields: $missing_fields_str";
@@ -1715,22 +1819,37 @@ class IntegrationAPIController extends Controller
             } else {
                 //
                 $guia = $data['noGuia'];
-                $estado = $data['estadoActualCodigo'];
+                $estadoCod = $data['estadoActualCodigo'];
+                $estadoActual = $data['estadoActual'];
+                $pesoKilos = $data['pesoKilos']; //float
+                $novedad = $data['novedad'];
+
+                error_log("laar_guia_input: $guia");
+                error_log("estadoCod input: $estadoCod");
+                error_log("estadoActual input: $estadoActual");
+
+                if (!empty($novedad)) {
+                    error_log("Novedad recibida: " . json_encode($novedad));
+                } else {
+                    error_log("Novedad está vacía o no presente.");
+                }
+
+                $order = PedidosShopify::with([
+                    'vendor',
+                    // 'users.vendedores',
+                    'product.warehouses',
+                    'pedidoCarrier',
+                ])
+                    ->whereHas('pedidoCarrier', function ($query) use ($guia) {
+                        $query->where('carrier_id', 3)
+                            ->where('external_id', $guia);
+                    })->first();
+
+                // error_log("pedido: $order");
 
                 $currentDateTime = date('Y-m-d H:i:s');
                 $date = now()->format('j/n/Y');
                 $currentDateTimeText = date("d/m/Y H:i");
-
-                error_log("guia input: $guia ");
-                error_log("estado input: $estado ");
-            /*
-                $order = PedidosShopify::with(['users.vendedores', 'product.warehouses', 'pedidoCarrier'])
-                    ->whereHas('pedidoCarrier', function ($query) use ($guia) {
-                        $query->where('carrier_id', 2)
-                            ->where('external_id', $guia);
-                    })->first();
-
-                error_log("pedido: $order");
 
                 // ! for transaction_global
                 $existingTransaction = TransaccionGlobal::where('id_order', $order->id)
@@ -1738,11 +1857,35 @@ class IntegrationAPIController extends Controller
                     ->first();
 
                 $marcaT = "";
+                if (!empty($order->marca_t_i)) {
+                    try {
+                        $marca_t_i = $order->marca_t_i;
 
-                // Obtener los bodegas del producto
+                        // Agregar ceros a las fechas/hora de un solo dígito en el formato 9/9/2024 9:9
+                        $marca_t_i = preg_replace_callback('/(\d{1,2})\/(\d{1,2})\/(\d{4}) (\d{1,2}):(\d{1,2})/', function ($matches) {
+                            $day = str_pad($matches[1], 2, '0', STR_PAD_LEFT);
+                            $month = str_pad($matches[2], 2, '0', STR_PAD_LEFT);
+                            $year = $matches[3];
+                            $hour = str_pad($matches[4], 2, '0', STR_PAD_LEFT);
+                            $minute = str_pad($matches[5], 2, '0', STR_PAD_LEFT);
+                            return "$day/$month/$year $hour:$minute";
+                        }, $marca_t_i);
+
+                        // Intentar crear la fecha con el formato esperado
+                        $marcaT = Carbon::createFromFormat('d/m/Y H:i', $marca_t_i)->format('Y-m-d');
+                    } catch (\Exception $e) {
+                        // Log::error('Error al convertir marca_t_i: ' . $pedido->marca_t_i . ' - ' . $e->getMessage());
+                        // Asignar una fecha por defecto si la conversión falla
+                        $marcaT = Carbon::now()->format('Y-m-d H:i:s');
+                    }
+                } else {
+                    // Asignar una fecha por defecto
+                    $marcaT = Carbon::now()->format('Y-m-d H:i:s');
+                }
+
                 $warehouses = $order['product']['warehouses'];
-                $prov_origen = $this->getWarehouseProv($warehouses);
-                // error_log("Remitente product provincia: $prov_origen");
+                $city_origen = $this->getWarehouseCity($warehouses);
+                // error_log("remitente product city: $city_origen");
 
                 $orderData = json_decode($order, true);
                 $prov_destiny = $orderData["pedido_carrier"][0]["city_external"]['id_provincia'];
@@ -1751,85 +1894,979 @@ class IntegrationAPIController extends Controller
                 // error_log("prov_destiny: $prov_destiny");
                 // error_log("city_destiny: $city_destiny");
 
-                $carrierExternal = CarriersExternal::where('id', 1)->first();
+                $carrierExternal = CarriersExternal::where('id', 3)->first();
                 // error_log("carrierExternal: $carrierExternal");
 
                 $status_array = json_decode($carrierExternal->status, true);
 
-                // Decodificar la cadena JSON en un arreglo asociativo
                 $costs = json_decode($carrierExternal->costs, true);
 
-                // Acceder a los valores de costs
-                $costo_seguro = $costs['costo_seguro'];
-
-                $city_type = CarrierCoverage::where('id_carrier', 1)->where('id_coverage', $city_destiny)->first();
+                $city_type = CarrierCoverage::where('id_carrier', 3)->where('id_coverage', $city_destiny)->first();
                 $coverage_type = $city_type['type'];
+                // error_log("coverage_type: $coverage_type");
 
                 $orderid = $orderData['id'];
-                $nombreComercial = $order->users[0]->vendedores[0]->nombre_comercial;
+                $nombreComercial = $order->vendor->nombre_comercial;
                 $codigo_order = $nombreComercial . "-" . $order->numero_orden;
                 // error_log("codigo_order: $codigo_order");
-            */
 
                 DB::beginTransaction();
                 try {
                     //
+
+                    foreach ($status_array as $status) {
+                        $id_ref = $status['id_ref'];
+
+                        if ($id_ref == $estadoCod) {
+
+                            $key = $status['estado'];
+                            $name_local = $status['name_local'];
+                            $name = $status['name'];
+                            $id = $status['id'];
+
+                            //control de Entregado o Devolución/Entrega
+                            if ($id_ref == 7) {
+                                if ($estadoActual == "ENTREGADO") {
+                                    $key = 'status';
+                                    $name_local = 'ENTREGADO';
+                                } else {
+                                    // Si `estadoActual` no es "ENTREGADO", verifica la existencia de novedad y la palabra "Devolución"
+                                    if (!empty($novedad) && stripos($novedad['nombreTipoNovedad'], 'Devolucion') !== false) {
+                                        // Si `novedad` tiene un valor y `nombreTipoNovedad` contiene la palabra "Devolución"
+                                        $key = 'estado_devolucion';
+                                        $name_local = 'EN BODEGA';
+                                    } else {
+                                        $key = 'status';
+                                    }
+                                }
+                                error_log("key_control: $key");
+                            }
+
+                            error_log("Estado: $key, Nombre Local: $name_local, ID_ref: $id_ref, estadoActual: $name, ID: $id");
+                            $iva = 0.15; //15%
+                            $costo_easy = 2.3;
+                            $commentHist = "";
+
+                            if ($key == "estado_logistico") {
+
+                                if ($name_local == "ENVIADO") {  //from externo
+
+                                    $order->estado_logistico = $name_local;
+                                    $order->sent_at = $currentDateTime;
+                                    // $order->sent_by = $idUser;
+                                    $order->marca_tiempo_envio = $date;
+                                    $order->estado_interno = "CONFIRMADO";
+                                    $order->fecha_entrega = $date;
+
+                                    //reduccion del stock
+                                    $variants = json_decode($orderData['variant_details'], true);
+
+                                    $idComercial = $orderData['id_comercial'];
+                                    $responses = [];
+
+                                    $allow = true;
+
+                                    $historyOrder = StockHistory::where('pedidos_shopify_id', $order->id)
+                                        ->latest('id')
+                                        ->first();
+
+                                    // error_log("historyOrder: $historyOrder");
+                                    if ($historyOrder) {
+                                        // El registro más reciente existe
+                                        if ($historyOrder->type == 0) {
+                                            $allow = false;
+                                            error_log("$order->id $historyOrder->type YA existe");
+                                        } else {
+                                            $allow = true;
+                                        }
+                                    }
+
+                                    if ($allow) {
+
+                                        if ($variants != null) {
+                                            foreach ($variants as $variant) {
+                                                $quantity = $variant['quantity'];
+                                                $skuProduct = $variant['sku'];
+                                                error_log("skuProduct: $skuProduct");
+
+                                                if ($skuProduct != "" || $skuProduct != null) {
+
+                                                    $onlySku = 0;
+                                                    $productIdFromSKU = 0;
+
+                                                    $pattern = '/^[a-zA-Z0-9]+C\d+$/';
+
+                                                    if (preg_match($pattern, $skuProduct) && strpos($skuProduct, ' ') === false) {
+
+                                                        $type = 0;
+                                                        $productapi = new ProductAPIController();
+
+                                                        $result = $productapi->splitSku($skuProduct);
+
+                                                        $onlySku = $result['sku'];
+                                                        $productIdFromSKU = $result['id'];
+                                                        $reserveController = new ReserveAPIController();
+
+                                                        $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
+                                                        $searchResult = json_decode($response->getContent());
+
+                                                        if ($searchResult && $searchResult->response) {
+                                                            $reserve = $searchResult->reserve;
+                                                            $previous_stock = $reserve->stock;
+                                                            if ($type == 0 && $quantity > $reserve->stock) {
+                                                                $responses[] = ['message' => 'No Dispone de Stock en la Reserva'];
+                                                                continue;
+                                                            }
+
+                                                            // Actualizar el stock
+                                                            $reserve->stock -= $quantity;
+
+                                                            // Assuming you have a 'Reserve' model that you want to save after updating
+                                                            $reserveModel = Reserve::find($reserve->id);
+                                                            if ($reserveModel) {
+                                                                $reserveModel->stock = $reserve->stock;
+                                                                $reserveModel->save();
+                                                            }
+
+                                                            $createHistory = new StockHistory();
+                                                            $createHistory->product_id = $productIdFromSKU;
+                                                            $createHistory->variant_sku = $onlySku;
+                                                            $createHistory->type = 0;
+                                                            $createHistory->date = $currentDateTime;
+                                                            $createHistory->units = $quantity;
+                                                            $createHistory->last_stock_reserve = $previous_stock;
+                                                            $createHistory->current_stock_reserve = $reserve->stock;
+                                                            $createHistory->pedidos_shopify_id = $order->id;
+                                                            $createHistory->description = "Reducción de stock Reserva Pedido ENVIADO $codigo_order";
+                                                            $createHistory->save();
+
+                                                            $responses[] = ['message' => 'Stock actualizado con éxito', 'reserve' => $reserveModel];
+                                                        } else {
+                                                            // Encuentra el producto por su SKU.
+                                                            $product = Product::find($productIdFromSKU);
+
+                                                            if ($product === null) {
+                                                                return null;
+                                                            }
+
+                                                            if ($product) {
+                                                                $result = $product->changeStockGen($productIdFromSKU, $onlySku, $quantity, $type);
+                                                                $currentDateTime = date('Y-m-d H:i:s');
+
+                                                                $createHistory = new StockHistory();
+                                                                $createHistory->product_id = $productIdFromSKU;
+                                                                $createHistory->variant_sku = $onlySku;
+                                                                $createHistory->type = $type;
+                                                                $createHistory->date = $currentDateTime;
+                                                                $createHistory->units = $quantity;
+                                                                $createHistory->last_stock = $product->stock + $quantity;
+                                                                $createHistory->current_stock = $product->stock;
+                                                                $createHistory->pedidos_shopify_id = $order->id;
+                                                                $createHistory->description = "Reducción de stock General Pedido ENVIADO $codigo_order";
+
+                                                                $createHistory->save();
+                                                            } else {
+                                                                $responses[] = ['message' => 'Product not found'];
+                                                                continue;
+                                                            }
+                                                        }
+                                                    } else {
+                                                        // $responses[] = "$skuProduct|4|0|0";
+                                                        error_log("El formato de skuProduct no es válido o contiene espacios.\n");
+                                                    }
+                                                } else {
+                                                    error_log("Es vacio o null skuProductVariant: $skuProduct");
+                                                }
+                                            }
+                                        }
+                                    }
+                                    //
+                                }
+                            } else if ($key == "status") {
+
+
+                                if ($name_local == "ENTREGADO") {
+
+                                    //TRANSACCIONES
+                                    //paymentOrderDelivered
+                                    $transaccionSellerPrevious = Transaccion::where('id_origen', $orderid)
+                                        ->get();
+
+                                    if ($transaccionSellerPrevious->isNotEmpty()) {
+                                        // Obtener el último registro de transacción
+                                        $lastTransaction = $transaccionSellerPrevious->last();
+                                        // error_log($lastTransaction);
+                                        error_log("$lastTransaction->origen");
+
+                                        if ($lastTransaction->origen !== 'reembolso' && $lastTransaction->origen !== 'envio') {
+                                            // return response()->json(["res" => "Transacciones ya Registradas"]);
+                                            return response()->json(['message' => "Error, Transacciones ya Registradas."], 400);
+                                        }
+                                    }
+
+                                    error_log("Registro de costos");
+
+                                    $order->status = $name_local;
+                                    $order->fecha_entrega = $date;
+                                    $order->status_last_modified_at = $currentDateTime;
+                                    // $order->status_last_modified_by = $idUser;
+
+                                    //costos
+                                    $deliveryPrice = 0;
+                                    error_log("city_origen: $city_origen");
+                                    error_log("city_destiny: $city_destiny");
+                                    error_log("coverage_type: $coverage_type");
+
+
+                                    $isSameCity = ($city_destiny == $city_origen && ($city_destiny == 68 || $city_destiny == 32));
+                                    $tipoDestino = "";
+                                    if ($isSameCity) {
+                                        $deliveryPrice = (float)($costs["local"]);
+                                        $tipoDestino = "local";
+                                        error_log("local $deliveryPrice");
+                                    } else {
+                                        //
+                                        switch ($coverage_type) {
+                                            case 'TP':
+                                                $deliveryPrice = (float)($costs["principal"]);
+                                                $tipoDestino = "principal";
+                                                error_log("principal $deliveryPrice");
+                                                break;
+                                            case 'TS':
+                                                $deliveryPrice = (float)($costs["secundario"]);
+                                                $tipoDestino = "secundario";
+                                                error_log("secundario $deliveryPrice");
+                                                break;
+                                            case "TE":
+                                                $deliveryPrice = (float)($costs["especial"]);
+                                                $tipoDestino = "especial";
+                                                error_log("especial $deliveryPrice");
+                                                break;
+                                            case "TO":
+                                                $deliveryPrice = (float)($costs["oriente"]);
+                                                $tipoDestino = "oriente";
+                                                error_log("oriente $deliveryPrice");
+                                                break;
+                                            default:
+                                                $deliveryPrice = 0;
+                                                $tipoDestino = "local";
+                                                error_log("Tipo de cobertura desconocido");
+                                                break;
+                                        }
+                                    }
+
+                                    $costo_recaudo = 0;
+                                    //COD
+                                    if ($orderData['recaudo'] == 1) {
+                                        $tarifasRango = $costs['costo_recaudo']['tarifas_rango'];
+
+                                        foreach ($tarifasRango as $key => $rango) {
+
+                                            $min = (float)($rango['min']);
+                                            $max = (float)($rango['max']);
+                                            $tarifa = $rango['tarifa'];
+
+                                            if (((float)$orderData['precio_total']) >= $min && ((float)$orderData['precio_total'])  <= $max) {
+                                                if (is_string($tarifa) && substr($tarifa, -1) === '%') {
+                                                    $porcentaje = (float)str_replace('%', '', $tarifa) / 100;
+                                                    $costo_recaudo = ((float)$orderData['precio_total'])  * $porcentaje;
+                                                } elseif (is_float($tarifa)) {
+                                                    $costo_recaudo = $tarifa;
+                                                }
+                                                error_log("costo_recaudo: $costo_recaudo");
+                                            }
+                                        }
+                                    }
+                                    $deliveryPrice += $costo_recaudo;
+                                    $deliveryPrice = round($deliveryPrice, 2);
+
+                                    $pesoRango = $costs["peso_rango"];
+
+                                    $maxKg = (float)$pesoRango['max_kg'];
+                                    $tarifaBase = (float)$pesoRango['tarifa_base'];
+                                    $tarifaAdicionalPorKg = (float)$pesoRango['tarifa_adicional'][$tipoDestino];
+
+                                    $pesoTotal = (float)$orderData['peso_total'];
+                                    $costByWeight = 0;
+
+                                    if ($pesoTotal <= $maxKg) {
+                                        $costByWeight = 0;
+                                        error_log("costByWeight_base:");
+                                    } else {
+                                        $pesoAdicional = $pesoTotal - $maxKg;
+                                        $pesoRedondeado = ceil($pesoAdicional);
+                                        $costByWeight = $pesoRedondeado * $tarifaAdicionalPorKg;
+                                        error_log("pesoAdicional Redond:");
+                                    }
+
+                                    $costByWeight = round($costByWeight, 2);
+
+                                    error_log("costByWeight: $costByWeight");
+
+                                    $deliveryPrice += $costByWeight;
+                                    $deliveryPrice = $deliveryPrice + ($deliveryPrice * $iva);
+                                    $deliveryPrice = round($deliveryPrice, 2);
+
+                                    $deliveryPriceSeller = $deliveryPrice + $costo_easy;
+                                    // $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
+                                    $deliveryPriceSeller = round($deliveryPriceSeller, 2);
+
+
+                                    error_log("costo_transporte: $deliveryPrice");
+                                    error_log("costo_envio: $deliveryPriceSeller");
+                                    $order->costo_transportadora = strval($deliveryPrice);
+                                    $order->costo_envio = strval($deliveryPriceSeller);
+
+                                    $variants = json_decode($orderData['variant_details'], true);
+
+                                    error_log("Transaccion nueva");
+                                    //transactions
+                                    $SellerCreditFinalValue = $this->updateProductAndProviderBalanceInt(
+                                        $variants,
+                                        $orderData['precio_total'],
+                                        1,  //generated_by puede usar el id upser de pruebalaarcourier.api
+                                        $orderid,
+                                        "ENTREGADO",
+                                        $codigo_order,
+                                    );
+
+
+                                    if (isset($SellerCreditFinalValue['value_product_warehouse']) && $SellerCreditFinalValue['value_product_warehouse'] !== null) {
+                                        $order->value_product_warehouse = $SellerCreditFinalValue['value_product_warehouse'];
+                                    }
+
+                                    $vendedor = Vendedore::where('id_master', $order->id_comercial)->first();
+                                    if ($vendedor->referer != null) {
+                                        $vendedorPrincipal = Vendedore::where('id_master', $vendedor->referer)->first();
+                                        if ($vendedorPrincipal->referer_cost != 0) {
+                                            $order->value_referer = $vendedorPrincipal->referer_cost;
+                                        }
+                                    }
+
+                                    error_log("Registro de credit por pedido entregado");
+
+                                    $comentarioCredit = 'Recaudo  de valor por pedido ' . $order->status;
+
+                                    $monto = 0;
+                                    if ($SellerCreditFinalValue['total'] != null) {
+                                        $monto = $SellerCreditFinalValue['total'];
+                                    }
+
+                                    // ! parte uno de la transaccion global
+                                    $newTransactionGlobal = new TransaccionGlobal();
+                                    $previousValue = 0;
+                                    // ! ****************************************
+
+                                    $this->CreditInt(
+                                        $order->id_comercial,
+                                        $monto,
+                                        $orderid,
+                                        'recaudo',
+                                        $codigo_order,
+                                        $comentarioCredit,
+                                        1   //generated_by
+                                    );
+
+                                    error_log("Registro de Debit por producto y por costo_envio");
+
+                                    $productValues = [];
+                                    $sumatoria = 0;
+                                    // !*********
+                                    if (!empty($SellerCreditFinalValue['valor_producto'])) {
+                                        $productValues = $SellerCreditFinalValue['valor_producto'];
+                                        error_log("productValues:");
+                                        error_log(print_r($productValues, true));
+                                        foreach ($productValues as $valueProduct) {
+                                            $comentarioDebit = 'Costo de valor de Producto en Bodega ' . $order->status;
+                                            $this->DebitInt(
+                                                $order->id_comercial,
+                                                $valueProduct,
+                                                $orderid,
+                                                'valor producto bodega',
+                                                $codigo_order,
+                                                $comentarioDebit,
+                                                1   //generated_by
+                                            );
+
+                                            $sumatoria += $valueProduct;
+                                        }
+
+                                        $newTransactionGlobal->provider_cost = -$sumatoria;
+                                    } else {
+                                        $newTransactionGlobal->provider_cost = 0;
+                                    }
+
+                                    // ! parte dos de la transaccion global
+
+
+                                    $this->DebitInt(
+                                        $order->id_comercial,
+                                        strval($deliveryPriceSeller),
+                                        $orderid,
+                                        'envio',
+                                        $codigo_order,
+                                        'Costo de envio por pedido ENTREGADO',
+                                        1   //generated_by
+                                    );
+
+                                    $vendedor = Vendedore::where("id_master", $order->id_comercial)->get();
+                                    $startDateFormatted = new DateTime();
+
+                                    if ($vendedor[0]->referer != null) {
+                                        $refered = Vendedore::where('id_master', $vendedor[0]->referer)->get();
+                                        $vendedorId = $vendedor[0]->referer;
+                                        $user = UpUser::where("id", $vendedorId)->with('vendedores')->first();
+                                        $vendedor = $user['vendedores'][0];
+                                        $saldo = $vendedor->saldo;
+                                        $nuevoSaldo = $saldo + $refered[0]->referer_cost;
+                                        $vendedor->saldo = $nuevoSaldo;
+
+                                        // ! parte tres de la transaccion global
+
+                                        $newTrans = new Transaccion();
+
+                                        $newTrans->tipo = "credit";
+                                        $newTrans->monto = $refered[0]->referer_cost;
+                                        $newTrans->valor_actual = $nuevoSaldo;
+                                        $newTrans->valor_anterior = $saldo;
+                                        $newTrans->marca_de_tiempo = $startDateFormatted;
+                                        $newTrans->id_origen = $orderid;
+                                        $newTrans->codigo = $codigo_order;
+
+                                        $newTrans->origen = "referido";
+                                        $newTrans->comentario = "comision por referido";
+
+                                        $newTrans->id_vendedor = $vendedorId;
+                                        $newTrans->state = 1;
+                                        $newTrans->generated_by = 1; //cambiar
+                                        $newTrans->save();
+
+                                        $vendedorencontrado = Vendedore::findOrFail($user['vendedores'][0]['id']);
+                                        // Actualiza el saldo del vendedor
+                                        $vendedorencontrado->saldo = $nuevoSaldo;
+                                        $vendedorencontrado->save();
+
+                                        // ! generacion de la transacicon_global para el referenciado
+                                        // Obtener la transacción global previa
+                                        $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $refered[0]->id_master)
+                                            ->orderBy('id', 'desc')
+                                            ->first();
+
+                                        $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
+
+
+
+                                        $newTransactionGlobalReferer = new TransaccionGlobal();
+
+                                        if ($existingTransaction == null) {
+
+                                            $newTransactionGlobalReferer->admission_date = $marcaT;
+                                            $newTransactionGlobalReferer->delivery_date = now()->format('Y-m-d');
+                                            $newTransactionGlobalReferer->status = $order->status;
+                                            $newTransactionGlobalReferer->return_state = null;
+                                            $newTransactionGlobalReferer->id_order = $order->id;
+                                            $newTransactionGlobalReferer->code = $order->users[0]->vendedores[0]->nombre_comercial . "-" . $order->numero_orden;
+                                            $newTransactionGlobalReferer->origin = 'Referenciado';
+                                            $newTransactionGlobalReferer->withdrawal_price = 0;
+                                            $newTransactionGlobalReferer->value_order = 0;
+                                            $newTransactionGlobalReferer->return_cost = 0;
+                                            $newTransactionGlobalReferer->delivery_cost = 0;
+                                            $newTransactionGlobalReferer->notdelivery_cost = 0;
+                                            $newTransactionGlobalReferer->provider_cost = 0;
+                                            $newTransactionGlobalReferer->referer_cost = $refered[0]->referer_cost;
+                                            $newTransactionGlobalReferer->total_transaction =
+                                                $newTransactionGlobalReferer->value_order +
+                                                $newTransactionGlobalReferer->return_cost +
+                                                $newTransactionGlobalReferer->delivery_cost +
+                                                $newTransactionGlobalReferer->notdelivery_cost +
+                                                $newTransactionGlobalReferer->provider_cost +
+                                                $newTransactionGlobalReferer->referer_cost;
+                                            $newTransactionGlobalReferer->previous_value = $previousValue;
+                                            $newTransactionGlobalReferer->current_value = $previousValue + $newTransactionGlobalReferer->total_transaction;
+                                            $newTransactionGlobalReferer->state = true;
+                                            // $newTransactionGlobalReferer->id_seller = $pedido->users[0]->vendedores[0]->id_master;
+                                            $newTransactionGlobalReferer->id_seller = $refered[0]->id_master;
+                                            // $newTransactionGlobalReferer->internal_transportation_cost = -$costoTransportadora; // Ajusta según necesites
+                                            $newTransactionGlobalReferer->internal_transportation_cost = 0;
+                                            $newTransactionGlobalReferer->external_transportation_cost = 0;
+                                            $newTransactionGlobalReferer->external_return_cost = 0;
+                                            $newTransactionGlobalReferer->save();
+                                        }
+
+                                        // ! **************************************
+                                    }
+                                    //
+
+
+
+                                    $existingTransaction = TransaccionGlobal::where('id_order', $order->id)
+                                        // ->where('id_seller', $order->users[0]->vendedores[0]->id_master)
+                                        ->where('id_seller', $order->id_comercial)
+                                        ->first();
+
+                                    $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $order->users[0]->vendedores[0]->id_master)
+                                        ->orderBy('id', 'desc')
+                                        ->first();
+
+                                    $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
+
+
+                                    // $newTransactionGlobal = new TransaccionGlobal();
+
+                                    if ($existingTransaction == null) {
+
+                                        $newTransactionGlobal->admission_date = $marcaT;
+                                        $newTransactionGlobal->delivery_date = now()->format('Y-m-d');
+                                        // $newTransactionGlobal->status = $pedido->status;
+                                        $newTransactionGlobal->status = 'ENTREGADO';
+                                        // 'return_state' => $pedido->estado_devolucion,
+                                        $newTransactionGlobal->return_state = null;
+                                        $newTransactionGlobal->id_order = $order->id;
+                                        $newTransactionGlobal->code = $order->users[0]->vendedores[0]->nombre_comercial . "-" . $order->numero_orden;
+                                        $newTransactionGlobal->origin = 'Pedido ' . $order->status;
+                                        $newTransactionGlobal->withdrawal_price = 0; // Ajusta según necesites
+                                        $newTransactionGlobal->value_order = $order->precio_total; // Ajusta según necesites
+                                        $newTransactionGlobal->return_cost = 0;
+                                        $newTransactionGlobal->delivery_cost = -$order->costo_envio; // Ajusta según necesites
+                                        $newTransactionGlobal->notdelivery_cost = 0; // Ajusta según necesites
+                                        // $newTransactionGlobal->provider_cost = 0; // Ajusta según necesites
+                                        $newTransactionGlobal->referer_cost = 0; // Ajusta según necesites
+                                        $newTransactionGlobal->total_transaction =
+                                            $newTransactionGlobal->value_order +
+                                            $newTransactionGlobal->return_cost +
+                                            $newTransactionGlobal->delivery_cost +
+                                            $newTransactionGlobal->notdelivery_cost +
+                                            $newTransactionGlobal->provider_cost +
+                                            $newTransactionGlobal->referer_cost;
+                                        $newTransactionGlobal->previous_value = $previousValue;
+                                        $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
+                                        $newTransactionGlobal->state = true;
+                                        $newTransactionGlobal->id_seller = $order->users[0]->vendedores[0]->id_master;
+                                        $newTransactionGlobal->internal_transportation_cost = 0; // Ajusta según necesites
+                                        $newTransactionGlobal->external_transportation_cost = -strval($deliveryPrice); // Ajusta según necesites
+                                        $newTransactionGlobal->external_return_cost = 0;
+                                        $newTransactionGlobal->save();
+                                    }
+                                    //
+                                } else if ($name_local == "NOVEDAD") {
+                                    //
+                                    if (!empty($novedad)) {
+
+                                        error_log("Novedad recibida: " . json_encode($novedad));
+
+                                        $id_novedad = $novedad['codigoTipoNovedad'];
+                                        $no_novedad = $novedad['nombreTipoNovedad'];
+                                        $nombreDetalleNovedad = $novedad['nombreDetalleNovedad'];
+
+                                        $commentText = "";
+                                        $commentText = $no_novedad;
+
+                                        error_log("commentText: $commentText");
+                                        $commentHist = $commentText;
+
+                                        $novedades = NovedadesPedidosShopifyLink::where('pedidos_shopify_id', $order->id)->get();
+                                        $novedades_try = $novedades->isEmpty() ? 0 : $novedades->count();
+
+                                        $novedad = new Novedade();
+                                        $novedad->m_t_novedad = $currentDateTimeText;
+                                        $novedad->try = $novedades_try + 1;
+                                        $novedad->url_image = "";
+                                        $novedad->comment =  $commentText;
+                                        $novedad->external_id = $id_novedad;
+                                        $novedad->published_at = $currentDateTime;
+                                        $novedad->save();
+
+                                        $novedad_pedido = new NovedadesPedidosShopifyLink();
+                                        $novedad_pedido->novedad_id = $novedad->id;
+                                        $novedad_pedido->pedidos_shopify_id = $order->id;
+                                        $novedad_pedido->novedad_order = $novedades_try + 1;
+                                        $novedad_pedido->save();
+
+                                        $order->status = $name_local;
+                                        $order->status_last_modified_at = $currentDateTime;
+                                    } else {
+                                        error_log("Novedad está vacía o no presente.");
+                                    }
+                                } else {
+                                    $order->status = $name_local;
+                                    $order->status_last_modified_at = $currentDateTime;
+                                }
+                            } else if ($key == "estado_devolucion") {
+                                if ($order->status == "NOVEDAD") {
+                                    //
+                                    if ($name_local == "EN BODEGA") {
+                                        $order->estado_devolucion = $name_local;
+                                        $order->dl = $name_local;
+                                        $order->marca_t_d_t = $currentDateTimeText;
+                                        // $order->received_by = $idUser;
+
+                                        //update stock de producto
+                                        //caso de producto con dueño externo vuelve a reserva
+                                        $seller_owned = $order['product']['seller_owned'];
+                                        error_log("$seller_owned");
+
+                                        $historyOrder = StockHistory::where('pedidos_shopify_id', $order->id)
+                                            ->latest('id')
+                                            ->first();
+                                        $allow = true;
+
+                                        // error_log("$historyOrder: $historyOrder");
+                                        if ($historyOrder) {
+                                            // El registro más reciente existe
+                                            if ($historyOrder->type == 1) {
+                                                $allow = false;
+                                                error_log("$order->id $historyOrder->type YA existe");
+                                            } else {
+                                                $allow = true;
+                                            }
+                                        }
+
+                                        if ($allow) {
+                                            if ($seller_owned != 0 || $seller_owned != null) {
+                                                error_log("IS seller_owned: $seller_owned");
+
+                                                //reduccion del stock
+                                                $variants = json_decode($orderData['variant_details'], true);
+
+                                                $idComercial = $orderData['id_comercial'];
+                                                $responses = [];
+                                                if ($variants != null) {
+                                                    foreach ($variants as $variant) {
+                                                        $quantity = $variant['quantity'];
+                                                        $skuProduct = $variant['sku'];
+                                                        $type = 1;
+                                                        $productapi = new ProductAPIController();
+
+                                                        $result = $productapi->splitSku($skuProduct);
+
+                                                        $onlySku = $result['sku'];
+                                                        $productIdFromSKU = $result['id'];
+
+                                                        $reserveController = new ReserveAPIController();
+
+                                                        $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
+                                                        $searchResult = json_decode($response->getContent());
+
+                                                        if ($searchResult && $searchResult->response) {
+                                                            $reserve = $searchResult->reserve;
+                                                            $previous_stock = $reserve->stock;
+                                                            if ($type == 0 && $quantity > $reserve->stock) {
+                                                                $responses[] = ['message' => 'No Dispone de Stock en la Reserva'];
+                                                                continue;
+                                                            }
+
+                                                            // Actualizar el stock
+                                                            $reserve->stock += $quantity;
+
+                                                            // Assuming you have a 'Reserve' model that you want to save after updating
+                                                            $reserveModel = Reserve::find($reserve->id);
+                                                            if ($reserveModel) {
+                                                                $reserveModel->stock = $reserve->stock;
+                                                                $reserveModel->save();
+                                                            }
+
+                                                            $createHistory = new StockHistory();
+                                                            $createHistory->product_id = $productIdFromSKU;
+                                                            $createHistory->variant_sku = $onlySku;
+                                                            $createHistory->type = 1;
+                                                            $createHistory->date = $currentDateTime;
+                                                            $createHistory->units = $quantity;
+                                                            $createHistory->last_stock_reserve = $previous_stock;
+                                                            $createHistory->current_stock_reserve = $reserve->stock;
+                                                            $createHistory->pedidos_shopify_id = $order->id;
+                                                            $createHistory->description = "Incremento de stock Reserva Pedido EN BODEGA $codigo_order";
+                                                            $createHistory->save();
+
+                                                            $responses[] = ['message' => 'Stock actualizado con éxito', 'reserve' => $reserveModel];
+                                                        } else {
+                                                            error_log("No found producto: $productIdFromSKU-$onlySku");
+                                                        }
+                                                    }
+                                                }
+                                            } else {
+                                                //producto normal: reducir stock general
+                                                error_log("stock general");
+                                                $variants = json_decode($orderData['variant_details'], true);
+
+
+                                                if ($variants != null) {
+                                                    foreach ($variants as $variant) {
+                                                        $quantity = $variant['quantity'];
+                                                        $skuProduct = $variant['sku'];
+                                                        $type = 1;
+
+                                                        $productapi = new ProductAPIController();
+
+                                                        $result = $productapi->splitSku($skuProduct);
+
+                                                        $onlySku = $result['sku'];
+                                                        $productIdFromSKU = $result['id'];
+
+                                                        $product = Product::find($productIdFromSKU);
+
+                                                        $result = $product->changeStockGen($productIdFromSKU, $onlySku, $quantity, $type);
+
+
+                                                        $createHistory = new StockHistory();
+                                                        $createHistory->product_id = $productIdFromSKU;
+                                                        $createHistory->variant_sku = $onlySku;
+                                                        $createHistory->type = $type;
+                                                        $createHistory->date = $currentDateTime;
+                                                        $createHistory->units = $quantity;
+                                                        $createHistory->last_stock = $product->stock - $quantity;
+                                                        $createHistory->current_stock = $product->stock;
+                                                        $createHistory->pedidos_shopify_id = $order->id;
+                                                        $createHistory->description = "Incremento de stock General Pedido EN BODEGA $codigo_order";
+
+                                                        $createHistory->save();
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else if ($name_local == "ENTREGADO EN OFICINA") {
+                                        $order->estado_devolucion = $name_local;
+                                        $order->dt = $name_local;
+                                        $order->marca_t_d_t = $currentDateTimeText;
+                                        // $order->received_by = $idUser;
+                                    } else if ($name_local == "DEVOLUCION EN RUTA") {
+                                        $order->estado_devolucion = $name_local;
+                                        $order->dt = $name_local;
+                                        $order->marca_t_d_t = $currentDateTimeText;
+                                        // $order->received_by = $idUser;
+                                    }
+
+                                    // ! integracion
+
+                                    // Verificar si ya existe una transacción global para este pedido y vendedor
+                                    $existingTransaction = TransaccionGlobal::where('id_order', $order->id)
+                                        // ->where('id_seller', $order->users[0]->vendedores[0]->id_master)
+                                        ->where('id_seller', $order->id_comercial)
+                                        ->first();
+
+                                    // Obtener la transacción global previa
+                                    $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $order->users[0]->vendedores[0]->id_master)
+                                        ->orderBy('id', 'desc')
+                                        ->first();
+
+
+                                    // ! aqui deberia ir otra transaccion global pero seria (NOVEDAD, est_devolucion != pendiente para las externas)
+
+                                    $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
+
+                                    error_log("-----------");
+                                    error_log($existingTransaction);
+                                    error_log("-----------");
+
+                                    if ($existingTransaction != null) {
+                                        $existingTransaction->return_state = $order->estado_devolucion;
+                                        $existingTransaction->save();
+                                    }
+
+                                    if ($order->costo_devolucion == null) {
+                                        //
+                                        $deliveryPrice = 0;
+                                        $isSameCity = ($city_destiny == $city_origen && ($city_destiny == 68 || $city_destiny == 32));
+                                        $tipoDestino = "";
+
+                                        if ($isSameCity) {
+                                            $deliveryPrice = (float)($costs["local"]);
+                                            $tipoDestino = "local";
+                                            error_log("local $deliveryPrice");
+                                        } else {
+                                            //
+                                            switch ($coverage_type) {
+                                                case 'TP':
+                                                    $deliveryPrice = (float)($costs["principal"]);
+                                                    $tipoDestino = "principal";
+                                                    error_log("principal $deliveryPrice");
+                                                    break;
+                                                case 'TS':
+                                                    $deliveryPrice = (float)($costs["secundario"]);
+                                                    $tipoDestino = "secundario";
+                                                    error_log("secundario $deliveryPrice");
+                                                    break;
+                                                case "TE":
+                                                    $deliveryPrice = (float)($costs["especial"]);
+                                                    $tipoDestino = "especial";
+                                                    error_log("especial $deliveryPrice");
+                                                    break;
+                                                case "TO":
+                                                    $deliveryPrice = (float)($costs["oriente"]);
+                                                    $tipoDestino = "oriente";
+                                                    error_log("oriente $deliveryPrice");
+                                                    break;
+                                                default:
+                                                    $deliveryPrice = 0;
+                                                    $tipoDestino = "local";
+                                                    error_log("Tipo de cobertura desconocido");
+                                                    break;
+                                            }
+                                        }
+
+                                        //COD no
+                                        //
+                                        $pesoRango = $costs["peso_rango"];
+
+                                        $maxKg = (float)($pesoRango['max_kg']);
+                                        $tarifaBase = (float)($pesoRango['tarifa_base']);
+                                        $tarifaAdicionalPorKg = (float)$pesoRango['tarifa_adicional'][$tipoDestino];
+
+                                        $pesoTotal = (float)$orderData['peso_total'];
+                                        $costByWeight = 0;
+
+                                        if ($pesoTotal <= $maxKg) {
+                                            $costByWeight = 0;
+                                            error_log("costByWeight_base:");
+                                        } else {
+                                            $pesoAdicional = $pesoTotal - $maxKg;
+                                            $pesoRedondeado = ceil($pesoAdicional);
+                                            $costByWeight = $pesoRedondeado * $tarifaAdicionalPorKg;
+                                            error_log("pesoAdicional Redond:");
+                                        }
+
+                                        $costByWeight = round($costByWeight, 2);
+                                        error_log("costByWeight: $costByWeight");
+
+                                        $deliveryPrice += $costByWeight;
+                                        $deliveryPrice = $deliveryPrice + ($deliveryPrice * $iva);
+                                        $deliveryPrice = round($deliveryPrice, 2);
+
+                                        $deliveryPriceSeller = $deliveryPrice + $costo_easy;
+                                        // $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
+                                        $deliveryPriceSeller = round($deliveryPriceSeller, 2);
+
+                                        $order->costo_transportadora = strval($deliveryPrice);
+                                        $order->costo_envio = strval($deliveryPriceSeller);
+                                        error_log("costo_transp: $deliveryPrice");
+                                        error_log("costo_envio (seller): $deliveryPriceSeller");
+
+                                        $refound_seller = 0;
+                                        $refound_transp = 0;
+
+                                        $order->costo_devolucion = round(((float)$refound_seller), 2);
+                                        // $order->cost_refound_external = round(((float)$refound_transp), 2);
+                                        $pedidoCarrier = PedidosShopifiesCarrierExternalLink::where('pedidos_shopify_id', $orderid)->first();
+                                        $pedidoCarrier->cost_refound_external = round(((float)$refound_transp), 2);
+                                        $pedidoCarrier->save();
+                                        /*
+                                        $comentarioDebitEnvio = 'Costo de envio por pedido en ' . $order->status . " y " . $order->estado_devolucion;
+                                        /*
+                                        $comentarioDebitEnvio = 'Costo de envio por pedido en ' . $order->status . " y " . $order->estado_devolucion;
+                                        $this->DebitInt(
+                                            $order->id_comercial,
+                                            $deliveryPriceSeller,
+                                            $orderid,
+                                            'envio',
+                                            $codigo_order,
+                                            $comentarioDebitEnvio,
+                                            1   //cambiar
+                                        );
+
+                                        $comentarioDebitDev = 'Costo de devolución por pedido en ' . $order->status . " y " . $order->estado_devolucion;
+                                        $this->DebitInt(
+                                            $order->id_comercial,
+                                            round(((float)$refound_seller), 2),
+                                            $orderid,
+                                            'devolucion',
+                                            $codigo_order,
+                                            $comentarioDebitDev,
+                                            1   //cambiar
+                                        );
+                                        */
+
+
+                                        if ($existingTransaction == null) {
+
+                                            error_log($existingTransaction);
+
+                                            $newTransactionGlobal = new TransaccionGlobal();
+
+                                            $newTransactionGlobal->admission_date = $marcaT;
+                                            $newTransactionGlobal->delivery_date = now()->format('Y-m-d');
+                                            $newTransactionGlobal->status = "NOVEDAD";
+                                            $newTransactionGlobal->return_state = $order->estado_devolucion;
+                                            // $newTransactionGlobal->return_state = null;
+                                            $newTransactionGlobal->id_order = $order->id;
+                                            $newTransactionGlobal->code = $order->users[0]->vendedores[0]->nombre_comercial . "-" . $order->numero_orden;
+                                            $newTransactionGlobal->origin = 'Pedido ' . 'NOVEDAD';
+                                            $newTransactionGlobal->withdrawal_price = 0;
+                                            $newTransactionGlobal->value_order = 0;
+                                            $newTransactionGlobal->return_cost = -$order->costo_devolucion;
+                                            $newTransactionGlobal->delivery_cost = -$order->costo_envio;
+                                            $newTransactionGlobal->notdelivery_cost = 0;
+                                            $newTransactionGlobal->provider_cost = 0;
+                                            $newTransactionGlobal->referer_cost = 0;
+                                            $newTransactionGlobal->total_transaction =
+                                                $newTransactionGlobal->value_order +
+                                                $newTransactionGlobal->return_cost +
+                                                $newTransactionGlobal->delivery_cost +
+                                                $newTransactionGlobal->notdelivery_cost +
+                                                $newTransactionGlobal->provider_cost +
+                                                $newTransactionGlobal->referer_cost;
+                                            $newTransactionGlobal->previous_value = $previousValue;
+                                            $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
+                                            $newTransactionGlobal->state = true;
+                                            $newTransactionGlobal->id_seller = $order->users[0]->vendedores[0]->id_master;
+                                            $newTransactionGlobal->internal_transportation_cost = 0;
+                                            $newTransactionGlobal->external_transportation_cost =  -$order->costo_transportadora;
+                                            $newTransactionGlobal->external_return_cost = -round(((float)$refound_transp), 2);
+                                            $newTransactionGlobal->save();
+                                        }
+                                    } else {
+                                        //
+                                        error_log("ya existe registro costo_devolucion");
+                                    }
+                                } else {
+                                    return response()->json(['message' => "Error, Order must be in NOVEDAD."], 400);
+                                }
+                            }
+
+                            //new column
+                            $newHistory = [
+                                "area" => $key,
+                                "status" => $name_local,
+                                "timestap" => date('Y-m-d H:i:s'),
+                                "comment" => $commentHist,
+                                "path" => "",
+                                "generated_by" => "5_LAAR" //podria definir por upuser
+                            ];
+
+                            if ($order->status_history === null || $order->status_history === '[]') {
+                                $order->status_history = json_encode([$newHistory]);
+                            } else {
+                                $existingHistory = json_decode($order->status_history, true);
+
+                                $existingHistory[] = $newHistory;
+
+                                $order->status_history = json_encode($existingHistory);
+                            }
+
+
+                            if ($order->peso_total !=  $pesoKilos) {
+                                error_log("updt_peso_local: " . $order->peso_total . " laar: " . $pesoKilos);
+                                $order->peso_total = $pesoKilos;
+                            } else {
+                                // error_log("igual_local: " . $order->peso_total . " laar: " . $pesoKilos);
+                            }
+
+                            $order->save();
+
+                            break;
+                        }
+                    }
+
                     DB::commit();
                     return response()->json(['message' => 'Order updated successfully.'], 200);
                 } catch (\Exception $e) {
                     DB::rollback();
-                    error_log("ErrorRequestUpdateState: $e ");
+                    error_log("ErrorRequestUpdateState_laar: $e ");
                     return response()->json([
                         'error' => "There was an error processing your request. " . $e->getMessage()
                     ], 500);
                 }
             }
-            // Procesa aquí los datos protegidos, este usuario ya ha sido autenticado con el token
-            /*
-            {
-                "noGuia": "LC40965616",
-                "estadoActualCodigo": 14,
-                "tracking": {
-                    "2.00": {
-                        "nombre": "Por Recolectar",
-                        "fecha": "2023-01-26T16:30:25.547"
-                    },
-                    "4.00": {
-                        "nombre": "En Bodega",
-                        "fecha": "2023-01-26T20:35:06.63"
-                    },
-                    "6.00": {
-                        "nombre": "Zona de Entrega",
-                        "fecha": "2023-01-30T09:24:56.273"
-                    },
-                    "14.00": {
-                        "nombre": "Con Novedad",
-                        "fecha": "2023-01-28T12:01:19.227"
-                    },
-                    "7.00": {
-                        "nombre": "Entregado",
-                        "fecha": "2023-01-30T14:35:00"
-                    }
-                },
-                "novedades": [
-                    {
-                        "codigoTipoNovedad": 12.0,
-                        "nombreTipoNovedad": "Telemercadeo Dirección Incorrecta",
-                        "codigoDetalleNovedad": 86,
-                        "nombreDetalleNovedad": "Excepción de entrega",
-                        "numeroMaximo": 3,
-                        "observacion": null,
-                        "fechaNovedad": "2019-08-15T11:11:59"
-                    }
-                ]
-            }
-            */
-            return response()->json([
-                'mensaje' => 'Acceso permitido',
-                'user' => $user,
-                'data' => 'Esta es la información protegida'
-            ], 200);
         } catch (JWTException $e) {
+            error_log("requestUpdateStateLaar_error_JWTException");
             return response()->json([], 401);
         }
     }
