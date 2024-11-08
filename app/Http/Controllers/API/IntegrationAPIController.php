@@ -1901,7 +1901,7 @@ class IntegrationAPIController extends Controller
 
                 $costs = json_decode($carrierExternal->costs, true);
 
-                $city_type = CarrierCoverage::where('id_carrier', 3)->where('id_coverage', $city_destiny)->first();
+                $city_type = CarrierCoverage::where('id_carrier', 5)->where('id_coverage', $city_destiny)->first();
                 $coverage_type = $city_type['type'];
                 // error_log("coverage_type: $coverage_type");
 
@@ -2855,7 +2855,7 @@ class IntegrationAPIController extends Controller
                         }
                     }
 
-                    // DB::commit();
+                    DB::commit();
                     return response()->json(['message' => 'Order updated successfully.'], 200);
                 } catch (\Exception $e) {
                     DB::rollback();
