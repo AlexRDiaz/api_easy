@@ -403,10 +403,29 @@ class PedidosShopifyAPIController extends Controller
             $pedidos->orderBy(key($orderBy), reset($orderBy));
         }
         // ! **************************************************
+        // Clonar la consulta antes de la paginación para obtener vendedores únicos
+        $vendedores = $pedidos->get()
+            ->pluck('users.*.vendedores.*')
+            ->flatten(1)
+            ->unique('id_master')
+            ->map(function ($vendedor) {
+                return $vendedor->nombre_comercial . '-' . $vendedor->id_master;
+            })
+            ->values()
+            ->all();
+
+        // Paginación de los pedidos
         $pedidos = $pedidos->paginate($pageSize, ['*'], 'page', $pageNumber);
 
-        return response()->json($pedidos);
+
+        return response()->json([
+            'pedidos' => $pedidos,
+            'vendedores' => $vendedores
+        ]);
+
+        // return response()->json($pedidos);
     }
+    
     // ! for generate pdfs without pagination 
     public function getByDateRangeOrdersforAudit(Request $request)
     {
@@ -2056,10 +2075,10 @@ class PedidosShopifyAPIController extends Controller
 
             $summary = [
                 'totalValoresRecibidos' => $totalValoresRecibidos,
-                'totalShippingCost' =>     $totalShippingCost,
-                'totalCostoDevolucion' =>  $totalCostoDevolucion,
+                'totalShippingCost' => $totalShippingCost,
+                'totalCostoDevolucion' => $totalCostoDevolucion,
                 'totalProductWarehouse' => $totalProductWarehouse,
-                'totalReferer' =>          $sumRefererValue,
+                'totalReferer' => $sumRefererValue,
             ];
 
             /*
@@ -2275,13 +2294,13 @@ class PedidosShopifyAPIController extends Controller
                 })
                 +
                 $query3
-                ->where('estado_interno', "CONFIRMADO")
-                ->where('estado_logistico', "ENVIADO")
-                ->where(function ($query) {
-                    $query->where('status', 'NOVEDAD')
-                        ->orWhere('status', 'NO ENTREGADO');
-                })
-                ->sum(DB::raw('REPLACE(costo_transportadora, ",", "")'))
+                    ->where('estado_interno', "CONFIRMADO")
+                    ->where('estado_logistico', "ENVIADO")
+                    ->where(function ($query) {
+                        $query->where('status', 'NOVEDAD')
+                            ->orWhere('status', 'NO ENTREGADO');
+                    })
+                    ->sum(DB::raw('REPLACE(costo_transportadora, ",", "")'))
 
             // *************************************************************************************
 
@@ -2324,7 +2343,7 @@ class PedidosShopifyAPIController extends Controller
             // Almacenar temporalmente en cache como señal de que está siendo procesada
             Cache::put($cacheKey, 'processing', now()->addMinutes(1));
 
-            error_log("********dataID: " . $id_shopify . "_" . $id  . "_" . $order_number);
+            error_log("********dataID: " . $id_shopify . "_" . $id . "_" . $order_number);
 
             $orderExists = PedidosShopify::where([
                 'id_shopify' => $id_shopify,
@@ -2518,8 +2537,8 @@ class PedidosShopifyAPIController extends Controller
                 foreach ($uniqueIds as $idProd) {
 
                     $newPedidoProduct = new PedidosProductLink();
-                    $newPedidoProduct->pedidos_shopify_id =  $createOrder->id;
-                    $newPedidoProduct->product_id =   $idProd;
+                    $newPedidoProduct->pedidos_shopify_id = $createOrder->id;
+                    $newPedidoProduct->product_id = $idProd;
                     // $newPedidoProduct->variant_sku =  $item['sku']; //skuGen o skuVar
                     // $newPedidoProduct->units =  $item['quantity'];
                     $newPedidoProduct->save();
@@ -4595,7 +4614,7 @@ class PedidosShopifyAPIController extends Controller
                         : [];
 
                     if ($noveltyState == 1) {
-                        $edited_payment["state"] =       1;
+                        $edited_payment["state"] = 1;
                         $edited_payment["id_user"] = $id_user;
                         $edited_payment["m_t_g"] = $startDateFormatted;
                     }
@@ -4856,10 +4875,10 @@ class PedidosShopifyAPIController extends Controller
                     $createOrder->confirmed_by = $generatedBy;
                     $createOrder->confirmed_at = $currentDateTime;
                     //new column
-                    $user = UpUser::where('id',  $generatedBy)->first();
+                    $user = UpUser::where('id', $generatedBy)->first();
                     $username = $user ? $user->username : null;
 
-                    $transp = Transportadora::where('id',  $newtransportadoraId)->first();
+                    $transp = Transportadora::where('id', $newtransportadoraId)->first();
                     $transpNombre = $transp ? $transp->nombre : null;
 
                     $newHistory = [
@@ -4881,8 +4900,8 @@ class PedidosShopifyAPIController extends Controller
                 foreach ($uniqueIds as $idProd) {
 
                     $newPedidoProduct = new PedidosProductLink();
-                    $newPedidoProduct->pedidos_shopify_id =  $createOrder->id;
-                    $newPedidoProduct->product_id =   $idProd;
+                    $newPedidoProduct->pedidos_shopify_id = $createOrder->id;
+                    $newPedidoProduct->product_id = $idProd;
                     // $newPedidoProduct->variant_sku =  $item['sku']; //skuGen o skuVar
                     // $newPedidoProduct->units =  $item['quantity'];
                     $newPedidoProduct->save();
