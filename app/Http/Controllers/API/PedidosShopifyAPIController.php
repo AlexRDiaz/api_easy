@@ -807,177 +807,177 @@ class PedidosShopifyAPIController extends Controller
     //     ]);
     // }
 
-    // public function exportOrdersToExcel(Request $request)
-    // {
-    //     // Configura el límite de tiempo y memoria
-    //     set_time_limit(300); // Aumenta el tiempo límite a 5 minutos
-    //     ini_set('memory_limit', '512M'); // Ajusta el límite de memoria si es necesario
-
-    //     $data = $request->json()->all();
-    //     $startDate = $data['start'];
-    //     $endDate = $data['end'];
-    //     $startDateFormatted = Carbon::createFromFormat('j/n/Y', $startDate)->format('Y-m-d');
-    //     $endDateFormatted = Carbon::createFromFormat('j/n/Y', $endDate)->format('Y-m-d');
-    //     $searchTerm = $data['search'];
-    //     $filteFields = $searchTerm != "" ? $data['or'] : [];
-    //     $Map = $data['and'];
-    //     $not = $data['not'];
-    //     $orderBy = isset($data['sort']) ? explode(':', $data['sort']) : null;
-
-    //     // Configura el archivo de Excel
-    //     $spreadsheet = new Spreadsheet();
-    //     $sheet = $spreadsheet->getActiveSheet();
-    //     $sheet->setCellValue('A1', 'EASY ECOMMERCE - REPORTE AUDITORIA');
-    //     $sheet->mergeCells('A1:U1');
-    //     $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
-    //     $sheet->getRowDimension('1')->setRowHeight(25);
-    //     $sheet->setCellValue('A2', '');
-
-    //     // Define los encabezados
-    //     $headers = [
-    //         'ID Pedido',
-    //         'Tienda',
-    //         'Fecha Ingreso Pedido',
-    //         'Fecha de Confirmación',
-    //         'Fecha Entrega',
-    //         'Marca Tiempo Envio',
-    //         'Código',
-    //         'Nombre Cliente',
-    //         'Ciudad',
-    //         'Status',
-    //         'Transportadora',
-    //         'Ruta',
-    //         'Subruta',
-    //         'Operador',
-    //         'Observación',
-    //         'Comentario',
-    //         'Estado Interno',
-    //         'Estado Logístico',
-    //         'Estado Devolución',
-    //         'Costo Transportadora',
-    //         'Costo EasyEcommerce'
-    //     ];
-    //     $columnWidths = [12, 15, 20, 20, 20, 18, 15, 25, 15, 12, 20, 15, 15, 15, 25, 25, 18, 18, 18, 20, 20];
-    //     foreach ($headers as $key => $header) {
-    //         $column = chr(65 + $key);
-    //         $sheet->setCellValue($column . '3', $header);
-    //         $sheet->getColumnDimension($column)->setWidth($columnWidths[$key]);
-    //     }
-    //     $sheet->getStyle('A3:U3')->getFont()->setBold(true);
-
-    //     // Inicializa variables para la paginación
-    //     $page = 1;
-    //     $pageSize = 500; // Ajusta el tamaño de cada lote
-    //     $row = 4; // Comienza la inserción de datos desde la fila 4
-
-    //     do {
-    //         // Carga un lote de pedidos
-    //         $pedidos = PedidosShopify::with([
-    //             'operadore.up_users',
-    //             'transportadora',
-    //             'users.vendedores',
-    //             'novedades',
-    //             'pedidoFecha',
-    //             'ruta',
-    //             'subRuta',
-    //             'confirmedBy',
-    //             'pedidoCarrier'
-    //         ])
-    //             ->whereRaw("STR_TO_DATE(fecha_entrega, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
-    //             ->when($searchTerm, function ($query) use ($filteFields, $searchTerm) {
-    //                 $query->where(function ($query) use ($filteFields, $searchTerm) {
-    //                     foreach ($filteFields as $field) {
-    //                         $query->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
-    //                     }
-    //                 });
-    //             })
-    //             ->when($Map, function ($query) use ($Map) {
-    //                 foreach ($Map as $condition) {
-    //                     foreach ($condition as $key => $valor) {
-    //                         $this->applyCondition($query, $key, $valor);
-    //                     }
-    //                 }
-    //             })
-    //             ->when($not, function ($query) use ($not) {
-    //                 foreach ($not as $condition) {
-    //                     foreach ($condition as $key => $valor) {
-    //                         $this->applyCondition($query, $key, $valor, '!=');
-    //                     }
-    //                 }
-    //             })
-    //             ->skip(($page - 1) * $pageSize)
-    //             ->take($pageSize)
-    //             ->get();
-
-    //         // Procesa cada pedido del lote
-    //         foreach ($pedidos as $pedido) {
-    //             $nombreComercial = isset($pedido->users[0]->vendedores[0]->nombre_comercial)
-    //                 ? $pedido->users[0]->vendedores[0]->nombre_comercial
-    //                 : $pedido->tienda_temporal;
-
-    //             $codigoPedido = "{$nombreComercial}-{$pedido->numero_orden}";
-    //             $subRutaTitulo = isset($pedido->subRuta[0]->titulo) ? $pedido->subRuta[0]->titulo : 'No disponible';
-    //             $transportadora = isset($pedido->pedidoCarrier[0]->Carrier->name)
-    //                 ? $pedido->pedidoCarrier[0]->Carrier->name
-    //                 : (isset($pedido->transportadora[0]->nombre) ? $pedido->transportadora[0]->nombre : 'No disponible');
-    //             $operador = isset($pedido->operadore[0]->up_users[0]->username)
-    //                 ? $pedido->operadore[0]->up_users[0]->username
-    //                 : 'No disponible';
-    //             $rutaTitulo = isset($pedido->Ruta[0]->titulo) ? $pedido->Ruta[0]->titulo : 'No disponible';
-
-    //             $sheet->fromArray([
-    //                 $pedido->id,
-    //                 $nombreComercial,
-    //                 $pedido->marca_t_i,
-    //                 $pedido->fecha_confirmacion,
-    //                 $pedido->fecha_entrega,
-    //                 $pedido->marca_tiempo_envio,
-    //                 $codigoPedido,
-    //                 $pedido->nombre_shipping,
-    //                 $pedido->ciudad_shipping,
-    //                 $pedido->status,
-    //                 $transportadora,
-    //                 $rutaTitulo,
-    //                 $subRutaTitulo,
-    //                 $operador,
-    //                 $pedido->observacion,
-    //                 $pedido->comentario,
-    //                 $pedido->estado_interno,
-    //                 $pedido->estado_logistico,
-    //                 $pedido->estado_devolucion,
-    //                 $pedido->costo_transportadora,
-    //                 $pedido->costo_envio
-    //             ], null, 'A' . $row);
-
-    //             $row++;
-    //         }
-
-    //         $page++; // Avanza a la siguiente página de registros
-
-    //     } while ($pedidos->isNotEmpty()); // Continua hasta que no haya más registros
-
-    //     // Establece el nombre del archivo y configura la respuesta para la descarga
-    //     $filename = "reporte_pedidos.xlsx";
-    //     $writer = new Xlsx($spreadsheet);
-
-    //     return response()->streamDownload(function () use ($writer) {
-    //         $writer->save('php://output');
-    //     }, $filename, [
-    //         'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    //         'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-    //     ]);
-    // }
-
     public function exportOrdersToExcel(Request $request)
     {
-        // Recibir los datos del request
+        // Configura el límite de tiempo y memoria
+        set_time_limit(300); // Aumenta el tiempo límite a 5 minutos
+        ini_set('memory_limit', '512M'); // Ajusta el límite de memoria si es necesario
+
         $data = $request->json()->all();
-        
-        ExportOrdersJob::dispatch($data, "jeipige@gmail.com");  
-        return response()->json([
-            'message' => 'Report generation started. You will receive an email with the download link once its ready.'
+        $startDate = $data['start'];
+        $endDate = $data['end'];
+        $startDateFormatted = Carbon::createFromFormat('j/n/Y', $startDate)->format('Y-m-d');
+        $endDateFormatted = Carbon::createFromFormat('j/n/Y', $endDate)->format('Y-m-d');
+        $searchTerm = $data['search'];
+        $filteFields = $searchTerm != "" ? $data['or'] : [];
+        $Map = $data['and'];
+        $not = $data['not'];
+        $orderBy = isset($data['sort']) ? explode(':', $data['sort']) : null;
+
+        // Configura el archivo de Excel
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setCellValue('A1', 'EASY ECOMMERCE - REPORTE AUDITORIA');
+        $sheet->mergeCells('A1:U1');
+        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+        $sheet->getRowDimension('1')->setRowHeight(25);
+        $sheet->setCellValue('A2', '');
+
+        // Define los encabezados
+        $headers = [
+            'ID Pedido',
+            'Tienda',
+            'Fecha Ingreso Pedido',
+            'Fecha de Confirmación',
+            'Fecha Entrega',
+            'Marca Tiempo Envio',
+            'Código',
+            'Nombre Cliente',
+            'Ciudad',
+            'Status',
+            'Transportadora',
+            'Ruta',
+            'Subruta',
+            'Operador',
+            'Observación',
+            'Comentario',
+            'Estado Interno',
+            'Estado Logístico',
+            'Estado Devolución',
+            'Costo Transportadora',
+            'Costo EasyEcommerce'
+        ];
+        $columnWidths = [12, 15, 20, 20, 20, 18, 15, 25, 15, 12, 20, 15, 15, 15, 25, 25, 18, 18, 18, 20, 20];
+        foreach ($headers as $key => $header) {
+            $column = chr(65 + $key);
+            $sheet->setCellValue($column . '3', $header);
+            $sheet->getColumnDimension($column)->setWidth($columnWidths[$key]);
+        }
+        $sheet->getStyle('A3:U3')->getFont()->setBold(true);
+
+        // Inicializa variables para la paginación
+        $page = 1;
+        $pageSize = 500; // Ajusta el tamaño de cada lote
+        $row = 4; // Comienza la inserción de datos desde la fila 4
+
+        do {
+            // Carga un lote de pedidos
+            $pedidos = PedidosShopify::with([
+                'operadore.up_users',
+                'transportadora',
+                'users.vendedores',
+                'novedades',
+                'pedidoFecha',
+                'ruta',
+                'subRuta',
+                'confirmedBy',
+                'pedidoCarrier'
+            ])
+                ->whereRaw("STR_TO_DATE(fecha_entrega, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
+                ->when($searchTerm, function ($query) use ($filteFields, $searchTerm) {
+                    $query->where(function ($query) use ($filteFields, $searchTerm) {
+                        foreach ($filteFields as $field) {
+                            $query->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                        }
+                    });
+                })
+                ->when($Map, function ($query) use ($Map) {
+                    foreach ($Map as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            $this->applyCondition($query, $key, $valor);
+                        }
+                    }
+                })
+                ->when($not, function ($query) use ($not) {
+                    foreach ($not as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            $this->applyCondition($query, $key, $valor, '!=');
+                        }
+                    }
+                })
+                ->skip(($page - 1) * $pageSize)
+                ->take($pageSize)
+                ->get();
+
+            // Procesa cada pedido del lote
+            foreach ($pedidos as $pedido) {
+                $nombreComercial = isset($pedido->users[0]->vendedores[0]->nombre_comercial)
+                    ? $pedido->users[0]->vendedores[0]->nombre_comercial
+                    : $pedido->tienda_temporal;
+
+                $codigoPedido = "{$nombreComercial}-{$pedido->numero_orden}";
+                $subRutaTitulo = isset($pedido->subRuta[0]->titulo) ? $pedido->subRuta[0]->titulo : 'No disponible';
+                $transportadora = isset($pedido->pedidoCarrier[0]->Carrier->name)
+                    ? $pedido->pedidoCarrier[0]->Carrier->name
+                    : (isset($pedido->transportadora[0]->nombre) ? $pedido->transportadora[0]->nombre : 'No disponible');
+                $operador = isset($pedido->operadore[0]->up_users[0]->username)
+                    ? $pedido->operadore[0]->up_users[0]->username
+                    : 'No disponible';
+                $rutaTitulo = isset($pedido->Ruta[0]->titulo) ? $pedido->Ruta[0]->titulo : 'No disponible';
+
+                $sheet->fromArray([
+                    $pedido->id,
+                    $nombreComercial,
+                    $pedido->marca_t_i,
+                    $pedido->fecha_confirmacion,
+                    $pedido->fecha_entrega,
+                    $pedido->marca_tiempo_envio,
+                    $codigoPedido,
+                    $pedido->nombre_shipping,
+                    $pedido->ciudad_shipping,
+                    $pedido->status,
+                    $transportadora,
+                    $rutaTitulo,
+                    $subRutaTitulo,
+                    $operador,
+                    $pedido->observacion,
+                    $pedido->comentario,
+                    $pedido->estado_interno,
+                    $pedido->estado_logistico,
+                    $pedido->estado_devolucion,
+                    $pedido->costo_transportadora,
+                    $pedido->costo_envio
+                ], null, 'A' . $row);
+
+                $row++;
+            }
+
+            $page++; // Avanza a la siguiente página de registros
+
+        } while ($pedidos->isNotEmpty()); // Continua hasta que no haya más registros
+
+        // Establece el nombre del archivo y configura la respuesta para la descarga
+        $filename = "reporte_pedidos.xlsx";
+        $writer = new Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
         ]);
     }
+
+    // public function exportOrdersToExcel(Request $request)
+    // {
+    //     // Recibir los datos del request
+    //     $data = $request->json()->all();
+        
+    //     ExportOrdersJob::dispatch($data, "jeipige@gmail.com");  
+    //     return response()->json([
+    //         'message' => 'Report generation started. You will receive an email with the download link once its ready.'
+    //     ]);
+    // }
     
 
 
