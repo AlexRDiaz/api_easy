@@ -413,51 +413,150 @@ class PedidosShopifyAPIController extends Controller
         return response()->json($pedidos);
     }
 
+    // ! functional novelties
+    // public function getByDateRangeLogisticNovelties(Request $request)
+    // {
+    //     $data = $request->json()->all();
+    //     $startDate = $data['start'];
+    //     $endDate = $data['end'];
+    //     $startDateFormatted = Carbon::createFromFormat('j/n/Y', $startDate)->format('Y-m-d');
+    //     $endDateFormatted = Carbon::createFromFormat('j/n/Y', $endDate)->format('Y-m-d');
 
+    //     $pageSize = $data['page_size'];
+    //     $pageNumber = $data['page_number'];
+    //     $searchTerm = $data['search'];
+    //     $dateFilter = $data["date_filter"];
+
+
+    //     $selectedFilter = "fecha_entrega";
+    //     if ($dateFilter != "FECHA ENTREGA") {
+    //         $selectedFilter = "marca_tiempo_envio";
+    //     }
+
+
+    //     if ($searchTerm != "") {
+    //         $filteFields = $data['or']; // && SOLO QUITO  ((||)&&())
+    //     } else {
+    //         $filteFields = [];
+    //     }
+
+    //     // ! *************************************
+    //     $Map = $data['and'];
+    //     $not = $data['not'];
+    //     // ! *************************************
+    //     // ! ordenamiento ↓
+    //     $orderBy = null;
+    //     if (isset($data['sort'])) {
+    //         $sort = $data['sort'];
+    //         $sortParts = explode(':', $sort);
+    //         if (count($sortParts) === 2) {
+    //             $field = $sortParts[0];
+    //             $direction = strtoupper($sortParts[1]) === 'DESC' ? 'DESC' : 'ASC';
+    //             $orderBy = [$field => $direction];
+    //         }
+    //     }
+
+    //     // ! *************************************
+    //     $pedidos = PedidosShopify::with([
+    //         'operadore.up_users',
+    //         'novedades',
+    //         'confirmedBy',
+    //         'statusLastModifiedBy',
+    //         'transportadora',
+    //         'users.vendedores',
+    //         'pedidoCarrier'
+    //     ])
+    //         ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
+    //         ->where(function ($pedidos) use ($searchTerm, $filteFields) {
+    //             foreach ($filteFields as $field) {
+    //                 if (strpos($field, '.') !== false) {
+    //                     $relacion = substr($field, 0, strpos($field, '.'));
+    //                     $propiedad = substr($field, strpos($field, '.') + 1);
+    //                     $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $searchTerm);
+    //                 } else {
+    //                     $pedidos->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+    //                 }
+    //             }
+    //         })
+    //         ->where((function ($pedidos) use ($Map) {
+    //             foreach ($Map as $condition) {
+    //                 foreach ($condition as $key => $valor) {
+    //                     $parts = explode("/", $key);
+    //                     $type = $parts[0];
+    //                     $filter = $parts[1];
+    //                     if (strpos($filter, '.') !== false) {
+    //                         $relacion = substr($filter, 0, strpos($filter, '.'));
+    //                         $propiedad = substr($filter, strpos($filter, '.') + 1);
+    //                         $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+    //                     } else {
+    //                         if ($type == "equals") {
+    //                             $pedidos->where($filter, '=', $valor);
+    //                         } else {
+    //                             $pedidos->where($filter, 'LIKE', '%' . $valor . '%');
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //         }))->where((function ($pedidos) use ($not) {
+    //             foreach ($not as $condition) {
+    //                 foreach ($condition as $key => $valor) {
+    //                     if (strpos($key, '.') !== false) {
+    //                         $relacion = substr($key, 0, strpos($key, '.'));
+    //                         $propiedad = substr($key, strpos($key, '.') + 1);
+    //                         $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+    //                     } else {
+    //                         $pedidos->where($key, '!=', $valor);
+    //                     }
+    //                 }
+    //             }
+    //         }));
+    //     // ! Ordena
+    //     if ($orderBy !== null) {
+    //         $pedidos->orderBy(key($orderBy), reset($orderBy));
+    //     }
+    //     // ! **************************************************
+    //     // Clonar la consulta antes de la paginación para obtener vendedores únicos
+    //     $vendedores = $pedidos->get()
+    //         ->pluck('users.*.vendedores.*')
+    //         ->flatten(1)
+    //         ->unique('id_master')
+    //         ->map(function ($vendedor) {
+    //             return $vendedor->nombre_comercial . '-' . $vendedor->id_master;
+    //         })
+    //         ->values()
+    //         ->all();
+
+    //     // Paginación de los pedidos
+    //     $pedidos = $pedidos->paginate($pageSize, ['*'], 'page', $pageNumber);
+
+
+    //     return response()->json([
+    //         'pedidos' => $pedidos,
+    //         'vendedores' => $vendedores
+    //     ]);
+
+    //     // return response()->json($pedidos);
+    // }
+    // ! test new version for novelties
     public function getByDateRangeLogisticNovelties(Request $request)
     {
-        $data = $request->json()->all();
-        $startDate = $data['start'];
-        $endDate = $data['end'];
-        $startDateFormatted = Carbon::createFromFormat('j/n/Y', $startDate)->format('Y-m-d');
-        $endDateFormatted = Carbon::createFromFormat('j/n/Y', $endDate)->format('Y-m-d');
 
+        // Extraer y formatear las fechas, tamaño de página, número de página, términos de búsqueda, etc.
+        $data = $request->json()->all();
+        $startDate = Carbon::createFromFormat('j/n/Y', $data['start'])->format('Y-m-d');
+        $endDate = Carbon::createFromFormat('j/n/Y', $data['end'])->format('Y-m-d');
         $pageSize = $data['page_size'];
         $pageNumber = $data['page_number'];
         $searchTerm = $data['search'];
         $dateFilter = $data["date_filter"];
-
-
-        $selectedFilter = "fecha_entrega";
-        if ($dateFilter != "FECHA ENTREGA") {
-            $selectedFilter = "marca_tiempo_envio";
-        }
-
-
-        if ($searchTerm != "") {
-            $filteFields = $data['or']; // && SOLO QUITO  ((||)&&())
-        } else {
-            $filteFields = [];
-        }
-
-        // ! *************************************
+        $selectedFilter = $dateFilter != "FECHA ENTREGA" ? "marca_tiempo_envio" : "fecha_entrega";
+        $filteFields = $searchTerm ? $data['or'] : [];
         $Map = $data['and'];
         $not = $data['not'];
-        // ! *************************************
-        // ! ordenamiento ↓
-        $orderBy = null;
-        if (isset($data['sort'])) {
-            $sort = $data['sort'];
-            $sortParts = explode(':', $sort);
-            if (count($sortParts) === 2) {
-                $field = $sortParts[0];
-                $direction = strtoupper($sortParts[1]) === 'DESC' ? 'DESC' : 'ASC';
-                $orderBy = [$field => $direction];
-            }
-        }
+        $orderBy = $this->getOrderBy($data);
 
-        // ! *************************************
-        $pedidos = PedidosShopify::with([
+        // Construir consulta para `pedidos`
+        $pedidos = $this->applyFiltersNV(PedidosShopify::with([
             'operadore.up_users',
             'novedades',
             'confirmedBy',
@@ -465,20 +564,83 @@ class PedidosShopifyAPIController extends Controller
             'transportadora',
             'users.vendedores',
             'pedidoCarrier'
-        ])
-            ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
-            ->where(function ($pedidos) use ($searchTerm, $filteFields) {
+        ]), $selectedFilter, $startDate, $endDate, $searchTerm, $filteFields, $Map, $not);
+
+        // Ordenar si es necesario
+        if ($orderBy !== null) {
+            $pedidos->orderBy(key($orderBy), reset($orderBy));
+        }
+
+        // Paginación
+        $pedidosPaginated = $pedidos->paginate($pageSize, ['*'], 'page', $pageNumber);
+
+        return response()->json($pedidosPaginated);
+    }
+
+    public function getVendedoresByDateRange(Request $request)
+    {
+        // Reutilizar los mismos filtros para obtener los `vendedores` únicos
+        $data = $request->json()->all();
+        $startDate = Carbon::createFromFormat('j/n/Y', $data['start'])->format('Y-m-d');
+        $endDate = Carbon::createFromFormat('j/n/Y', $data['end'])->format('Y-m-d');
+        $searchTerm = $data['search'];
+        $dateFilter = $data["date_filter"];
+        $selectedFilter = $dateFilter != "FECHA ENTREGA" ? "marca_tiempo_envio" : "fecha_entrega";
+        $filteFields = $searchTerm ? $data['or'] : [];
+        $Map = $data['and'];
+        $not = $data['not'];
+
+        // Aplicar los filtros para `vendedores`
+        $pedidos = $this->applyFiltersNV(PedidosShopify::with('users.vendedores'), $selectedFilter, $startDate, $endDate, $searchTerm, $filteFields, $Map, $not);
+
+        $vendedores = $pedidos->get()
+            ->pluck('users.*.vendedores.*')
+            ->flatten(1)
+            ->unique('id')
+            ->map(function ($vendedor) {
+                return [
+                    'id' => $vendedor->id_master,
+                    'nombre_comercial' => $vendedor->nombre_comercial
+                ];
+            })
+            ->values()
+            ->all();
+
+        return response()->json([
+            'data' => $vendedores
+        ]);
+
+    }
+
+    private function getOrderBy($data)
+    {
+        if (isset($data['sort'])) {
+            $sort = $data['sort'];
+            $sortParts = explode(':', $sort);
+            if (count($sortParts) === 2) {
+                $field = $sortParts[0];
+                $direction = strtoupper($sortParts[1]) === 'DESC' ? 'DESC' : 'ASC';
+                return [$field => $direction];
+            }
+        }
+        return null;
+    }
+
+    private function applyFiltersNV($query, $selectedFilter, $startDate, $endDate, $searchTerm, $filteFields, $Map, $not)
+    {
+        return $query->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
+            ->where(function ($query) use ($searchTerm, $filteFields) {
                 foreach ($filteFields as $field) {
                     if (strpos($field, '.') !== false) {
                         $relacion = substr($field, 0, strpos($field, '.'));
                         $propiedad = substr($field, strpos($field, '.') + 1);
-                        $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $searchTerm);
+                        $this->recursiveWhereHas($query, $relacion, $propiedad, $searchTerm);
                     } else {
-                        $pedidos->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                        $query->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
                     }
                 }
             })
-            ->where((function ($pedidos) use ($Map) {
+            ->where(function ($query) use ($Map) {
                 foreach ($Map as $condition) {
                     foreach ($condition as $key => $valor) {
                         $parts = explode("/", $key);
@@ -487,56 +649,31 @@ class PedidosShopifyAPIController extends Controller
                         if (strpos($filter, '.') !== false) {
                             $relacion = substr($filter, 0, strpos($filter, '.'));
                             $propiedad = substr($filter, strpos($filter, '.') + 1);
-                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                            $this->recursiveWhereHas($query, $relacion, $propiedad, $valor);
                         } else {
-                            if ($type == "equals") {
-                                $pedidos->where($filter, '=', $valor);
-                            } else {
-                                $pedidos->where($filter, 'LIKE', '%' . $valor . '%');
-                            }
+                            $query->where($filter, $type == "equals" ? '=' : 'LIKE', $type == "equals" ? $valor : '%' . $valor . '%');
                         }
                     }
                 }
-            }))->where((function ($pedidos) use ($not) {
+            })
+            ->where(function ($query) use ($not) {
                 foreach ($not as $condition) {
                     foreach ($condition as $key => $valor) {
                         if (strpos($key, '.') !== false) {
                             $relacion = substr($key, 0, strpos($key, '.'));
                             $propiedad = substr($key, strpos($key, '.') + 1);
-                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                            $this->recursiveWhereHas($query, $relacion, $propiedad, $valor);
                         } else {
-                            $pedidos->where($key, '!=', $valor);
+                            $query->where($key, '!=', $valor);
                         }
                     }
                 }
-            }));
-        // ! Ordena
-        if ($orderBy !== null) {
-            $pedidos->orderBy(key($orderBy), reset($orderBy));
-        }
-        // ! **************************************************
-        // Clonar la consulta antes de la paginación para obtener vendedores únicos
-        $vendedores = $pedidos->get()
-            ->pluck('users.*.vendedores.*')
-            ->flatten(1)
-            ->unique('id_master')
-            ->map(function ($vendedor) {
-                return $vendedor->nombre_comercial . '-' . $vendedor->id_master;
-            })
-            ->values()
-            ->all();
-
-        // Paginación de los pedidos
-        $pedidos = $pedidos->paginate($pageSize, ['*'], 'page', $pageNumber);
-
-
-        return response()->json([
-            'pedidos' => $pedidos,
-            'vendedores' => $vendedores
-        ]);
-
-        // return response()->json($pedidos);
+            });
     }
+
+    // ! **********************
+
+
 
     // ! for generate pdfs without pagination 
     // public function getByDateRangeOrdersforAudit(Request $request)
@@ -972,13 +1109,13 @@ class PedidosShopifyAPIController extends Controller
     // {
     //     // Recibir los datos del request
     //     $data = $request->json()->all();
-        
+
     //     ExportOrdersJob::dispatch($data, "jeipige@gmail.com");  
     //     return response()->json([
     //         'message' => 'Report generation started. You will receive an email with the download link once its ready.'
     //     ]);
     // }
-    
+
 
 
     private function applyCondition($pedidos, $key, $valor, $operator = '=')

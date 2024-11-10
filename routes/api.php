@@ -57,6 +57,7 @@ Route::middleware(['cors'])->group(function () {
     Route::post('pedidos-shopify/filter/logistic', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getByDateRangeLogistic']);
 
     Route::post('logistic/filter/novelties', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getByDateRangeLogisticNovelties']);
+    Route::post('logistic/filter/novelties-vendedores', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getVendedoresByDateRange']);
     Route::post('logistic/filter/novelties-aux', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getByDateRangeAuditAndResolvedNovelties']);
     
 
