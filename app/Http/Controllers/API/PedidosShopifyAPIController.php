@@ -591,7 +591,7 @@ class PedidosShopifyAPIController extends Controller
         $not = $data['not'];
 
         // Aplicar los filtros para `vendedores`
-        $pedidos = $this->applyFiltersNV(PedidosShopify::with('users.vendedores'), $selectedFilter, $startDate, $endDate, $searchTerm, $filteFields, $Map, $not);
+        $pedidos = $this->applyFiltersNVR(PedidosShopify::with('users.vendedores'), $selectedFilter, $startDate, $endDate);
 
         $vendedores = $pedidos->get()
             ->pluck('users.*.vendedores.*')
@@ -669,6 +669,12 @@ class PedidosShopifyAPIController extends Controller
                     }
                 }
             });
+    }
+
+    private function applyFiltersNVR($query, $selectedFilter, $startDate, $endDate)
+    {
+        return $query->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
+        ;
     }
 
     // ! **********************
