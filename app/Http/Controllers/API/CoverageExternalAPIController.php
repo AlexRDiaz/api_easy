@@ -70,4 +70,76 @@ class CoverageExternalAPIController extends Controller
     {
         //
     }
+
+    public function search(Request $request)
+    {
+        $data = $request->json()->all();
+
+        try {
+            $city = $data['city'];
+            $populate = $data['populate'];
+
+            $cityNormal = $this->normalizeString($city);
+
+            $coverage = CoverageExternal::with($populate)
+                ->whereRaw('LOWER(ciudad) LIKE ?', ['%' . strtolower($cityNormal) . '%'])
+                ->first();
+
+            // ->where(function ($coverages) use ($andMap) {
+            //     foreach ($andMap as $condition) {
+            //         foreach ($condition as $key => $valor) {
+            //             $parts = explode("/", $key);
+            //             $type = $parts[0];
+            //             $filter = $parts[1];
+            //             if (strpos($filter, '.') !== false) {
+            //                 $relacion = substr($filter, 0, strpos($filter, '.'));
+            //                 $propiedad = substr($filter, strpos($filter, '.') + 1);
+            //                 $this->recursiveWhereHas($coverages, $relacion, $propiedad, $valor);
+            //             } else {
+            //                 if ($type == "equals") {
+            //                     $coverages->where($filter, '=', $valor);
+            //                 } else {
+            //                     $coverages->where($filter, 'LIKE', '%' . $valor . '%');
+            //                 }
+            //             }
+            //         }
+            //     }
+            // })
+            // ->first();
+
+            if (!$coverage) {
+                error_log("searchCity_Cobertura no encontrada para la ciudad especificada");
+                return response()->json(['error' => 'Cobertura no encontrada para la ciudad especificada.'], 400);
+            }
+
+            return response()->json($coverage, 200);
+        } catch (\Exception $e) {
+            error_log("searchCity_ERROR: $e");
+            return response()->json([
+                'error' => 'Ocurrió un error al consultar Ciudades: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    function normalizeString($string)
+    {
+        $string = strtolower($string);
+        return preg_replace(
+            '/[áàäâã]/u',
+            'a',
+            preg_replace(
+                '/[éèëê]/u',
+                'e',
+                preg_replace(
+                    '/[íìïî]/u',
+                    'i',
+                    preg_replace(
+                        '/[óòöôõ]/u',
+                        'o',
+                        preg_replace('/[úùüû]/u', 'u', $string)
+                    )
+                )
+            )
+        );
+    }
 }
