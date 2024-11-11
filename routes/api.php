@@ -61,8 +61,8 @@ Route::middleware(['cors'])->group(function () {
     Route::post('logistic/filter/novelties-aux', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getByDateRangeAuditAndResolvedNovelties']);
     
 
-    // Route::post('logistic/orders-pdf', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getByDateRangeOrdersforAudit']);
-    Route::post('logistic/orders-pdf', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'exportOrdersToExcel']);
+    Route::post('logistic/orders-pdf', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getByDateRangeOrdersforAudit']);
+    // Route::post('logistic/orders-pdf', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'exportOrdersToExcel']);
 
     
 
