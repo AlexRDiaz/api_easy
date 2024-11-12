@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\API\CarrierCoverageAPIController;
 use App\Http\Controllers\API\CarrierExternalAPIController;
+use App\Http\Controllers\API\CoverageExternalAPIController;
 use App\Http\Controllers\API\DBBackUpAPIController;
 use App\Http\Controllers\API\DpaProvinciaAPIController;
 use App\Http\Controllers\API\GenerateReportAPIController;
@@ -59,12 +60,12 @@ Route::middleware(['cors'])->group(function () {
     Route::post('logistic/filter/novelties', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getByDateRangeLogisticNovelties']);
     Route::post('logistic/filter/novelties-vendedores', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getVendedoresByDateRange']);
     Route::post('logistic/filter/novelties-aux', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getByDateRangeAuditAndResolvedNovelties']);
-    
+
 
     Route::post('logistic/orders-pdf', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getByDateRangeOrdersforAudit']);
     // Route::post('logistic/orders-pdf', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'exportOrdersToExcel']);
 
-    
+
 
     // ! update status and comment
     Route::post('logistic/update-status-comment', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'updateOrderStatusAndComment']);
@@ -558,9 +559,8 @@ Route::middleware(['cors'])->group(function () {
     //  *
     Route::prefix('reserve')->group(function () {
         Route::post('/', [ReserveAPIController::class, 'store']);
-        Route::put('/editstock', [ReserveAPIController::class, 'editStock']);        
+        Route::put('/editstock', [ReserveAPIController::class, 'editStock']);
         Route::put('/admin', [ReserveAPIController::class, 'admin']);
-
     });
 
     //  *
@@ -675,12 +675,16 @@ Route::middleware(['cors'])->group(function () {
         Route::post('orderlaar', [IntegrationAPIController::class, 'postOrderLaar']);
         Route::post('laar/getlabel', [IntegrationAPIController::class, 'getLabelLaar']);
         Route::post('multilabel', [IntegrationAPIController::class, 'getMultiLabelsGeneral']);
-
     });
 
     //******** */
     Route::post('/authenticate', [IntegrationAPIController::class, 'authenticate']);
 
+
+    //  *
+    Route::prefix('cities')->group(function () {
+        Route::post('/search', [CoverageExternalAPIController::class, 'search']);
+    });
 });
 
 
@@ -718,7 +722,6 @@ Route::prefix('products')->group(function () {
     Route::put('delete/{id}', [ProductAPIController::class, 'destroy']);
     Route::put('update/{id}', [ProductAPIController::class, 'updateRequest']);
     Route::get('avaliabledelete/{id}', [ProductAPIController::class, 'avaliableDelete']);
-
 });
 
 Route::prefix('stockhistory')->group(function () {
