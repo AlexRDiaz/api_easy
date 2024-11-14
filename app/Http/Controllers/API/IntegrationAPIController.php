@@ -1795,7 +1795,15 @@ class IntegrationAPIController extends Controller
     {
         try {
             // Obtener el usuario autenticado mediante el token
-            $user = JWTAuth::parseToken()->authenticate();
+            // $user = JWTAuth::parseToken()->authenticate();
+
+            $apiKey = $request->header('api-key-laar');
+
+            if ($apiKey !== '48f05b3d-4ceb-474b-8c2e-1f221b579ec5') {
+                return response()->json([
+                    'message' => 'Unauthorized: Invalid API Key'
+                ], 401);
+            }
 
             error_log("requestUpdateStateLaar");
             $request_body = file_get_contents('php://input');
@@ -1822,16 +1830,16 @@ class IntegrationAPIController extends Controller
                 $estadoCod = $data['estadoActualCodigo'];
                 $estadoActual = $data['estadoActual'];
                 $pesoKilos = $data['pesoKilos']; //float
-                $novedad = $data['novedad'];
+                $novedades = $data['novedades'];
 
                 error_log("laar_guia_input: $guia");
                 error_log("estadoCod input: $estadoCod");
                 error_log("estadoActual input: $estadoActual");
 
-                if (!empty($novedad)) {
-                    error_log("Novedad recibida: " . json_encode($novedad));
+                if (!empty($novedades)) {
+                    error_log("Novedades recibidas: " . json_encode($novedades));
                 } else {
-                    error_log("Novedad está vacía o no presente.");
+                    error_log("Novedades está vacía o no presente.");
                 }
 
                 $order = PedidosShopify::with([
@@ -1846,6 +1854,11 @@ class IntegrationAPIController extends Controller
                     })->first();
 
                 // error_log("pedido: $order");
+
+                if (!$order) {
+                    error_log("requestUpdateStateLaar_orderNotFound: $guia");
+                    return response()->json(['message' => 'Order not found'], 404);
+                }
 
                 $currentDateTime = date('Y-m-d H:i:s');
                 $date = now()->format('j/n/Y');
@@ -1918,7 +1931,7 @@ class IntegrationAPIController extends Controller
                         $id_ref = $status['id_ref'];
 
                         if ($id_ref == $estadoCod) {
-
+                            // error_log("$status_array");
                             $key = $status['estado'];
                             $name_local = $status['name_local'];
                             $name = $status['name'];
@@ -1926,15 +1939,38 @@ class IntegrationAPIController extends Controller
 
                             //control de Entregado o Devolución/Entrega
                             if ($id_ref == 7) {
-                                if ($estadoActual == "ENTREGADO") {
+                                if ($estadoActual == "Entregado") {
                                     $key = 'status';
                                     $name_local = 'ENTREGADO';
                                 } else {
+                                    $idRefBuscado = $id_ref;
+                                    $estadoBuscado = 'estado_devolucion';
+
                                     // Si `estadoActual` no es "ENTREGADO", verifica la existencia de novedad y la palabra "Devolución"
-                                    if (!empty($novedad) && stripos($novedad['nombreTipoNovedad'], 'Devolucion') !== false) {
-                                        // Si `novedad` tiene un valor y `nombreTipoNovedad` contiene la palabra "Devolución"
-                                        $key = 'estado_devolucion';
-                                        $name_local = 'EN BODEGA';
+                                    // Ordenar las novedades por `fechaNovedad` en orden descendente para que la última esté en la primera posición
+                                    // usort($novedades, function ($a, $b) {
+                                    //     return strtotime($b['fechaNovedad']) - strtotime($a['fechaNovedad']);
+                                    // });
+
+                                    // $ultimaNovedad = $novedades[0];
+                                    $ultimaNovedad = end($novedades);
+
+                                    // if (stripos($ultimaNovedad['nombreTipoNovedad'], 'Devolucion') !== false) {
+                                    if (stripos($ultimaNovedad['nombreTipoNovedad'], 'Devolucion') !== false) {
+
+                                        $resultado = array_filter($status_array, function ($status) use ($idRefBuscado, $estadoBuscado) {
+                                            return $status['id_ref'] === $idRefBuscado && $status['estado'] === $estadoBuscado;
+                                        });
+
+                                        $primerResultado = reset($resultado);
+
+                                        if ($primerResultado) {
+                                            $key = $primerResultado['estado'];
+                                            $name_local = $primerResultado['name_local'];
+                                            $name = $primerResultado['name'];
+                                        } else {
+                                            error_log('No se encontró ningún resultado que coincida.');
+                                        }
                                     } else {
                                         $key = 'status';
                                     }
@@ -1942,10 +1978,19 @@ class IntegrationAPIController extends Controller
                                 error_log("key_control: $key");
                             }
 
-                            error_log("Estado: $key, Nombre Local: $name_local, ID_ref: $id_ref, estadoActual: $name, ID: $id");
+                            error_log("laar_Estado: $key, Nombre Local: $name_local, ID_ref: $id_ref, estadoActual: $name, ID: $id");
                             $iva = 0.15; //15%
                             $costo_easy = 2.3;
                             $commentHist = "";
+                            $pesoTotalActual = 0;
+                            if ($order->peso_total !=  $pesoKilos) {
+                                error_log("updt_peso_local: " . $order->peso_total . " laar: " . $pesoKilos);
+                                $order->peso_total = $pesoKilos;
+                                $pesoTotalActual = (float)$pesoKilos;
+                            } else {
+                                // error_log("igual_local: " . $order->peso_total . " laar: " . $pesoKilos);
+                                $pesoTotalActual = (float)$order->peso_total;
+                            }
 
                             if ($key == "estado_logistico") {
 
@@ -2160,7 +2205,7 @@ class IntegrationAPIController extends Controller
                                     if ($orderData['recaudo'] == 1) {
                                         $tarifasRango = $costs['costo_recaudo']['tarifas_rango'];
 
-                                        foreach ($tarifasRango as $key => $rango) {
+                                        foreach ($tarifasRango as $rango) {
 
                                             $min = (float)($rango['min']);
                                             $max = (float)($rango['max']);
@@ -2186,14 +2231,16 @@ class IntegrationAPIController extends Controller
                                     $tarifaBase = (float)$pesoRango['tarifa_base'];
                                     $tarifaAdicionalPorKg = (float)$pesoRango['tarifa_adicional'][$tipoDestino];
 
-                                    $pesoTotal = (float)$orderData['peso_total'];
+                                    // $pesoTotal = (float)$orderData['peso_total'];
+                                    error_log("pesoTotalActual: $pesoTotalActual");
+
                                     $costByWeight = 0;
 
-                                    if ($pesoTotal <= $maxKg) {
+                                    if ($pesoTotalActual <= $maxKg) {
                                         $costByWeight = 0;
                                         error_log("costByWeight_base:");
                                     } else {
-                                        $pesoAdicional = $pesoTotal - $maxKg;
+                                        $pesoAdicional = $pesoTotalActual - $maxKg;
                                         $pesoRedondeado = ceil($pesoAdicional);
                                         $costByWeight = $pesoRedondeado * $tarifaAdicionalPorKg;
                                         error_log("pesoAdicional Redond:");
@@ -2450,13 +2497,18 @@ class IntegrationAPIController extends Controller
                                     //
                                 } else if ($name_local == "NOVEDAD") {
                                     //
-                                    if (!empty($novedad)) {
+                                    if (!empty($novedades)) {
 
-                                        error_log("Novedad recibida: " . json_encode($novedad));
+                                        // usort($novedades, function ($a, $b) {
+                                        //     return strtotime($b['fechaNovedad']) - strtotime($a['fechaNovedad']);
+                                        // });
 
-                                        $id_novedad = $novedad['codigoTipoNovedad'];
-                                        $no_novedad = $novedad['nombreTipoNovedad'];
-                                        $nombreDetalleNovedad = $novedad['nombreDetalleNovedad'];
+                                        // $ultimaNovedad = $novedades[0];
+                                        $ultimaNovedad = end($novedades);
+
+                                        $id_novedad = $ultimaNovedad['codigoTipoNovedad'];
+                                        $no_novedad = $ultimaNovedad['nombreTipoNovedad'];
+                                        $nombreDetalleNovedad = $ultimaNovedad['nombreDetalleNovedad'];
 
                                         $commentText = "";
                                         $commentText = $no_novedad;
@@ -2711,14 +2763,15 @@ class IntegrationAPIController extends Controller
                                         $tarifaBase = (float)($pesoRango['tarifa_base']);
                                         $tarifaAdicionalPorKg = (float)$pesoRango['tarifa_adicional'][$tipoDestino];
 
-                                        $pesoTotal = (float)$orderData['peso_total'];
+                                        // $pesoTotal = (float)$orderData['peso_total'];
+                                        error_log("pesoTotalActual: $pesoTotalActual");
                                         $costByWeight = 0;
 
-                                        if ($pesoTotal <= $maxKg) {
+                                        if ($pesoTotalActual <= $maxKg) {
                                             $costByWeight = 0;
                                             error_log("costByWeight_base:");
                                         } else {
-                                            $pesoAdicional = $pesoTotal - $maxKg;
+                                            $pesoAdicional = $pesoTotalActual - $maxKg;
                                             $pesoRedondeado = ceil($pesoAdicional);
                                             $costByWeight = $pesoRedondeado * $tarifaAdicionalPorKg;
                                             error_log("pesoAdicional Redond:");
@@ -2831,6 +2884,8 @@ class IntegrationAPIController extends Controller
                                 "generated_by" => "5_LAAR" //podria definir por upuser
                             ];
 
+                            // error_log(json_encode($newHistory));
+
                             if ($order->status_history === null || $order->status_history === '[]') {
                                 $order->status_history = json_encode([$newHistory]);
                             } else {
@@ -2839,14 +2894,6 @@ class IntegrationAPIController extends Controller
                                 $existingHistory[] = $newHistory;
 
                                 $order->status_history = json_encode($existingHistory);
-                            }
-
-
-                            if ($order->peso_total !=  $pesoKilos) {
-                                error_log("updt_peso_local: " . $order->peso_total . " laar: " . $pesoKilos);
-                                $order->peso_total = $pesoKilos;
-                            } else {
-                                // error_log("igual_local: " . $order->peso_total . " laar: " . $pesoKilos);
                             }
 
                             $order->save();

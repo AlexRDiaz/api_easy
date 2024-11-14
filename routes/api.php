@@ -215,7 +215,6 @@ Route::middleware(['cors'])->group(function () {
             Route::post('/', [OrdenesRetiroAPIController::class, 'store']);
         });
 
-        Route::post('/laarcourier/updatestate', [IntegrationAPIController::class, 'requestUpdateStateLaar']);
     });
 
 
@@ -685,6 +684,10 @@ Route::middleware(['cors'])->group(function () {
     Route::prefix('cities')->group(function () {
         Route::post('/search', [CoverageExternalAPIController::class, 'search']);
     });
+
+    // *
+    Route::post('laarcourier/updatestate', [IntegrationAPIController::class, 'requestUpdateStateLaar']);
+
 });
 
 
