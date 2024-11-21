@@ -2511,7 +2511,7 @@ class IntegrationAPIController extends Controller
                                         $nombreDetalleNovedad = $ultimaNovedad['nombreDetalleNovedad'];
 
                                         $commentText = "";
-                                        $commentText = $no_novedad;
+                                        $commentText = $no_novedad . " | " . $nombreDetalleNovedad;
 
                                         error_log("commentText: $commentText");
                                         $commentHist = $commentText;
@@ -2915,6 +2915,34 @@ class IntegrationAPIController extends Controller
         } catch (JWTException $e) {
             error_log("requestUpdateStateLaar_error_JWTException");
             return response()->json([], 401);
+        }
+    }
+
+    public function uptNoveltyLaar(Request $request)
+    {
+        error_log("uptNoveltyLaar");
+
+        $data = $request->all();
+        $apiUrl = 'https://api.laarcourier.com:9727/guias/datos/actualizar';
+
+        $token = $this->getTokenLaar();
+
+        if (!$token) {
+            return response()->json(['error' => 'Token no encontrado'], 401);
+        }
+
+        $response = Http::withToken($token)
+            ->put($apiUrl, $data);
+
+        if ($response->successful()) {
+            error_log("uptNoveltyLaar_successful: $response");
+            return $response->json();
+        } else {
+            $errorMessage = $response->json('Message') ?? 'No se pudo obtener la información';
+
+            error_log("uptNoveltyLaar_error: " . json_encode($response->json()));
+
+            return response()->json(['error' => $errorMessage], $response->status());
         }
     }
 }

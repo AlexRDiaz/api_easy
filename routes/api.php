@@ -674,6 +674,7 @@ Route::middleware(['cors'])->group(function () {
         Route::post('orderlaar', [IntegrationAPIController::class, 'postOrderLaar']);
         Route::post('laar/getlabel', [IntegrationAPIController::class, 'getLabelLaar']);
         Route::post('multilabel', [IntegrationAPIController::class, 'getMultiLabelsGeneral']);
+        Route::put('laar/uptnovelty', [IntegrationAPIController::class, 'uptNoveltyLaar']);
     });
 
     //******** */
