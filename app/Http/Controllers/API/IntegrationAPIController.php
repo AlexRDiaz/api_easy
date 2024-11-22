@@ -1913,6 +1913,7 @@ class IntegrationAPIController extends Controller
                 $status_array = json_decode($carrierExternal->status, true);
 
                 $costs = json_decode($carrierExternal->costs, true);
+                $novedadesCarrier = json_decode($carrierExternal->novedades, true);
 
                 $city_type = CarrierCoverage::where('id_carrier', 5)->where('id_coverage', $city_destiny)->first();
                 $coverage_type = $city_type['type'];
@@ -2521,7 +2522,22 @@ class IntegrationAPIController extends Controller
 
                                         $novedad = new Novedade();
                                         $novedad->m_t_novedad = $currentDateTimeText;
-                                        $novedad->try = $novedades_try + 1;
+                                        $tipo = 0;
+                                        foreach ($novedadesCarrier as $novedadC) {
+                                            if ($novedadC['id'] == $id_novedad) {
+                                                $tipo = $novedadC['tipo'] ?? 0;
+                                                break;
+                                            }
+                                        }
+
+                                        if ($tipo == 1) {
+                                            // error_log("novedad gestionable");
+                                            $novedad->try = $novedades_try + 1;
+                                        } else {
+                                            // error_log("novedad NO gestionable");
+                                            $novedad->try = $novedades_try;
+                                        }
+
                                         $novedad->url_image = "";
                                         $novedad->comment =  $commentText;
                                         $novedad->external_id = $id_novedad;
