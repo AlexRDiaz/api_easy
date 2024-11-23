@@ -587,6 +587,7 @@ class ProductAPIController extends Controller
             $product_name = $data['product_name'];
             $stock = $data['stock'];
             $price = $data['price'];
+            $weight = $data['weight'];
             $url_img = $data['url_img'];
             $isvariable = $data['isvariable'];
             // $features = json_encode($data['features']);
@@ -601,6 +602,7 @@ class ProductAPIController extends Controller
             $newProduct->product_name = $product_name;
             $newProduct->stock = $stock;
             $newProduct->price = $price;
+            $newProduct->weight = $weight;
             $newProduct->url_img = $url_img;
             $newProduct->isvariable = $isvariable;
             $newProduct->features = $features;
