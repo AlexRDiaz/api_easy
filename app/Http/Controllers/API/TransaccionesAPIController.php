@@ -4303,6 +4303,15 @@ class TransaccionesAPIController extends Controller
             //code...
 
             $data = $request->json()->all();
+
+            $provider = Provider::where('user_id', $data["id_vendedor"])->first();
+            $provSaldoAct =    $provider->saldo;
+
+            if ((float)$provSaldoAct < (float)$data["monto"]) {
+                error_log("postWhitdrawalProviderAproved_saldo_insuficiente");
+                return response()->json(["response" => "saldo insuficiente"], 400);
+            }
+            
             $withdrawal = new OrdenesRetiro();
             $withdrawal->monto = $data["monto"];
             // $withdrawal->fecha = new  DateTime();
