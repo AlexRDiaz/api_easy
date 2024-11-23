@@ -74,7 +74,7 @@ class CoverageExternalAPIController extends Controller
     public function search(Request $request)
     {
         $data = $request->json()->all();
-
+        error_log("cities_search");
         try {
             $city = $data['city'];
             $populate = $data['populate'];
