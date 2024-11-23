@@ -81,9 +81,14 @@ class CoverageExternalAPIController extends Controller
 
             $cityNormal = $this->normalizeString($city);
 
-            $coverage = CoverageExternal::with($populate)
-                ->whereRaw('LOWER(ciudad) LIKE ?', ['%' . strtolower($cityNormal) . '%'])
+            // $coverage = CoverageExternal::with($populate)
+            //     ->whereRaw('LOWER(ciudad) LIKE ?', ['%' . strtolower($cityNormal) . '%'])
+            //     ->first();
+
+            $coverage = CoverageExternal::with('dpa_provincia')
+                ->whereRaw('LOWER(ciudad) LIKE ?', ['%quito%']) // Usar un valor literal para probar
                 ->first();
+
 
             // ->where(function ($coverages) use ($andMap) {
             //     foreach ($andMap as $condition) {
