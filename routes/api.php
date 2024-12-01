@@ -689,7 +689,7 @@ Route::middleware(['cors'])->group(function () {
     // *
     Route::post('laarcourier/updatestate', [IntegrationAPIController::class, 'requestUpdateStateLaar']);
 
-    //....
+    //..
 
 });
 
