@@ -334,7 +334,7 @@ class IntegrationAPIController extends Controller
                 // }
                 error_log("guia input: $guia ");
                 error_log("estado input: $estado ");
-                // error_log("path input: $path ");
+                error_log("path_input: $path ");
                 error_log("id_novedad input: $id_novedad ");
                 error_log("no_novedad input: $no_novedad ");
                 error_log("id_gestion input: $id_gestion ");
