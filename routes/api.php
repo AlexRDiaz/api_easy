@@ -701,6 +701,9 @@ Route::prefix('products')->group(function () {
     Route::put('update/{id}', [ProductAPIController::class, 'updateRequest']);
 });
 
+Route::put('testbot/{id}', [ProductAPIController::class, 'testRequest']);
+
+
 Route::prefix('stockhistory')->group(function () {
     Route::post('/', [StockHistoryAPIController::class, 'store']);
     Route::post('/v2', [StockHistoryAPIController::class, 'storeD']);

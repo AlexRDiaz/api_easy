@@ -931,17 +931,20 @@ class ProductAPIController extends Controller
             ->update(['active' => 0]);
     }
 
-    public function updateRequest(Request $request, $id)
+    // public function testRequest(Request $request, $id)
+    public function testRequest(Request $request)
     {
         $data = $request->all();
 
-        $provider = Product::findOrFail($id);
+        // $provider = Product::findOrFail($id);
 
-        $provider->fill($data);
-        $provider->save();
+        // $provider->fill($data);
+        // $provider->save();
+
 
         // Respuesta de éxito
-        return response()->json(['message' => 'Registro actualizado con éxito', "res" => $provider], 200);
+        // return response()->json(['message' => 'Registro actualizado con éxito', "res" => $provider], 200);
+        return response()->json("Producto Modificado! ", 200);
     }
 
 
