@@ -23,8 +23,8 @@ class ProviderTransaction extends Model
         'generated_by',
         'status',
         'description',
-        'sku_product_reference'
-
+        'sku_product_reference',
+        "payment_status",
 
     ];
     protected $casts = [];

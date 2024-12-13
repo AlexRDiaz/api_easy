@@ -24,7 +24,10 @@ use App\Models\Operadore;
 use App\Models\PedidosProductLink;
 use App\Models\PedidosShopifiesCarrierExternalLink;
 use App\Models\Product;
+use App\Models\ProviderTransaction;
+use App\Models\TransaccionGlobal;
 use App\Models\TransaccionPedidoTransportadora;
+use App\Models\TransactionsGlobal;
 use App\Models\TransportStats;
 use App\Models\UpUser;
 use App\Models\UpUsersPedidosShopifiesLink;
@@ -514,12 +517,12 @@ class PedidosShopifyAPIController extends Controller
         if ($orderBy !== null) {
             $pedidos->orderBy(key($orderBy), reset($orderBy));
         }
-       
+
         $pedidos = $pedidos->paginate($pageSize, ['*'], 'page', $pageNumber);
 
         return response()->json($pedidos);
     }
-    
+
     // ! test new version for novelties
     // public function getByDateRangeLogisticNovelties(Request $request)
     // {
@@ -592,7 +595,6 @@ class PedidosShopifyAPIController extends Controller
         return response()->json([
             'data' => $vendedores
         ]);
-
     }
 
     private function getOrderBy($data)
@@ -656,8 +658,7 @@ class PedidosShopifyAPIController extends Controller
 
     private function applyFiltersNVR($query, $selectedFilter, $startDate, $endDate)
     {
-        return $query->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
-        ;
+        return $query->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate]);
     }
 
     // ! **********************
@@ -1503,49 +1504,104 @@ class PedidosShopifyAPIController extends Controller
         $not = $data['not'];
         // ! *************************************
 
-        $pedidos = PedidosShopify::with($populate)
-            ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
-            ->where(function ($pedidos) use ($searchTerm, $filteFields) {
-                foreach ($filteFields as $field) {
-                    if (strpos($field, '.') !== false) {
-                        $relacion = substr($field, 0, strpos($field, '.'));
-                        $propiedad = substr($field, strpos($field, '.') + 1);
-                        $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $searchTerm);
-                    } else {
-                        $pedidos->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
-                    }
-                }
-            })
-            ->where((function ($pedidos) use ($Map) {
-                foreach ($Map as $condition) {
-                    foreach ($condition as $key => $valor) {
-                        if (strpos($key, '.') !== false) {
-                            $relacion = substr($key, 0, strpos($key, '.'));
-                            $propiedad = substr($key, strpos($key, '.') + 1);
-                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+
+        if ($dateFilter == "FECHA PAGO RECIBIDO") {
+            error_log("getByDateRange_FECHA_PAGO_RECIBIDO");
+
+            $pedidos = PedidosShopify::with($populate)
+                ->whereNotNull('gestioned_payment_cost_delivery')
+                ->whereRaw(
+                    "
+                    DATE(JSON_UNQUOTE(JSON_EXTRACT(gestioned_payment_cost_delivery, '$.m_t_g'))) 
+                    BETWEEN ? AND ?",
+                    [$startDateFormatted, $endDateFormatted]
+                )
+                ->where(function ($pedidos) use ($searchTerm, $filteFields) {
+                    foreach ($filteFields as $field) {
+                        if (strpos($field, '.') !== false) {
+                            $relacion = substr($field, 0, strpos($field, '.'));
+                            $propiedad = substr($field, strpos($field, '.') + 1);
+                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $searchTerm);
                         } else {
-                            if ($key === 'gestioned_payment_cost_delivery') {
-                                $pedidos->whereJsonContains('gestioned_payment_cost_delivery->state', $valor);
+                            $pedidos->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                        }
+                    }
+                })
+                ->where(function ($pedidos) use ($Map) {
+                    foreach ($Map as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            if (strpos($key, '.') !== false) {
+                                $relacion = substr($key, 0, strpos($key, '.'));
+                                $propiedad = substr($key, strpos($key, '.') + 1);
+                                $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
                             } else {
-                                $pedidos->where($key, '=', $valor);
+                                if ($key === 'gestioned_payment_cost_delivery') {
+                                    $pedidos->whereJsonContains('gestioned_payment_cost_delivery->state', $valor);
+                                } else {
+                                    $pedidos->where($key, '=', $valor);
+                                }
                             }
-                            // $pedidos->where($key, '=', $valor);
                         }
                     }
-                }
-            }))->where((function ($pedidos) use ($not) {
-                foreach ($not as $condition) {
-                    foreach ($condition as $key => $valor) {
-                        if (strpos($key, '.') !== false) {
-                            $relacion = substr($key, 0, strpos($key, '.'));
-                            $propiedad = substr($key, strpos($key, '.') + 1);
-                            $this->recursiveWhereHasNeg($pedidos, $relacion, $propiedad, $valor);
+                })
+                ->where(function ($pedidos) use ($not) {
+                    foreach ($not as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            if (strpos($key, '.') !== false) {
+                                $relacion = substr($key, 0, strpos($key, '.'));
+                                $propiedad = substr($key, strpos($key, '.') + 1);
+                                $this->recursiveWhereHasNeg($pedidos, $relacion, $propiedad, $valor);
+                            } else {
+                                $pedidos->where($key, '!=', $valor);
+                            }
+                        }
+                    }
+                });
+        } else {
+            $pedidos = PedidosShopify::with($populate)
+                ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
+                ->where(function ($pedidos) use ($searchTerm, $filteFields) {
+                    foreach ($filteFields as $field) {
+                        if (strpos($field, '.') !== false) {
+                            $relacion = substr($field, 0, strpos($field, '.'));
+                            $propiedad = substr($field, strpos($field, '.') + 1);
+                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $searchTerm);
                         } else {
-                            $pedidos->where($key, '!=', $valor);
+                            $pedidos->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
                         }
                     }
-                }
-            }));
+                })
+                ->where((function ($pedidos) use ($Map) {
+                    foreach ($Map as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            if (strpos($key, '.') !== false) {
+                                $relacion = substr($key, 0, strpos($key, '.'));
+                                $propiedad = substr($key, strpos($key, '.') + 1);
+                                $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                            } else {
+                                if ($key === 'gestioned_payment_cost_delivery') {
+                                    $pedidos->whereJsonContains('gestioned_payment_cost_delivery->state', $valor);
+                                } else {
+                                    $pedidos->where($key, '=', $valor);
+                                }
+                                // $pedidos->where($key, '=', $valor);
+                            }
+                        }
+                    }
+                }))->where((function ($pedidos) use ($not) {
+                    foreach ($not as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            if (strpos($key, '.') !== false) {
+                                $relacion = substr($key, 0, strpos($key, '.'));
+                                $propiedad = substr($key, strpos($key, '.') + 1);
+                                $this->recursiveWhereHasNeg($pedidos, $relacion, $propiedad, $valor);
+                            } else {
+                                $pedidos->where($key, '!=', $valor);
+                            }
+                        }
+                    }
+                }));
+        }
         // ! Ordenamiento ********************************** 
         $orderByText = null;
         $orderByDate = null;
@@ -2247,67 +2303,143 @@ class PedidosShopifyAPIController extends Controller
             $selectedFilter = "marca_tiempo_envio";
         }
 
-
-        $countProductWarehouseNotNull = PedidosShopify::with(['operadore.up_users', 'pedidoCarrier'])
-            ->with('subRuta')
-            ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
-            ->where('value_product_warehouse', '>', 0)
-            ->where("status", "ENTREGADO")
-            ->where((function ($pedidos) use ($Map) {
-                foreach ($Map as $condition) {
-                    foreach ($condition as $key => $valor) {
-                        if (strpos($key, '.') !== false) {
-                            $relacion = substr($key, 0, strpos($key, '.'));
-                            $propiedad = substr($key, strpos($key, '.') + 1);
-                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
-                        } else {
-                            $pedidos->where($key, '=', $valor);
+        if ($dateFilter == "FECHA PAGO RECIBIDO") {
+            error_log("getCounterse_FECHA_PAGO_RECIBIDO");
+            $countProductWarehouseNotNull = PedidosShopify::with(['operadore.up_users', 'pedidoCarrier'])
+                ->with('subRuta')
+                ->whereNotNull('gestioned_payment_cost_delivery')
+                ->whereRaw(
+                    "
+                    DATE(JSON_UNQUOTE(JSON_EXTRACT(gestioned_payment_cost_delivery, '$.m_t_g'))) 
+                    BETWEEN ? AND ?",
+                    [$startDateFormatted, $endDateFormatted]
+                )
+                ->where('value_product_warehouse', '>', 0)
+                ->where("status", "ENTREGADO")
+                ->where((function ($pedidos) use ($Map) {
+                    foreach ($Map as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            if (strpos($key, '.') !== false) {
+                                $relacion = substr($key, 0, strpos($key, '.'));
+                                $propiedad = substr($key, strpos($key, '.') + 1);
+                                $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                            } else {
+                                $pedidos->where($key, '=', $valor);
+                            }
                         }
                     }
-                }
-            }))
-            ->count();
-
-
-        $result = PedidosShopify::with(['operadore.up_users'])
-            ->with('transportadora')
-            ->with('users.vendedores')
-            ->with('novedades')
-            ->with('pedidoFecha')
-            ->with('ruta')
-            ->with('pedidoCarrier')
-            ->with('subRuta')->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
-            // ->selectRaw('status, COUNT(*) as count')
-            // ->groupBy('status')
-            ->selectRaw('status, estado_devolucion, COUNT(*) as count') // Incluye estado_devolucion si es necesario
-            ->groupBy('status', 'estado_devolucion')
-            ->where((function ($pedidos) use ($Map) {
-                foreach ($Map as $condition) {
-                    foreach ($condition as $key => $valor) {
-                        if (strpos($key, '.') !== false) {
-                            $relacion = substr($key, 0, strpos($key, '.'));
-                            $propiedad = substr($key, strpos($key, '.') + 1);
-                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
-                        } else {
-                            $pedidos->where($key, '=', $valor);
+                }))
+                ->count();
+        } else {
+            $countProductWarehouseNotNull = PedidosShopify::with(['operadore.up_users', 'pedidoCarrier'])
+                ->with('subRuta')
+                ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
+                ->where('value_product_warehouse', '>', 0)
+                ->where("status", "ENTREGADO")
+                ->where((function ($pedidos) use ($Map) {
+                    foreach ($Map as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            if (strpos($key, '.') !== false) {
+                                $relacion = substr($key, 0, strpos($key, '.'));
+                                $propiedad = substr($key, strpos($key, '.') + 1);
+                                $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                            } else {
+                                $pedidos->where($key, '=', $valor);
+                            }
                         }
                     }
-                }
-            }))
-            ->where((function ($pedidos) use ($not) {
-                foreach ($not as $condition) {
-                    foreach ($condition as $key => $valor) {
-                        if (strpos($key, '.') !== false) {
-                            $relacion = substr($key, 0, strpos($key, '.'));
-                            $propiedad = substr($key, strpos($key, '.') + 1);
-                            $this->recursiveWhereHasNeg($pedidos, $relacion, $propiedad, $valor);
-                        } else {
-                            $pedidos->where($key, '!=', $valor);
+                }))
+                ->count();
+        }
+
+        if ($dateFilter == "FECHA PAGO RECIBIDO") {
+            error_log("FECHA PAGO RECIBIDO");
+
+            $result = PedidosShopify::with(['operadore.up_users'])
+                ->with('transportadora')
+                ->with('users.vendedores')
+                ->with('novedades')
+                ->with('pedidoFecha')
+                ->with('ruta')
+                ->with('pedidoCarrier')
+                ->whereNotNull('gestioned_payment_cost_delivery')
+                ->whereRaw(
+                    "
+                    DATE(JSON_UNQUOTE(JSON_EXTRACT(gestioned_payment_cost_delivery, '$.m_t_g'))) 
+                    BETWEEN ? AND ?",
+                    [$startDateFormatted, $endDateFormatted]
+                )                // ->selectRaw('status, COUNT(*) as count')
+                // ->groupBy('status')
+                ->selectRaw('status, estado_devolucion, COUNT(*) as count') // Incluye estado_devolucion si es necesario
+                ->groupBy('status', 'estado_devolucion')
+                ->where((function ($pedidos) use ($Map) {
+                    foreach ($Map as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            if (strpos($key, '.') !== false) {
+                                $relacion = substr($key, 0, strpos($key, '.'));
+                                $propiedad = substr($key, strpos($key, '.') + 1);
+                                $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                            } else {
+                                $pedidos->where($key, '=', $valor);
+                            }
                         }
                     }
-                }
-            }))
-            ->get();
+                }))
+                ->where((function ($pedidos) use ($not) {
+                    foreach ($not as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            if (strpos($key, '.') !== false) {
+                                $relacion = substr($key, 0, strpos($key, '.'));
+                                $propiedad = substr($key, strpos($key, '.') + 1);
+                                $this->recursiveWhereHasNeg($pedidos, $relacion, $propiedad, $valor);
+                            } else {
+                                $pedidos->where($key, '!=', $valor);
+                            }
+                        }
+                    }
+                }))
+                ->get();
+        } else {
+            $result = PedidosShopify::with(['operadore.up_users'])
+                ->with('transportadora')
+                ->with('users.vendedores')
+                ->with('novedades')
+                ->with('pedidoFecha')
+                ->with('ruta')
+                ->with('pedidoCarrier')
+                ->with('subRuta')->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
+                // ->selectRaw('status, COUNT(*) as count')
+                // ->groupBy('status')
+                ->selectRaw('status, estado_devolucion, COUNT(*) as count') // Incluye estado_devolucion si es necesario
+                ->groupBy('status', 'estado_devolucion')
+                ->where((function ($pedidos) use ($Map) {
+                    foreach ($Map as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            if (strpos($key, '.') !== false) {
+                                $relacion = substr($key, 0, strpos($key, '.'));
+                                $propiedad = substr($key, strpos($key, '.') + 1);
+                                $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                            } else {
+                                $pedidos->where($key, '=', $valor);
+                            }
+                        }
+                    }
+                }))
+                ->where((function ($pedidos) use ($not) {
+                    foreach ($not as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            if (strpos($key, '.') !== false) {
+                                $relacion = substr($key, 0, strpos($key, '.'));
+                                $propiedad = substr($key, strpos($key, '.') + 1);
+                                $this->recursiveWhereHasNeg($pedidos, $relacion, $propiedad, $valor);
+                            } else {
+                                $pedidos->where($key, '!=', $valor);
+                            }
+                        }
+                    }
+                }))
+                ->get();
+        }
 
         $stateTotals = [
             'ENTREGADO' => 0,
@@ -2810,47 +2942,99 @@ class PedidosShopifyAPIController extends Controller
             $selectedFilter = "marca_tiempo_envio";
         }
 
-        $query = PedidosShopify::query()
-            ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider', 'carrierExternal', 'pedidoCarrier'])
-            // ->where('carrier_external_id', $idUser)  // ! <---- se pretende usar el id de la transportadora externa que seleccione
-            // ->where('carrier_external_id',1)
-            ->whereHas('pedidoCarrier', function ($query) use ($idUser) {
-                $query->where('carrier_id', $idUser);
-            })
-            ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
+        if ($dateFilter == "FECHA PAGO RECIBIDO") {
+            error_log("CalculateValuesExternalCarrier_FECHA_PAGO_RECIBIDO");
 
+            $query = PedidosShopify::query()
+                ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider', 'carrierExternal', 'pedidoCarrier'])
+                // ->where('carrier_external_id', $idUser)  // ! <---- se pretende usar el id de la transportadora externa que seleccione
+                // ->where('carrier_external_id',1)
+                ->whereHas('pedidoCarrier', function ($query) use ($idUser) {
+                    $query->where('carrier_id', $idUser);
+                })
+                ->whereNotNull('gestioned_payment_cost_delivery')
+                ->whereRaw(
+                    "
+                    DATE(JSON_UNQUOTE(JSON_EXTRACT(gestioned_payment_cost_delivery, '$.m_t_g'))) 
+                    BETWEEN ? AND ?",
+                    [$startDate, $endDate]
+                )
 
-            // $this->applyConditionsAnd($query, $Map);
-            // $this->applyConditions($query, $not, true);
-            ->where((function ($pedidos) use ($Map) {
-                foreach ($Map as $condition) {
-                    foreach ($condition as $key => $valor) {
-                        if (strpos($key, '.') !== false) {
-                            $relacion = substr($key, 0, strpos($key, '.'));
-                            $propiedad = substr($key, strpos($key, '.') + 1);
-                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
-                        } else {
-                            if ($key === 'gestioned_payment_cost_delivery') {
-                                $pedidos->whereJsonContains('gestioned_payment_cost_delivery->state', $valor);
+                // $this->applyConditionsAnd($query, $Map);
+                // $this->applyConditions($query, $not, true);
+                ->where((function ($pedidos) use ($Map) {
+                    foreach ($Map as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            if (strpos($key, '.') !== false) {
+                                $relacion = substr($key, 0, strpos($key, '.'));
+                                $propiedad = substr($key, strpos($key, '.') + 1);
+                                $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
                             } else {
-                                $pedidos->where($key, '=', $valor);
+                                if ($key === 'gestioned_payment_cost_delivery') {
+                                    $pedidos->whereJsonContains('gestioned_payment_cost_delivery->state', $valor);
+                                } else {
+                                    $pedidos->where($key, '=', $valor);
+                                }
                             }
                         }
                     }
-                }
-            }))->where((function ($pedidos) use ($not) {
-                foreach ($not as $condition) {
-                    foreach ($condition as $key => $valor) {
-                        if (strpos($key, '.') !== false) {
-                            $relacion = substr($key, 0, strpos($key, '.'));
-                            $propiedad = substr($key, strpos($key, '.') + 1);
-                            $this->recursiveWhereHasNeg($pedidos, $relacion, $propiedad, $valor);
-                        } else {
-                            $pedidos->where($key, '!=', $valor);
+                }))->where((function ($pedidos) use ($not) {
+                    foreach ($not as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            if (strpos($key, '.') !== false) {
+                                $relacion = substr($key, 0, strpos($key, '.'));
+                                $propiedad = substr($key, strpos($key, '.') + 1);
+                                $this->recursiveWhereHasNeg($pedidos, $relacion, $propiedad, $valor);
+                            } else {
+                                $pedidos->where($key, '!=', $valor);
+                            }
                         }
                     }
-                }
-            }));
+                }));
+        } else {
+
+            $query = PedidosShopify::query()
+                ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider', 'carrierExternal', 'pedidoCarrier'])
+                // ->where('carrier_external_id', $idUser)  // ! <---- se pretende usar el id de la transportadora externa que seleccione
+                // ->where('carrier_external_id',1)
+                ->whereHas('pedidoCarrier', function ($query) use ($idUser) {
+                    $query->where('carrier_id', $idUser);
+                })
+                ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
+
+
+                // $this->applyConditionsAnd($query, $Map);
+                // $this->applyConditions($query, $not, true);
+                ->where((function ($pedidos) use ($Map) {
+                    foreach ($Map as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            if (strpos($key, '.') !== false) {
+                                $relacion = substr($key, 0, strpos($key, '.'));
+                                $propiedad = substr($key, strpos($key, '.') + 1);
+                                $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                            } else {
+                                if ($key === 'gestioned_payment_cost_delivery') {
+                                    $pedidos->whereJsonContains('gestioned_payment_cost_delivery->state', $valor);
+                                } else {
+                                    $pedidos->where($key, '=', $valor);
+                                }
+                            }
+                        }
+                    }
+                }))->where((function ($pedidos) use ($not) {
+                    foreach ($not as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            if (strpos($key, '.') !== false) {
+                                $relacion = substr($key, 0, strpos($key, '.'));
+                                $propiedad = substr($key, strpos($key, '.') + 1);
+                                $this->recursiveWhereHasNeg($pedidos, $relacion, $propiedad, $valor);
+                            } else {
+                                $pedidos->where($key, '!=', $valor);
+                            }
+                        }
+                    }
+                }));
+        }
 
         $query1 = clone $query;
         $query2 = clone $query;
@@ -2890,13 +3074,13 @@ class PedidosShopifyAPIController extends Controller
                 })
                 +
                 $query3
-                    ->where('estado_interno', "CONFIRMADO")
-                    ->where('estado_logistico', "ENVIADO")
-                    ->where(function ($query) {
-                        $query->where('status', 'NOVEDAD')
-                            ->orWhere('status', 'NO ENTREGADO');
-                    })
-                    ->sum(DB::raw('REPLACE(costo_transportadora, ",", "")'))
+                ->where('estado_interno', "CONFIRMADO")
+                ->where('estado_logistico', "ENVIADO")
+                ->where(function ($query) {
+                    $query->where('status', 'NOVEDAD')
+                        ->orWhere('status', 'NO ENTREGADO');
+                })
+                ->sum(DB::raw('REPLACE(costo_transportadora, ",", "")'))
 
             // *************************************************************************************
 
@@ -5213,6 +5397,38 @@ class PedidosShopifyAPIController extends Controller
                         $edited_payment["state"] = 1;
                         $edited_payment["id_user"] = $id_user;
                         $edited_payment["m_t_g"] = $startDateFormatted;
+
+                        //update payment_status TransaccionGlobal
+                        $transactions = TransaccionGlobal::query()
+                            ->where('id_order', $id)
+                            ->where('status', 'ENTREGADO')
+                            ->whereNot('origin', 'Referenciado')
+                            ->get();
+
+                        foreach ($transactions as $transaction) {
+                            $transactionFound = TransaccionGlobal::where('id', $transaction['id'])
+                                ->first();
+                            // error_log($transaction);
+                            if ($transactionFound != null) {
+                                $transactionFound->payment_status = "ACREDITADO";
+                                $transactionFound->save();
+                            }
+                        }
+
+                        //update payment_status ProviderTransaction
+                        $transactionsProvider = ProviderTransaction::query()
+                            ->where('origin_id', $id)
+                            ->get();
+
+                        foreach ($transactionsProvider as $transactionProv) {
+                            $transactionProvFound = ProviderTransaction::where('id', $transactionProv['id'])
+                                ->first();
+                            // error_log($transaction);
+                            if ($transactionProvFound != null) {
+                                $transactionProvFound->payment_status = "ACREDITADO";
+                                $transactionProvFound->save();
+                            }
+                        }
                     }
                     // else if ($noveltyState == 0) {
                     //     $edited_payment["state"] = 0;
@@ -5260,6 +5476,38 @@ class PedidosShopifyAPIController extends Controller
                     $edited_payment["state"] = 0;
                     $edited_payment["id_user"] = $id_user;
                     $edited_payment["m_t_g"] = $startDateFormatted;
+
+                    //update payment_status
+                    $transactions = TransaccionGlobal::query()
+                        ->where('id_order', $id)
+                        ->where('status', 'ENTREGADO')
+                        ->whereNot('origin', 'Referenciado')
+                        ->get();
+
+                    foreach ($transactions as $transaction) {
+                        $transactionFound = TransaccionGlobal::where('id', $transaction['id'])
+                            ->first();
+                        // error_log($transaction);
+                        if ($transactionFound != null) {
+                            $transactionFound->payment_status = "PENDIENTE";
+                            $transactionFound->save();
+                        }
+                    }
+
+                    //update payment_status ProviderTransaction
+                    $transactionsProvider = ProviderTransaction::query()
+                        ->where('origin_id', $id)
+                        ->get();
+
+                    foreach ($transactionsProvider as $transactionProv) {
+                        $transactionProvFound = ProviderTransaction::where('id', $transactionProv['id'])
+                            ->first();
+                        // error_log($transaction);
+                        if ($transactionProvFound != null) {
+                            $transactionProvFound->payment_status = "PENDIENTE";
+                            $transactionProvFound->save();
+                        }
+                    }
                 }
                 // else if ($noveltyState == 0) {
                 //     $edited_payment["state"] = 0;
@@ -5737,5 +5985,113 @@ class PedidosShopifyAPIController extends Controller
         }
 
         return $digitsList;
+    }
+
+    //*
+    public function updateGestionedPaymentCostDeliveryByIdExternal(Request $request)
+    {
+        try {
+            error_log("updateGestionedPaymentCostDeliveryExternal");
+
+            $data = $request->json()->all();
+            $noveltyState = $data['payment_state'];
+            $idsExternal = $data['ids'];
+
+            $nowFormatted = Carbon::now()->format('Y-m-d H:i:s');
+            $id_user = $data['id_user'];
+
+            $editedPayments = [];
+            $idsNotProcessed = [];
+
+            foreach ($idsExternal as $idExternal) {
+                $order = PedidosShopify::with('pedidoCarrierSimple')
+                    ->whereHas('pedidoCarrierSimple', function ($query) use ($idExternal) {
+                        $query->where('external_id', $idExternal);
+                    })
+                    ->first();
+
+                if ($order) {
+                    $edited_payment = $order["gestioned_payment_cost_delivery"] != null
+                        ? json_decode($order["gestioned_payment_cost_delivery"], true)
+                        : [];
+
+                    DB::beginTransaction();
+
+                    try {
+                        if ($noveltyState == 1) {
+                            $edited_payment["state"] = 1;
+                            $edited_payment["id_user"] = $id_user;
+                            $edited_payment["m_t_g"] = $nowFormatted;
+
+                            //update payment_status
+                            $transactions = TransaccionGlobal::query()
+                                ->where('id_order', $order['id'])
+                                ->where('status', 'ENTREGADO')
+                                ->whereNot('origin', 'Referenciado')
+                                ->get();
+
+                            foreach ($transactions as $transaction) {
+                                $transaction = TransaccionGlobal::where('id', $transaction['id'])
+                                    ->first();
+                                // error_log($transaction);
+                                if ($transaction != null) {
+                                    $transaction->payment_status = "ACREDITADO";
+                                    $transaction->save();
+                                }
+                            }
+
+                            //update payment_status ProviderTransaction
+                            $transactionsProvider = ProviderTransaction::query()
+                                ->where('origin_id', $order['id'])
+                                ->get();
+
+                            foreach ($transactionsProvider as $transactionProv) {
+                                $transactionProvFound = ProviderTransaction::where('id', $transactionProv['id'])
+                                    ->first();
+                                // error_log($transaction);
+                                if ($transactionProvFound != null) {
+                                    $transactionProvFound->payment_status = "ACREDITADO";
+                                    $transactionProvFound->save();
+                                }
+                            }
+                        }
+
+                        $order["gestioned_payment_cost_delivery"] = json_encode($edited_payment);
+                        $order->save();
+
+                        DB::commit();
+
+                        $editedPayments[] = $edited_payment;
+                    } catch (\Exception $e) {
+                        DB::rollBack();
+                        $idsNotProcessed[] = $idExternal;
+                        throw $e;
+                    }
+                } else {
+                    $idsNotProcessed[] = $idExternal;
+                    error_log("No se encontró pedido para external_id: $idExternal");
+                }
+            }
+
+            if (!empty($idsNotProcessed)) {
+                error_log("updateGestionedPaymentCostDeliveryExternal: idsNotProcessed");
+                return response()->json([
+                    "response" => "Some IDs could not be processed",
+                    "idsNotProcessed" => $idsNotProcessed,
+                    "edited_novelty" => $editedPayments
+                ], 422);
+            }
+
+            return response()->json([
+                "response" => "Payment updated successfully",
+                "edited_novelty" => $editedPayments
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            error_log("updateGestionedPaymentCostDeliveryExternal_error $th");
+            return response()->json([
+                "response" => "Failed to update Payment",
+                "error" => $th->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 }

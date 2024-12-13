@@ -184,4 +184,21 @@ class ProviderTransactionsAPIController extends Controller
             ], 500);
         }
     }
+
+    //*
+    public function calculateValuesPendingExternalCarrier(Request $request)
+    {
+        error_log("calculateValuesPendingExternalCarrier");
+        $data = $request->json()->all();
+        $idProvider = $data['id_provider'];
+
+        $totalTransactionSum = ProviderTransaction::query()
+            ->where('provider_id', $idProvider)
+            ->where('payment_status', 'PENDIENTE')
+            ->sum('amount');
+
+        return response()->json(
+            $totalTransactionSum,
+        );
+    }
 }

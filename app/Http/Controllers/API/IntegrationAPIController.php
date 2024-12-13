@@ -918,6 +918,7 @@ class IntegrationAPIController extends Controller
                                         $newTransactionGlobal->internal_transportation_cost = 0; // Ajusta según necesites
                                         $newTransactionGlobal->external_transportation_cost = -strval($deliveryPrice); // Ajusta según necesites
                                         $newTransactionGlobal->external_return_cost = 0;
+                                        $newTransactionGlobal->payment_status = "PENDIENTE";
                                         $newTransactionGlobal->save();
                                     }
                                 } else if ($name_local == "NOVEDAD") {
@@ -1437,7 +1438,9 @@ class IntegrationAPIController extends Controller
                         'generated_by' => $generated_by,
                         'status' => $orderStatus,
                         'description' => "Valor por guia ENTREGADA",
-                        'sku_product_reference' => $skuProduct
+                        'sku_product_reference' => $skuProduct,
+                        'payment_status' => "PENDIENTE",
+
                     ]);
                     $providerTransaction->save();
                     $responses[] = $diferencia;
@@ -1837,7 +1840,7 @@ class IntegrationAPIController extends Controller
                 error_log("estadoActual input: $estadoActual");
 
                 if (!empty($novedades)) {
-                    error_log("Novedades recibidas: " . json_encode($novedades));
+                    // error_log("Novedades recibidas: " . json_encode($novedades));
                 } else {
                     error_log("Novedades está vacía o no presente.");
                 }
@@ -1944,6 +1947,8 @@ class IntegrationAPIController extends Controller
                                     $key = 'status';
                                     $name_local = 'ENTREGADO';
                                 } else {
+                                    // error_log("Entró en el bloque 'else', estadoActual: $estadoActual");
+
                                     $idRefBuscado = $id_ref;
                                     $estadoBuscado = 'estado_devolucion';
 
@@ -1957,24 +1962,24 @@ class IntegrationAPIController extends Controller
                                     $ultimaNovedad = end($novedades);
 
                                     // if (stripos($ultimaNovedad['nombreTipoNovedad'], 'Devolucion') !== false) {
-                                    if (stripos($ultimaNovedad['nombreTipoNovedad'], 'Devolucion') !== false) {
+                                    // if (stripos($ultimaNovedad['nombreTipoNovedad'], 'Devolucion') !== false) {
 
-                                        $resultado = array_filter($status_array, function ($status) use ($idRefBuscado, $estadoBuscado) {
-                                            return $status['id_ref'] === $idRefBuscado && $status['estado'] === $estadoBuscado;
-                                        });
+                                    $resultado = array_filter($status_array, function ($status) use ($idRefBuscado, $estadoBuscado) {
+                                        return $status['id_ref'] === $idRefBuscado && $status['estado'] === $estadoBuscado;
+                                    });
 
-                                        $primerResultado = reset($resultado);
+                                    $primerResultado = reset($resultado);
 
-                                        if ($primerResultado) {
-                                            $key = $primerResultado['estado'];
-                                            $name_local = $primerResultado['name_local'];
-                                            $name = $primerResultado['name'];
-                                        } else {
-                                            error_log('No se encontró ningún resultado que coincida.');
-                                        }
+                                    if ($primerResultado) {
+                                        $key = $primerResultado['estado'];
+                                        $name_local = $primerResultado['name_local'];
+                                        $name = $primerResultado['name'];
                                     } else {
-                                        $key = 'status';
+                                        error_log('No se encontró ningún resultado que coincida.');
                                     }
+                                    // } else {
+                                    //     $key = 'status';
+                                    // }
                                 }
                                 error_log("key_control: $key");
                             }
@@ -2493,6 +2498,7 @@ class IntegrationAPIController extends Controller
                                         $newTransactionGlobal->internal_transportation_cost = 0; // Ajusta según necesites
                                         $newTransactionGlobal->external_transportation_cost = -strval($deliveryPrice); // Ajusta según necesites
                                         $newTransactionGlobal->external_return_cost = 0;
+                                        $newTransactionGlobal->payment_status = "PENDIENTE";
                                         $newTransactionGlobal->save();
                                     }
                                     //
@@ -2801,6 +2807,8 @@ class IntegrationAPIController extends Controller
                                         $deliveryPrice = round($deliveryPrice, 2);
 
                                         $deliveryPriceSeller = $deliveryPrice + $costo_easy;
+                                        $devCostoEasy = 0.70;
+                                        $deliveryPriceSeller = $deliveryPriceSeller + $devCostoEasy;
                                         // $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
                                         $deliveryPriceSeller = round($deliveryPriceSeller, 2);
 

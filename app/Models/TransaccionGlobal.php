@@ -33,7 +33,7 @@ class TransaccionGlobal extends Model
         'external_transportation_cost',
         'external_return_cost',
         'order_entry',
-
+        "payment_status",
 
     ];
     protected $casts = [];

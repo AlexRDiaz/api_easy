@@ -553,7 +553,8 @@ class TransaccionesAPIController extends Controller
                         'generated_by' => $generated_by,
                         'status' => $orderStatus,
                         'description' => "Valor por guia ENTREGADA",
-                        'sku_product_reference' => $skuProduct
+                        'sku_product_reference' => $skuProduct,
+                        'payment_status' => "ACREDITADO",
                     ]);
                     $providerTransaction->save();
                     $responses[] = $diferencia;
@@ -967,6 +968,7 @@ class TransaccionesAPIController extends Controller
                 $newTransactionGlobal->internal_transportation_cost = -$costoTransportadora; // Ajusta según necesites
                 $newTransactionGlobal->external_transportation_cost = 0; // Ajusta según necesites
                 $newTransactionGlobal->external_return_cost = 0;
+                $newTransactionGlobal->payment_status = "ACREDITADO";
 
                 $message = "Transacción con débito por estado " . $pedido->status;
             } else {
@@ -993,6 +995,7 @@ class TransaccionesAPIController extends Controller
                     $newTransactionGlobal->internal_transportation_cost = -$costoTransportadora;
                     $newTransactionGlobal->external_transportation_cost = 0;
                     $newTransactionGlobal->external_return_cost = 0;
+                    $newTransactionGlobal->payment_status = "ACREDITADO";
 
                     $message = "Transacción con débito por estado " . $pedido->status;
                 }

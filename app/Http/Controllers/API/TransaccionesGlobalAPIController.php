@@ -63,7 +63,7 @@ class TransaccionesGlobalAPIController extends Controller
         try {
             $sellerId = $request->input('seller_id', 0);
             $latestTransaction = TransaccionGlobal::where('id_seller', $sellerId)
-                ->select(['current_value','order_entry','id_seller'])
+                ->select(['current_value', 'order_entry', 'id_seller'])
                 ->orderBy('order_entry', 'desc')
                 ->first();
 
@@ -2416,6 +2416,49 @@ class TransaccionesGlobalAPIController extends Controller
             return response()->json([
                 'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    //*
+    public function calculateValuesPendingExternalCarrier(Request $request)
+    {
+        error_log("calculateValuesPendingExternalCarrier_seller");
+        try {
+
+            $data = $request->json()->all();
+            // $idCarrier = $data['id_carrier'];
+            $idSeller = $data['id_seller'];
+
+            // $pedidos = TransactionsGlobal::query()
+            //     ->where('id_seller', $idSeller) // Condición para id_seller
+            //     ->where('payment_status', 'PENDIENTE') // Condición para payment_status
+            //     ->where('status', 'ENTREGADO') // Condición para status
+            //     ->whereNot('external_transportation_cost', 0) // Condición para status
+            //     ->get();
+
+            $totalTransactionSum = TransaccionGlobal::query()
+                ->where('id_seller', $idSeller)
+                ->where('payment_status', 'PENDIENTE')
+                ->where('status', 'ENTREGADO')
+                ->whereNot('external_transportation_cost', 0)
+                ->sum('total_transaction');
+
+
+            // $totalPedidos = $pedidos->count();
+
+            // error_log("totalPedidos: $totalPedidos");
+
+            return response()->json([
+                'total' => $totalTransactionSum,
+            ]);
+
+            // return response()->json(
+            //     $pedidos,
+            // );
+
+        } catch (\Throwable $th) {
+            //throw $th;
+            error_log("calculateValuesPendingExternalCarrier_seller_error: $th");
         }
     }
 }

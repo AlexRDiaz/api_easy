@@ -28,6 +28,7 @@ use App\Http\Controllers\API\WarehouseAPIController;
 
 use App\Http\Controllers\API\ShopifyWebhookAPIController;
 use App\Http\Controllers\API\TransaccionesAPIController;
+use App\Http\Controllers\API\TransaccionesGlobalAPIController;
 use App\Http\Controllers\API\TransportadorasAPIController;
 use App\Http\Controllers\API\UpUsersWarehouseLinkAPIController;
 use App\Models\Reserve;
@@ -567,6 +568,7 @@ Route::middleware(['cors'])->group(function () {
     Route::prefix('providertransaction')->group(function () {
         Route::post('provider', [ProviderTransactionsAPIController::class, 'getAll']);
         Route::get('retiros/{id}', [ProviderTransactionsAPIController::class, 'getTotalRetiros']);
+        Route::post('valuespendingextcarrier', [ProviderTransactionsAPIController::class, 'calculateValuesPendingExternalCarrier']);
     });
 
     //  * test email
@@ -689,6 +691,10 @@ Route::middleware(['cors'])->group(function () {
 
     // *
     Route::post('laarcourier/updatestate', [IntegrationAPIController::class, 'requestUpdateStateLaar']);
+    // *
+    Route::post('transaccionesglobal/valuespendingextcarrier', [TransaccionesGlobalAPIController::class, 'calculateValuesPendingExternalCarrier']);
+    Route::post('pedidos-shopify/updatepaymentbyidexternal', [PedidosShopifyAPIController::class, 'updateGestionedPaymentCostDeliveryByIdExternal']);
+
 
     //testchangee4
 
