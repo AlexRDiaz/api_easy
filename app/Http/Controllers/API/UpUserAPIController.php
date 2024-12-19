@@ -357,8 +357,10 @@ class UpUserAPIController extends Controller
             $seller->fecha_alta = $request->input('fecha_alta');
             $seller->id_master = $user->id;
             $seller->url_tienda = $request->input('url_tienda');
-            $seller->costo_envio = $request->input('costo_envio');
-            $seller->costo_devolucion = $request->input('costo_devolucion');
+            // $seller->costo_envio = $request->input('costo_envio');
+            // $seller->costo_devolucion = $request->input('costo_devolucion');
+            $seller->costo_envio = 6;
+            $seller->costo_devolucion = 6;
             $seller->referer = $request->input('referer');
             $seller->save();
 
