@@ -1271,6 +1271,7 @@ class IntegrationAPIController extends Controller
                                         error_log("ya existe registro costo_devolucion");
                                     }
                                 } else {
+                                    error_log("ErrorRequestUpdateState_GTM_Order_must_be_in_NOVEDAD");
                                     return response()->json(['message' => "Error, Order must be in NOVEDAD."], 400);
                                 }
                             }
