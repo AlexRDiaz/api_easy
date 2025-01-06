@@ -332,15 +332,17 @@ class IntegrationAPIController extends Controller
                 // foreach ($data as $key => $value) {
                 //     error_log("$key: $value");
                 // }
-                error_log("guia input: $guia ");
-                error_log("estado input: $estado ");
+                error_log("guia_input: $guia ");
+                error_log("estado_input: $estado ");
                 error_log("path_input: $path ");
                 error_log("id_novedad input: $id_novedad ");
                 error_log("no_novedad input: $no_novedad ");
                 error_log("id_gestion input: $id_gestion ");
                 error_log("no_gestion input: $no_gestion ");
                 error_log("nota input: $nota ");
+                error_log("fecha_historial_input: $fecha_historial ");
 
+                error_log("requestUpdateStategGTM_" . $guia . "_" . $fecha_historial);
 
 
                 // error_log("pedido: $order");
