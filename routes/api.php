@@ -225,9 +225,9 @@ Route::middleware(['cors'])->group(function () {
     Route::post('operator/filter', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getDevolucionesOperator']);
     //  ! MIA TRANSPORTADORAS
 
-    Route::get('transportadoras', [App\Http\Controllers\API\TransportadorasAPIController::class, 'getTransportadoras']);
+    Route::post('transportadoras', [App\Http\Controllers\API\TransportadorasAPIController::class, 'getTransportadoras']);//newVersionByCompany
     Route::post('transportadoras-novelties', [App\Http\Controllers\API\TransportadorasAPIController::class, 'getTransportadorasNovelties']);
-    Route::get('active/transportadoras', [App\Http\Controllers\API\TransportadorasAPIController::class, 'getActiveTransportadoras']);
+    Route::post('active/transportadoras', [App\Http\Controllers\API\TransportadorasAPIController::class, 'getActiveTransportadoras']);
     Route::post('generaldata', [App\Http\Controllers\API\TransportadorasAPIController::class, 'generalData']);
     Route::post('generaldata-optimized', [App\Http\Controllers\API\TransportadorasAPIController::class, 'generalDataOptimized']);
     Route::post('generalspecific-data', [App\Http\Controllers\API\TransportadorasAPIController::class, 'getSpecificDataGeneral']);
@@ -240,7 +240,7 @@ Route::middleware(['cors'])->group(function () {
 
     // ! MIA VENDEDORES
 
-    Route::get('vendedores', [App\Http\Controllers\API\VendedoreAPIController::class, 'getVendedores']);
+    Route::post('vendedores', [App\Http\Controllers\API\VendedoreAPIController::class, 'getVendedores']);
 
     Route::post('vendedores-sld', [App\Http\Controllers\API\VendedoreAPIController::class, 'getSaldoPorId']);
 
@@ -463,9 +463,11 @@ Route::middleware(['cors'])->group(function () {
     // *
     Route::prefix('rutas')->group(function () {
         Route::get('/', [RutaAPIController::class, 'index']);
-        Route::get('/active', [RutaAPIController::class, 'activeRoutes']);
+        Route::get('/active/{id}', [RutaAPIController::class, 'activeRoutes']);
         Route::get('/{id}', [RutaAPIController::class, 'show']);
         Route::post('/subroutesofroute/{id}', [RutaAPIController::class, 'getTransportadorasConRutasYSubRutas']);
+        Route::post('create', [RutaAPIController::class, 'create']);
+
     });
 
 
@@ -543,7 +545,7 @@ Route::middleware(['cors'])->group(function () {
 
     Route::prefix('providers')->group(function () {
 
-        Route::get('/all/{search?}', [ProviderAPIController::class, 'getProviders']);
+        Route::post('/all', [ProviderAPIController::class, 'getProviders']);
         Route::get('/nofilter', [ProviderAPIController::class, 'index']);
 
         Route::put('/update/{id}', [ProviderAPIController::class, 'updateRequest']);
@@ -631,7 +633,7 @@ Route::middleware(['cors'])->group(function () {
 
     Route::post('allbysubprov', [ProductAPIController::class, 'getBySubProvider']);
     Route::post('productwarehouse', [App\Http\Controllers\API\ProductWarehouseLinkAPIController::class, 'store']);
-    Route::get('warehouses/specials', [WarehouseAPIController::class, 'getSpecials']);
+    Route::get('warehouses/specials/{id}', [WarehouseAPIController::class, 'getSpecials']);
     Route::put('productwarehouse/update', [App\Http\Controllers\API\ProductWarehouseLinkAPIController::class, 'update']);
     Route::post('catalog/all', [ProductAPIController::class, 'getProductsNew']);
 

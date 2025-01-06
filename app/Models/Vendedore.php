@@ -22,14 +22,17 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $fecha_alta
  * @property string|null $id_master
  * @property string|null $url_tienda
- * @property string|null $referer
- * @property string|null $referer_cost
  * @property string|null $monto_inicial
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property int|null $created_by_id
  * @property int|null $updated_by_id
+ * @property string|null $saldo
+ * @property string|null $referer
+ * @property float|null $referer_cost
+ * @property int|null $company_id
  * 
+ * @property Company|null $company
  * @property AdminUser|null $admin_user
  * @property Collection|UpUser[] $up_users
  *
@@ -41,7 +44,9 @@ class Vendedore extends Model
 
 	protected $casts = [
 		'created_by_id' => 'int',
-		'updated_by_id' => 'int'
+		'updated_by_id' => 'int',
+		'referer_cost' => 'float',
+		'company_id' => 'int'
 	];
 
 	protected $fillable = [
@@ -53,12 +58,19 @@ class Vendedore extends Model
 		'fecha_alta',
 		'id_master',
 		'url_tienda',
-		'referer',
-		'referer_cost',
 		'monto_inicial',
 		'created_by_id',
-		'updated_by_id'
+		'updated_by_id',
+		'saldo',
+		'referer',
+		'referer_cost',
+		'company_id'
 	];
+
+	public function company()
+	{
+		return $this->belongsTo(Company::class);
+	}
 
 	public function admin_user()
 	{

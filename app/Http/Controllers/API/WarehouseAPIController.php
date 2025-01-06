@@ -184,9 +184,10 @@ class WarehouseAPIController extends Controller
         return response()->json(['warehouses' => $warehouses]);
     }
 
-    public function getSpecials()
+    public function getSpecials(string $idCompany)
     {
         error_log("getSpecials");
+        error_log($idCompany);
         $warehouses = Warehouse::with('provider')
             ->whereHas('provider', function ($query) {
                 $query->where('active', 1)->where('approved', 1)->where('special', 1);

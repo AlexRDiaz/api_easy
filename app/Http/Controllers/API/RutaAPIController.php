@@ -21,9 +21,13 @@ class RutaAPIController extends Controller
         return response()->json($rutas);
     }
 
-    public function activeRoutes()
+    public function activeRoutes(string $companyId)
     {
-        $rutas = Ruta::where('active', 1)->get();
+        // $rutas = Ruta::where('active', 1)->get();
+        $rutas = Ruta::where('active', 1)
+            ->where('company_id', $companyId)
+            ->get();
+
 
         $rutaStrings = [];
 
@@ -67,8 +71,8 @@ class RutaAPIController extends Controller
         //
     }
 
-    
-   // public function getSubRutasByRuta(Request $request, $rutaId)
+
+    // public function getSubRutasByRuta(Request $request, $rutaId)
     // {
     //     // Extraer el ID de la transportadora del JSON
     //     $data = $request->json()->all();
@@ -100,18 +104,18 @@ class RutaAPIController extends Controller
     //     return response()->json($subRutas);
     // }
 
-    public function getTransportadorasConRutasYSubRutas(Request $request,$rutaId)
+    public function getTransportadorasConRutasYSubRutas(Request $request, $rutaId)
     {
-        
+
         $data = $request->json()->all();
         $transportadoraId = $data['transportadora_id'];
 
-        $transportadoras = Transportadora::with(['rutas' => function ($query) use ($rutaId,$transportadoraId) {
+        $transportadoras = Transportadora::with(['rutas' => function ($query) use ($rutaId, $transportadoraId) {
             $query->where('rutas.id', $rutaId)->with(['sub_rutas' => function ($query) use ($transportadoraId) {
                 $query->where('sub_rutas.id_operadora', $transportadoraId);
             }]);
         }])->where('transportadoras.id', $transportadoraId)->get();
-    
+
         $subRutasNombres = [];
         foreach ($transportadoras as $transportadora) {
             foreach ($transportadora->rutas as $ruta) {
@@ -122,8 +126,31 @@ class RutaAPIController extends Controller
                 }
             }
         }
-    
+
         return response()->json($subRutasNombres);
     }
-    
+
+
+    public function create(Request $request)
+    {
+        try {
+            error_log("create");
+            $data = $request->json()->all();
+            $titulo = $data['titulo'];
+            $company_id = $data['company_id'];
+
+
+            $newRuta = new Ruta();
+            $newRuta->titulo = $titulo;
+            $newRuta->company_id = $company_id;
+            $newRuta->created_at = date('Y-m-d H:i:s');
+            $newRuta->updated_at = date('Y-m-d H:i:s');
+            $newRuta->save();
+
+            return response()->json($newRuta, 200);
+        } catch (\Exception $e) {
+            error_log("error_createRuta: $e");
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
 }

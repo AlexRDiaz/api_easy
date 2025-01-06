@@ -101,6 +101,7 @@ class UpUserAPIController extends Controller
         $permisosCadena = json_encode($request->input('PERMISOS'));
         $user->permisos = $permisosCadena;
         $user->blocked = false;
+        $user->company_id = $request->input('company_id');
         $user->save();
         $user->vendedores()->attach($request->input('vendedores'), []);
 
@@ -155,6 +156,7 @@ class UpUserAPIController extends Controller
         // $user->permisos = $permisosCadena;
         $user->permisos = json_encode($request->input('permisos'));
         $user->blocked = false;
+        $user->company_id = $request->input('company_id');
         $user->save();
         $user->providers()->attach($request->input('providers'), []);
 
@@ -250,6 +252,7 @@ class UpUserAPIController extends Controller
             // $user->permisos = $permisosCadena;
             $user->permisos = json_encode($request->input('permisos'));
             $user->blocked = false;
+            $user->company_id = $request->input('company_id');
             $user->save();
             // $user->providers()->attach($user->id, [
             // ]);
@@ -282,6 +285,7 @@ class UpUserAPIController extends Controller
             $provider->special = $request->input('special');
             $provider->created_at = new DateTime();
             $provider->user_id = $user->id;
+            $provider->company_id = $request->input('company_id');
 
             $provider->save();
             $user->providers()->attach($provider->id, []);
@@ -319,6 +323,14 @@ class UpUserAPIController extends Controller
 
         DB::beginTransaction();
         try {
+            $userReferer = UpUser::where("id", $request->input('referer'))
+                ->first();
+
+            error_log($userReferer);
+
+            $role = RolesFront::find(2);
+
+
             $user = new UpUser();
             $user->username = $request->input('username');
             $user->email = $request->input('email');
@@ -368,12 +380,12 @@ class UpUserAPIController extends Controller
 
             if ($seller) {
 
-                try {
-                    Mail::to($user->email)->send(new UserValidation($resultCode));
-                } catch (\Exception $e) {
-                    error_log("Error_storeReferido al enviar email con el newSeller-resultCode  $user->id: $e");
-                }
-                DB::commit();
+                // try {
+                //     Mail::to($user->email)->send(new UserValidation($resultCode));
+                // } catch (\Exception $e) {
+                //     error_log("Error_storeReferido al enviar email con el newSeller-resultCode  $user->id: $e");
+                // }
+                // DB::commit();
 
                 return response()->json(['message' => 'Vendedor creado con éxito'], 200);
             } else {
@@ -1395,6 +1407,8 @@ class UpUserAPIController extends Controller
 
     public function storeGeneralNewUser(Request $request)
     {
+        error_log("storeGeneralNewUser");
+
         try {
             $request->validate([
                 'username' => 'required|string|max:255',
@@ -1414,7 +1428,7 @@ class UpUserAPIController extends Controller
             $resultCode = $numeroAleatorio;
 
             //  creación del usuario
-
+            DB::beginTransaction();
             $user = new UpUser();
             $user->username = $request->input('username');
             $user->email = $request->input('email');
@@ -1429,6 +1443,7 @@ class UpUserAPIController extends Controller
             $user->fecha_alta = date("d/m/Y");
             $permisosCadena = json_encode($request->input('PERMISOS'));
             $user->permisos = $permisosCadena;
+            $user->company_id = $request->input('company_id');
             $user->save();
 
             $newUpUsersRoleLink = new UpUsersRoleLink();
@@ -1456,6 +1471,7 @@ class UpUserAPIController extends Controller
                     $transport->telefono_1 = $request->input('telefono1');
                     $transport->telefono_2 = $request->input('telefono2');
                     $transport->costo_transportadora = $request->input('costo_transportadora');
+                    $transport->company_id = $request->input('company_id');
                     $transport->save();
 
                     $transportadoraUserPermissionsUserLinks = new TransportadorasUsersPermissionsUserLink();
@@ -1489,6 +1505,7 @@ class UpUserAPIController extends Controller
                     $newSeller->id_master = $user->id;
                     $newSeller->url_tienda = $request->input('url_tienda');
                     $newSeller->referer_cost = "0.10";
+                    $newSeller->company_id = $request->input('company_id');
                     $newSeller->save();
 
                     $upUserVendedoreLinks = new UpUsersVendedoresLink();
@@ -1529,9 +1546,11 @@ class UpUserAPIController extends Controller
                 Mail::to($user->email)->send(new UserValidation($resultCode));
             }
 
+            DB::commit();
             return response()->json(['message' => 'Usuario creado con éxito', 'user_id' => $user->id], 200);
         } catch (\Throwable $th) {
             // Log the error
+            DB::rollBack();
             return response()->json(['message' => 'Error! ' . $th->getMessage()], 400);
         }
     }

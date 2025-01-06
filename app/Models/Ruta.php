@@ -33,14 +33,16 @@ class Ruta extends Model
 
 	protected $casts = [
 		'created_by_id' => 'int',
-		'updated_by_id' => 'int'
+		'updated_by_id' => 'int',
+		'company_id' => 'int',
 	];
 
 	protected $fillable = [
 		'titulo',
 		'created_by_id',
 		'updated_by_id',
-		'active'
+		'active',
+		'company_id',
 	];
 
 	public function admin_user()

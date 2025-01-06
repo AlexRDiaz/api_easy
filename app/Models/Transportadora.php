@@ -16,13 +16,17 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $id
  * @property string|null $nombre
  * @property string|null $costo_transportadora
+ * @property string|null $novelties_supervisor
  * @property string|null $telefono_1
  * @property string|null $telefono_2
+ * @property int|null $company_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property int|null $created_by_id
  * @property int|null $updated_by_id
+ * @property int|null $active
  * 
+ * @property Company|null $company
  * @property AdminUser|null $admin_user
  * @property Collection|Operadore[] $operadores
  * @property Collection|PedidosShopifiesTransportadoraLink[] $pedidos_shopifies_transportadora_links
@@ -38,20 +42,28 @@ class Transportadora extends Model
 	protected $table = 'transportadoras';
 
 	protected $casts = [
+		'company_id' => 'int',
 		'created_by_id' => 'int',
-		'updated_by_id' => 'int'
+		'updated_by_id' => 'int',
+		'active' => 'int'
 	];
 
 	protected $fillable = [
-		'transportadora_id',
 		'nombre',
 		'costo_transportadora',
+		'novelties_supervisor',
 		'telefono_1',
 		'telefono_2',
+		'company_id',
 		'created_by_id',
 		'updated_by_id',
 		'active'
 	];
+
+	public function company()
+	{
+		return $this->belongsTo(Company::class);
+	}
 
 	public function admin_user()
 	{
@@ -80,19 +92,13 @@ class Transportadora extends Model
 					->withPivot('id', 'ruta_order', 'transportadora_order');
 	}
 
-	public function subrutas()
+	public function transportadoras_shipping_costs()
 	{
-		return $this->belongsToMany(SubRuta::class, 'transportadoras_rutas_links')
-					->withPivot('id', 'ruta_order', 'transportadora_order');
+		return $this->hasMany(TransportadorasShippingCost::class, 'id_transportadora');
 	}
 
 	public function transportadoras_users_permissions_user_links()
 	{
 		return $this->hasMany(TransportadorasUsersPermissionsUserLink::class);
-	}
-
-	public function pedidos()
-	{
-		return $this->hasManyThrough(PedidosShopify::class, PedidosShopifiesTransportadoraLink::class, 'transportadora_id', 'id', 'id', 'pedidos_shopify_id');
 	}
 }

@@ -29,6 +29,7 @@ class Provider extends Model
         'approved' => 'int',
         'active' => 'int',
         'special' => 'int',
+        'company_id' => 'int',
     ];
 
     public static array $rules = [
@@ -38,7 +39,8 @@ class Provider extends Model
         'description' => 'nullable|string|max:65535',
         'saldo' => 'nullable|string|20',
         'created_at' => 'nullable',
-        'updated_at' => 'nullable'
+        'updated_at' => 'nullable',
+        'company_id' => 'nullable',
     ];
 
     public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
@@ -49,5 +51,10 @@ class Provider extends Model
     public function warehouses(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\App\Models\Warehouse::class, 'provider_id');
+    }
+
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
     }
 }

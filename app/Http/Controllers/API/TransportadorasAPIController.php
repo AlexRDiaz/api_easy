@@ -35,9 +35,14 @@ class TransportadorasAPIController extends Controller
 
     public function getTransportadoras(Request $request)
     {
-        // No necesitas $data en este caso, ya que no lo estás utilizando
+        $data = $request->json()->all();
+        $company_id = $data['company_id'];
 
-        $transportadoras = Transportadora::select(DB::raw('CONCAT(nombre, "-", id ) as id_nombre'))->distinct()->get()->pluck('id_nombre');
+        $transportadoras = Transportadora::select(DB::raw('CONCAT(nombre, "-", id) as id_nombre'))
+            ->distinct()
+            ->where('company_id', $company_id)
+            ->get()
+            ->pluck('id_nombre');
 
         return response()->json(['transportadoras' => $transportadoras]);
     }
@@ -65,7 +70,12 @@ class TransportadorasAPIController extends Controller
 
     public function getActiveTransportadoras(Request $request)
     {
-        $transportadoras = Transportadora::where('active', 1)->get();
+        $data = $request->json()->all();
+        $company_id = $data['company_id'];
+
+        $transportadoras = Transportadora::where('active', 1)
+        ->where('company_id', $company_id)
+        ->get();
 
         $formattedTransportadoras = $transportadoras->map(function ($transportadora) {
             return $transportadora->nombre . ' - ' . $transportadora->id;
@@ -240,7 +250,6 @@ class TransportadorasAPIController extends Controller
                         if ($valor === '') {
                             // $databackend->whereRaw("$key <> ''");
                             $this->recursiveWhereHasNeg($databackend, $relacion, $propiedad, $valor);
-
                         } else {
                             if ($valor === null) {
                                 $databackend->whereNotNull($key);
@@ -330,7 +339,6 @@ class TransportadorasAPIController extends Controller
                 $selectedFilter = "marca_tiempo_envio";
             } else if ($dateFilter == "MARCA INGRESO") {
                 $selectedFilter = "marca_t_i";
-
             }
         }
 

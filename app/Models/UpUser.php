@@ -117,7 +117,8 @@ class UpUser extends Model implements Authenticatable, JWTSubject
 		'created_by_id' => 'int',
 		'updated_by_id' => 'int',
 		'accepted_terms_conditions' => 'bool',
-		'active' => 'bool'
+		'active' => 'bool',
+		'company_id' => 'int',
 	];
 
 	protected $hidden = [
@@ -149,7 +150,8 @@ class UpUser extends Model implements Authenticatable, JWTSubject
 		'webhook_autome',
 		'enable_autome',
 		'config_autome',
-		'active'
+		'active',
+		'company_id',
 	];
 
 	public function admin_user()
@@ -252,5 +254,10 @@ class UpUser extends Model implements Authenticatable, JWTSubject
 		return $this->belongsToMany(Warehouse::class, 'up_users_warehouse_link', 'id_user', 'id_warehouse')
 					->withPivot('id','notify')
 					->withTimestamps();
+	}
+
+	public function company()
+	{
+		return $this->belongsTo(Company::class);
 	}
 }

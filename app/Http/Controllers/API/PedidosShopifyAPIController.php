@@ -255,6 +255,7 @@ class PedidosShopifyAPIController extends Controller
             ->with('ruta')
             ->with('subRuta')
             ->with('statusLastModifiedBy')
+            ->with('vendor')
             ->with('pedidoCarrier')
             ->whereRaw("STR_TO_DATE(marca_t_i, '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
             ->where(function ($pedidos) use ($searchTerm, $filteFields) {
@@ -360,7 +361,8 @@ class PedidosShopifyAPIController extends Controller
             'statusLastModifiedBy',
             'transportadora',
             'users.vendedores',
-            'pedidoCarrier'
+            'pedidoCarrier',
+            "vendor",
         ])
             ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
             ->where(function ($pedidos) use ($searchTerm, $filteFields) {
@@ -467,7 +469,8 @@ class PedidosShopifyAPIController extends Controller
             'statusLastModifiedBy',
             'transportadora',
             'users.vendedores',
-            'pedidoCarrier'
+            'pedidoCarrier',
+            "vendor",
         ])
             ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted])
             ->where(function ($pedidos) use ($searchTerm, $filteFields) {
@@ -1221,7 +1224,8 @@ class PedidosShopifyAPIController extends Controller
                 'product_s.warehouses.provider',
                 'carrierExternal',
                 'ciudadExternal',
-                'pedidoCarrier'
+                'pedidoCarrier',
+                'vendor'
             ])
                 ->where(function ($pedidos) use ($searchTerm, $filteFields) {
                     foreach ($filteFields as $field) {

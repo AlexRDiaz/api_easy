@@ -25,10 +25,19 @@ class ProviderAPIController extends Controller
         return response()->json($pedido);
     }
 
-    public function getProviders($search = null)
+    public function getProviders(Request $request)
     {
+        $search = $request->input('search', ''); // Por defecto, vacío
+        $companyId = $request->input('company_id');
+
         $providers = Provider::with(['user', 'warehouses']);
 
+        // Construir la consulta base
+        $providers = Provider::with(['user', 'warehouses'])
+            ->where('active', 1)
+            ->where('company_id', $companyId);
+
+        // Aplicar búsqueda si hay un término
         if (!empty($search)) {
             $providers->where(function ($query) use ($search) {
                 $query->where('name', 'like', '%' . $search . '%')
@@ -39,7 +48,11 @@ class ProviderAPIController extends Controller
             });
         }
 
-        return response()->json(['providers' => $providers->where('active', 1)->get()]);
+        // Obtener los resultados
+        $result = $providers->get();
+
+        // Devolver la respuesta JSON
+        return response()->json(['providers' => $result]);
     }
 
     public function index()
@@ -96,5 +109,4 @@ class ProviderAPIController extends Controller
             ], 500);
         }
     }
-
 }
