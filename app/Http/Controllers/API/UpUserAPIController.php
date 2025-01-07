@@ -319,6 +319,21 @@ class UpUserAPIController extends Controller
 
         DB::beginTransaction();
         try {
+            // $userFound = UpUser::where('id', $request->input('referer'))->first();
+            // error_log("userFound: $userFound");
+
+            $rolSeller = RolesFront::where('titulo', 'VENDEDOR')->first();
+            $accesos = json_decode($rolSeller->accesos, true);
+
+            foreach ($accesos as $acceso) {
+                if (isset($acceso['active']) && $acceso['active'] === true) {
+                    $activeViewsNames[] = $acceso['view_name'];
+                }
+            }
+            $activeViewsCadena = json_encode($activeViewsNames);
+
+            // error_log("activeViewsCadena: $activeViewsCadena");
+
             $user = new UpUser();
             $user->username = $request->input('username');
             $user->email = $request->input('email');
@@ -330,8 +345,9 @@ class UpUserAPIController extends Controller
             $user->provider = "local";
             $user->confirmed = 1;
             $user->fecha_alta = $request->input('fecha_alta');
-            $permisosCadena = json_encode(["DashBoard", "Reporte de Ventas", "Agregar Usuarios Vendedores", "Ingreso de Pedidos", "Estado Entregas Pedidos", "Pedidos No Deseados", "Billetera", "Devoluciones", "Retiros en Efectivo", "Conoce a tu Transporte"]);
-            $user->permisos = $permisosCadena;
+            // $permisosCadena = json_encode(["DashBoard", "Reporte de Ventas", "Agregar Usuarios Vendedores", "Ingreso de Pedidos", "Estado Entregas Pedidos", "Pedidos No Deseados", "Billetera", "Devoluciones", "Retiros en Efectivo", "Conoce a tu Transporte"]);
+            // $user->permisos = $permisosCadena;
+            $user->permisos = $activeViewsCadena;
             $user->blocked = false;
             $user->save();
             $user->vendedores()->attach($request->input('vendedores'), []);
