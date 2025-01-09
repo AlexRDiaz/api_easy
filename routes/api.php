@@ -698,7 +698,7 @@ Route::middleware(['cors'])->group(function () {
     Route::post('pedidos-shopify/updatepaymentbyidexternal', [PedidosShopifyAPIController::class, 'updateGestionedPaymentCostDeliveryByIdExternal']);
 
 
-    //test....
+    //test
 
 });
 
