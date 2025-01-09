@@ -323,8 +323,9 @@ class UpUserAPIController extends Controller
 
         DB::beginTransaction();
         try {
-            // $userFound = UpUser::where('id', $request->input('referer'))->first();
-            // error_log("userFound: $userFound");
+            $userFound = UpUser::where('id', $request->input('referer'))->first();
+            $refererCompanyId = $userFound->company_id;
+            // error_log("refererCompanyId: $refererCompanyId");
 
             $rolSeller = RolesFront::where('titulo', 'VENDEDOR')->first();
             $accesos = json_decode($rolSeller->accesos, true);
@@ -353,6 +354,7 @@ class UpUserAPIController extends Controller
             // $user->permisos = $permisosCadena;
             $user->permisos = $activeViewsCadena;
             $user->blocked = false;
+            $user->company_id = $refererCompanyId;
             $user->save();
             $user->vendedores()->attach($request->input('vendedores'), []);
 
@@ -382,18 +384,19 @@ class UpUserAPIController extends Controller
             $seller->costo_envio = 6;
             $seller->costo_devolucion = 6;
             $seller->referer = $request->input('referer');
+            $seller->company_id = $refererCompanyId;
             $seller->save();
 
             $user->vendedores()->attach($seller->id, []);
 
             if ($seller) {
 
-                // try {
-                //     Mail::to($user->email)->send(new UserValidation($resultCode));
-                // } catch (\Exception $e) {
-                //     error_log("Error_storeReferido al enviar email con el newSeller-resultCode  $user->id: $e");
-                // }
-                // DB::commit();
+                try {
+                    Mail::to($user->email)->send(new UserValidation($resultCode));
+                } catch (\Exception $e) {
+                    error_log("Error_storeReferido al enviar email con el newSeller-resultCode  $user->id: $e");
+                }
+                DB::commit();
 
                 return response()->json(['message' => 'Vendedor creado con éxito'], 200);
             } else {
@@ -1776,6 +1779,7 @@ class UpUserAPIController extends Controller
             $user->confirmed = 1;
             $user->fecha_alta = date("d/m/Y");
             $user->permisos = $permisosCadena;
+            $user->company_id = 1;
             $user->save();
 
             $newUpUsersRoleLink = new UpUsersRoleLink();
@@ -1803,6 +1807,7 @@ class UpUserAPIController extends Controller
                 $newSeller->id_master = $user->id;
                 $newSeller->url_tienda = $request->input('url_tienda');
                 $newSeller->referer_cost = "0.10";
+                $newSeller->company_id = 1;
                 $newSeller->save();
 
                 $upUserVendedoreLinks = new UpUsersVendedoresLink();
@@ -1832,6 +1837,7 @@ class UpUserAPIController extends Controller
                 $provider->description = $request->input('description');
                 // $provider->special = $request->input('special');
                 $provider->user_id = $user->id;
+                $provider->company_id = 1;
 
                 $provider->save();
                 $user->providers()->attach($provider->id, []);

@@ -18,7 +18,8 @@ class Provider extends Model
         'up_user_order',
         'approved',
         'active',
-        'special'
+        'special',
+        'company_id',
     ];
 
     protected $casts = [

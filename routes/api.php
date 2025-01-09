@@ -546,7 +546,7 @@ Route::middleware(['cors'])->group(function () {
     Route::prefix('providers')->group(function () {
 
         Route::post('/all', [ProviderAPIController::class, 'getProviders']);
-        Route::get('/nofilter', [ProviderAPIController::class, 'index']);
+        Route::get('/nofilter/{idCompany}', [ProviderAPIController::class, 'index']);
 
         Route::put('/update/{id}', [ProviderAPIController::class, 'updateRequest']);
     });

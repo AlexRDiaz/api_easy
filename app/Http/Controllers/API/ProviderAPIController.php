@@ -55,10 +55,12 @@ class ProviderAPIController extends Controller
         return response()->json(['providers' => $result]);
     }
 
-    public function index()
+    public function index(string $companyId)
     {
         //
-        $providers = Provider::with('warehouses')->get();
+        $providers = Provider::with('warehouses')
+            ->where('company_id', $companyId)
+            ->get();
         return response()->json(['providers' => $providers]);
     }
 
