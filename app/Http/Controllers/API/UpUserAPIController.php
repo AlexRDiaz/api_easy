@@ -323,12 +323,19 @@ class UpUserAPIController extends Controller
 
         DB::beginTransaction();
         try {
-            $userReferer = UpUser::where("id", $request->input('referer'))
-                ->first();
+            $userFound = UpUser::where('id', $request->input('referer'))->first();
+            $refererCompanyId = $userFound->company_id;
+            // error_log("refererCompanyId: $refererCompanyId");
 
-            error_log($userReferer);
+            $rolSeller = RolesFront::where('titulo', 'VENDEDOR')->first();
+            $accesos = json_decode($rolSeller->accesos, true);
 
-            $role = RolesFront::find(2);
+            foreach ($accesos as $acceso) {
+                if (isset($acceso['active']) && $acceso['active'] === true) {
+                    $activeViewsNames[] = $acceso['view_name'];
+                }
+            }
+            $activeViewsCadena = json_encode($activeViewsNames);
 
 
             $user = new UpUser();
