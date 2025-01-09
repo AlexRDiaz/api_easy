@@ -313,8 +313,6 @@ class IntegrationAPIController extends Controller
                 return response()->json(['message' => $error_message], 400);
             } else {
                 //* okey keep proccess
-                error_log("requestUpdateStateGTM_" . $data['guia'] . "_" . $data['fecha_historial']);
-
                 $guia = $data['guia'];
                 $estado = $data['estado'];
                 $path = $data['path'];
@@ -334,15 +332,15 @@ class IntegrationAPIController extends Controller
                 // foreach ($data as $key => $value) {
                 //     error_log("$key: $value");
                 // }
-                error_log("guia_input: $guia ");
-                error_log("estado_input: $estado ");
+                error_log("guia input: $guia ");
+                error_log("estado input: $estado ");
                 error_log("path_input: $path ");
                 error_log("id_novedad input: $id_novedad ");
                 error_log("no_novedad input: $no_novedad ");
                 error_log("id_gestion input: $id_gestion ");
                 error_log("no_gestion input: $no_gestion ");
                 error_log("nota input: $nota ");
-                error_log("fecha_historial_input: $fecha_historial ");
+
 
 
                 // error_log("pedido: $order");
@@ -976,8 +974,8 @@ class IntegrationAPIController extends Controller
                                 // $order->status_last_modified_by = $idUser;
 
                             } else if ($key == "estado_devolucion") {
-                                //solo se puede poner en devolucion si se encuentra en NOVEDAD //omitir condicion 07/01/2025
-                                // if ($order->status == "NOVEDAD") {
+                                //solo se puede poner en devolucion si se encuentra en NOVEDAD
+                                if ($order->status == "NOVEDAD") {
                                     //
                                     if ($name_local == "EN BODEGA") { //from logistic
                                         $order->estado_devolucion = $name_local;
@@ -1272,10 +1270,10 @@ class IntegrationAPIController extends Controller
                                         //
                                         error_log("ya existe registro costo_devolucion");
                                     }
-                                // } else {
-                                //     error_log("ErrorRequestUpdateState_GTM_Order_must_be_in_NOVEDAD");
-                                //     return response()->json(['message' => "Error, Order must be in NOVEDAD."], 400);
-                                // }
+                                } else {
+                                    error_log("ErrorRequestUpdateState_GTM_Order_must_be_in_NOVEDAD");
+                                    return response()->json(['message' => "Error, Order must be in NOVEDAD."], 400);
+                                }
                             }
 
                             //new column

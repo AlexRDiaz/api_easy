@@ -78,7 +78,6 @@ class PedidosShopifyAPIController extends Controller
     public function updateStatus(Request $request, $id)
     {
         // Recuperar los datos del formulario
-        // test
 
         // Recuperar el nuevo estado del pedido
         $data = $request->all();

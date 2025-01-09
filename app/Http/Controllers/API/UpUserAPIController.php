@@ -323,21 +323,13 @@ class UpUserAPIController extends Controller
 
         DB::beginTransaction();
         try {
-            $userFound = UpUser::where('id', $request->input('referer'))->first();
-            $refererCompanyId = $userFound->company_id;
-            // error_log("refererCompanyId: $refererCompanyId");
+            $userReferer = UpUser::where("id", $request->input('referer'))
+                ->first();
 
-            $rolSeller = RolesFront::where('titulo', 'VENDEDOR')->first();
-            $accesos = json_decode($rolSeller->accesos, true);
+            error_log($userReferer);
 
-            foreach ($accesos as $acceso) {
-                if (isset($acceso['active']) && $acceso['active'] === true) {
-                    $activeViewsNames[] = $acceso['view_name'];
-                }
-            }
-            $activeViewsCadena = json_encode($activeViewsNames);
+            $role = RolesFront::find(2);
 
-            // error_log("activeViewsCadena: $activeViewsCadena");
 
             $user = new UpUser();
             $user->username = $request->input('username');
@@ -350,9 +342,8 @@ class UpUserAPIController extends Controller
             $user->provider = "local";
             $user->confirmed = 1;
             $user->fecha_alta = $request->input('fecha_alta');
-            // $permisosCadena = json_encode(["DashBoard", "Reporte de Ventas", "Agregar Usuarios Vendedores", "Ingreso de Pedidos", "Estado Entregas Pedidos", "Pedidos No Deseados", "Billetera", "Devoluciones", "Retiros en Efectivo", "Conoce a tu Transporte"]);
-            // $user->permisos = $permisosCadena;
-            $user->permisos = $activeViewsCadena;
+            $permisosCadena = json_encode(["DashBoard", "Reporte de Ventas", "Agregar Usuarios Vendedores", "Ingreso de Pedidos", "Estado Entregas Pedidos", "Pedidos No Deseados", "Billetera", "Devoluciones", "Retiros en Efectivo", "Conoce a tu Transporte"]);
+            $user->permisos = $permisosCadena;
             $user->blocked = false;
             $user->company_id = $refererCompanyId;
             $user->save();
