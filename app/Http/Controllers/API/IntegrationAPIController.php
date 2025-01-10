@@ -313,6 +313,8 @@ class IntegrationAPIController extends Controller
                 return response()->json(['message' => $error_message], 400);
             } else {
                 //* okey keep proccess
+                error_log("requestUpdateStateGTM_" . $data['guia'] . "_" . $data['estado'] . "_" . $data['fecha_historial']);
+
                 $guia = $data['guia'];
                 $estado = $data['estado'];
                 $path = $data['path'];
