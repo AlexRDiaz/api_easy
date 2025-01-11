@@ -273,7 +273,7 @@ class IntegrationAPIController extends Controller
     {
         //* Verificar si se proporcionaron credenciales de autenticación
         if (!isset($_SERVER['PHP_AUTH_USER']) || !isset($_SERVER['PHP_AUTH_PW'])) {
-            error_log("Unauthorized-No credentials provided. Please provide your username and password.");
+            error_log("error_requestUpdateStateGTM__Unauthorized-No credentials provided. Please provide your username and password.");
             return response()->json(['status' => 'Unauthorized', "message" => "No credentials provided. Please provide your username and password."], 401);
         }
 
@@ -284,13 +284,13 @@ class IntegrationAPIController extends Controller
         $access = true;
 
         if ($user !== 'gintracom' || $password !== '$2y$10$pxgkZvDG8CwMpKL10Rw1IukUAk4bWUlAAvERRNqYZJVMQ8PWfd4zW') {
-            error_log("Credenciales de autenticación inválidas.");
+            error_log("error_requestUpdateStateGTM__Credenciales_autenticación_inválidas.");
             $access = false;
             return response()->json(['status' => 'Unauthorized', "message" => "Invalid credentials provided. Please try again."], 401);
         }
 
         if ($access) {
-            error_log("requestUpdateState ");
+            // error_log("requestUpdateStateGTM_");
             $request_body = file_get_contents('php://input');
             $data = json_decode($request_body, true);
             // error_log(print_r($data, true));
@@ -308,12 +308,11 @@ class IntegrationAPIController extends Controller
             if (!empty($missing_fields)) {
                 $missing_fields_str = implode(', ', $missing_fields);
                 $error_message = "Missing required fields: $missing_fields_str";
-                error_log($error_message);
-                // Aquí puedes enviar una respuesta al cliente o manejar el error de otra manera según sea necesario
+                error_log("error_requestUpdateStateGTM__Missing_required_fields_" . $missing_fields_str . "_" . $data['estado'] . "_" . $data['guia'] . " ");
                 return response()->json(['message' => $error_message], 400);
             } else {
                 //* okey keep proccess
-                error_log("requestUpdateStateGTM_" . $data['guia'] . "_" . $data['estado'] . "_" . $data['fecha_historial']);
+                error_log("requestUpdateStateGTM_" . $data['estado'] . "_" . $data['guia'] . "_" . $data['fecha_historial'] . " ");
 
                 $guia = $data['guia'];
                 $estado = $data['estado'];
@@ -334,13 +333,13 @@ class IntegrationAPIController extends Controller
                 // foreach ($data as $key => $value) {
                 //     error_log("$key: $value");
                 // }
-                error_log("guia input: $guia ");
-                error_log("estado input: $estado ");
-                error_log("path_input: $path ");
-                error_log("id_novedad input: $id_novedad ");
-                error_log("no_novedad input: $no_novedad ");
-                error_log("id_gestion input: $id_gestion ");
-                error_log("no_gestion input: $no_gestion ");
+                error_log("guia_input_$guia ");
+                error_log("estado_input_$estado ");
+                error_log("path_input_$path ");
+                error_log("id_novedad_input: $id_novedad ");
+                error_log("no_novedad_input: $no_novedad ");
+                error_log("id_gestion_input: $id_gestion ");
+                error_log("no_gestion_input: $no_gestion ");
                 error_log("nota input: $nota ");
 
 
@@ -925,6 +924,8 @@ class IntegrationAPIController extends Controller
                                     }
                                 } else if ($name_local == "NOVEDAD") {
                                     //
+                                    // error_log("status NOVEDAD");
+
                                     if ($id_gestion == 2 || $id_gestion == "") {
                                         # code...
                                         $commentText = "";
@@ -976,9 +977,35 @@ class IntegrationAPIController extends Controller
                                 // $order->status_last_modified_by = $idUser;
 
                             } else if ($key == "estado_devolucion") {
+                                error_log("estado_devolucion");
+
                                 //solo se puede poner en devolucion si se encuentra en NOVEDAD
                                 // if ($order->status == "NOVEDAD") {
                                 //
+                                if ($order->status != "NOVEDAD") {
+                                    error_log($guia . "_!=NOVEDAD_reajuste_sistema");
+
+                                    $novedades = NovedadesPedidosShopifyLink::where('pedidos_shopify_id', $order->id)->get();
+                                    $novedades_try = $novedades->isEmpty() ? 0 : $novedades->count();
+
+                                    $novedad = new Novedade();
+                                    $novedad->m_t_novedad = $currentDateTimeText;
+                                    $novedad->try = $novedades_try + 1;
+                                    $novedad->url_image = "";
+                                    $novedad->comment =  "Ajuste del sistema para actualización de estado.";
+                                    $novedad->external_id = 1300;
+                                    $novedad->published_at = $currentDateTime;
+                                    $novedad->save();
+
+                                    $novedad_pedido = new NovedadesPedidosShopifyLink();
+                                    $novedad_pedido->novedad_id = $novedad->id;
+                                    $novedad_pedido->pedidos_shopify_id = $order->id;
+                                    $novedad_pedido->novedad_order = $novedades_try + 1;
+                                    $novedad_pedido->save();
+
+                                    $order->status = "NOVEDAD";
+                                    $order->status_last_modified_at = $currentDateTime;
+                                }
                                 if ($name_local == "EN BODEGA") { //from logistic
                                     $order->estado_devolucion = $name_local;
                                     $order->dl = $name_local;
@@ -1308,7 +1335,7 @@ class IntegrationAPIController extends Controller
                     return response()->json(['message' => 'Order updated successfully.'], 200);
                 } catch (\Exception $e) {
                     DB::rollback();
-                    error_log("ErrorRequestUpdateState: $e ");
+                    error_log("error_requestUpdateStateGTM_: $e ");
                     return response()->json([
                         'error' => "There was an error processing your request. " . $e->getMessage()
                     ], 500);
