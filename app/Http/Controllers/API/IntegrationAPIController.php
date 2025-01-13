@@ -993,7 +993,7 @@ class IntegrationAPIController extends Controller
                                     $novedad->try = $novedades_try + 1;
                                     $novedad->url_image = "";
                                     $novedad->comment =  "Ajuste del sistema para actualización de estado.";
-                                    $novedad->external_id = 1300;
+                                    $novedad->external_id = 1013;
                                     $novedad->published_at = $currentDateTime;
                                     $novedad->save();
 
