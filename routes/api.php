@@ -215,7 +215,6 @@ Route::middleware(['cors'])->group(function () {
             Route::put('/{id}', [OrdenesRetiroAPIController::class, 'update']);
             Route::post('/', [OrdenesRetiroAPIController::class, 'store']);
         });
-
     });
 
 
@@ -225,7 +224,7 @@ Route::middleware(['cors'])->group(function () {
     Route::post('operator/filter', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'getDevolucionesOperator']);
     //  ! MIA TRANSPORTADORAS
 
-    Route::post('transportadoras', [App\Http\Controllers\API\TransportadorasAPIController::class, 'getTransportadoras']);//newVersionByCompany
+    Route::post('transportadoras', [App\Http\Controllers\API\TransportadorasAPIController::class, 'getTransportadoras']); //newVersionByCompany
     Route::post('transportadoras-novelties', [App\Http\Controllers\API\TransportadorasAPIController::class, 'getTransportadorasNovelties']);
     Route::post('active/transportadoras', [App\Http\Controllers\API\TransportadorasAPIController::class, 'getActiveTransportadoras']);
     Route::post('generaldata', [App\Http\Controllers\API\TransportadorasAPIController::class, 'generalData']);
@@ -467,7 +466,6 @@ Route::middleware(['cors'])->group(function () {
         Route::get('/{id}', [RutaAPIController::class, 'show']);
         Route::post('/subroutesofroute/{id}', [RutaAPIController::class, 'getTransportadorasConRutasYSubRutas']);
         Route::post('create', [RutaAPIController::class, 'create']);
-
     });
 
 
@@ -603,6 +601,7 @@ Route::middleware(['cors'])->group(function () {
         Route::put('/{id}', [CarrierExternalAPIController::class, 'update']);
         Route::post('/coveragebyprov', [CarrierExternalAPIController::class, 'getCoverageByProvincia']);
         Route::post('/newcoverage', [CarrierExternalAPIController::class, 'newCoverage']);
+        Route::post('multinewcoverage', [CarrierExternalAPIController::class, 'multiNewCoverage']);
     });
 
     //  *

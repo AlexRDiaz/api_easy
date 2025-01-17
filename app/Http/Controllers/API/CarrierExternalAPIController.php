@@ -435,15 +435,132 @@ class CarrierExternalAPIController extends Controller
     }
 
     public function getCarriersExternal(Request $request)
-{
-    
-    $transportadoras = CarriersExternal::where('active', 1) 
-        ->select(DB::raw('CONCAT(name, "-", id) as id_nombre')) 
-        ->distinct()
-        ->get()
-        ->pluck('id_nombre');
-        
-    return response()->json(['transportadoras' => $transportadoras]);
-}
+    {
 
+        $transportadoras = CarriersExternal::where('active', 1)
+            ->select(DB::raw('CONCAT(name, "-", id) as id_nombre'))
+            ->distinct()
+            ->get()
+            ->pluck('id_nombre');
+
+        return response()->json(['transportadoras' => $transportadoras]);
+    }
+
+    public function multiNewCoverage(Request $request)
+    {
+        //
+        error_log("CarrierExternalAPIController-multiNewCoverage");
+        // error_log("$request");
+
+        DB::beginTransaction();
+
+        try {
+            // ini_set('memory_limit', '256M'); // Puedes ajustar el valor según tus necesidades
+            //code...
+            $data = $request->json()->all();
+            $carrierId = $data['carrier_id'];
+
+            $coverage = $data['coverage'];
+
+            $getProvincias = dpaProvincia::all();
+            // error_log("$provincias");
+            $provinciaslist = json_decode($getProvincias, true);
+
+            $getCoberturas = CarrierCoverage::with('coverage_external')->get();
+
+            $ciudades = json_decode($coverage, true);
+
+            // Verificar si el JSON se decodificó correctamente
+            if ($ciudades === null) {
+                error_log("Error al decodificar el JSON");
+            } else {
+                $c = 1;
+                // Recorrer el arreglo de ciudades con un bucle foreach
+                foreach ($ciudades as $ciudad) {
+
+                    $idRefCiudad = $ciudad["id_ciudad"];
+                    $ciudadName = $ciudad["ciudad"];
+                    $provinciaName = $ciudad["provincia"];
+                    $tipo = $ciudad["tipo"];
+                    $idRefProv = $ciudad["id_provincia"];
+
+                    // error_log("$c-" . $idRefCiudad . ":" . $ciudadName . "prov: $idRefProv-$provinciaName");
+                    $c++;
+
+                    $idProv_local = 0;
+
+                    $provinciaSinAcentos = strtolower(iconv('UTF-8', 'ASCII//TRANSLIT',  $provinciaName));
+                    $provinciaSearch = preg_replace('/[^a-zA-Z0-9]/', '', $provinciaSinAcentos);
+                    // error_log("provinciaSinAcentos: $provinciaSearch");
+
+
+                    foreach ($provinciaslist as $provincia) {
+
+                        $provinciaExist = strtolower(iconv('UTF-8', 'ASCII//TRANSLIT',  $provincia["provincia"]));
+                        $provName = preg_replace('/[^a-zA-Z0-9]/', '', $provinciaExist);
+
+                        if (strpos($provName, $provinciaSearch) !== false) {
+                            $idProv_local = $provincia["id"];
+                            // error_log("prov:". $provincia["id"]);
+                            break;
+                        }
+                    }
+                    // error_log("idProv_local: $idProv_local");
+
+                    $idCoverage = 0;
+                    // error_log("getCoberturas: $getCoberturas");
+
+                    if ($getCoberturas->isNotEmpty()) {
+                        $coberturas_exist = json_decode($getCoberturas, true);
+                        // error_log("cobertura_exist: $cobertura_exist");
+                        $ciudadSinAcentos = strtolower(iconv('UTF-8', 'ASCII//TRANSLIT',  $ciudadName));
+                        $ciudadSearch = preg_replace('/[^a-zA-Z0-9]/', '', $ciudadSinAcentos);
+                        error_log("ciudadSearch: $ciudadSearch");
+                        foreach ($coberturas_exist as $cobertura) {
+                            $ciudadExist = strtolower(iconv('UTF-8', 'ASCII//TRANSLIT',  $cobertura["coverage_external"]["ciudad"]));
+                            $ciudName = preg_replace('/[^a-zA-Z0-9]/', '', $ciudadExist);
+                            // error_log("ciudadSearch: $ciudadSearch");
+                            // error_log("ciudName: $ciudName");
+                            // error_log("cobertura:".json_decode($cobertura));
+
+                            if (strpos($ciudName, $ciudadSearch) !== false) {
+                                $idCoverage = $cobertura["coverage_external"]["id"];
+                                break;
+                            }
+                        }
+                        # code...
+                    }
+                    // error_log("idCoverage: $idCoverage");
+
+
+                    if ($idCoverage == 0) {
+                        // error_log("creat ciudad-cobertura");
+
+                        $newCoverageExt = new CoverageExternal();
+                        $newCoverageExt->ciudad = $ciudadName;
+                        $newCoverageExt->id_provincia = $idProv_local; //el id local
+                        $newCoverageExt->save();
+                        $idCoverage = $newCoverageExt->id;
+                    }
+
+                    $newCarrierCoverage = new CarrierCoverage();
+                    $newCarrierCoverage->id_coverage =  $idCoverage;
+                    $newCarrierCoverage->id_carrier = $carrierId;
+                    $newCarrierCoverage->type = $tipo;
+                    $newCarrierCoverage->id_prov_ref = $idRefProv;
+                    $newCarrierCoverage->id_ciudad_ref = $idRefCiudad;
+                    $newCarrierCoverage->save();
+                }
+            }
+
+            DB::commit();
+            return response()->json(["message" => "Se creo con exito"], 200);
+        } catch (\Exception $e) {
+            DB::rollback();
+            error_log("$e");
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

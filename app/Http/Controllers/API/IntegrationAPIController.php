@@ -354,7 +354,10 @@ class IntegrationAPIController extends Controller
 
                 // error_log("pedido: $order");
 
-
+                if (!$order) {
+                    error_log("requestUpdateStateGTM_orderNotFound: $guia");
+                    return response()->json(['message' => 'Order not found'], 404);
+                }
 
                 // ! for transaction_global
                 $existingTransaction = TransaccionGlobal::where('id_order', $order->id)
@@ -983,7 +986,7 @@ class IntegrationAPIController extends Controller
                                 // if ($order->status == "NOVEDAD") {
                                 //
                                 if ($order->status != "NOVEDAD") {
-                                    error_log($guia . "_!=NOVEDAD_reajuste_sistema");
+                                    error_log($guia . "_!=NOVEDAD_reajuste_sistema_GTM");
 
                                     $novedades = NovedadesPedidosShopifyLink::where('pedidos_shopify_id', $order->id)->get();
                                     $novedades_try = $novedades->isEmpty() ? 0 : $novedades->count();
@@ -1838,7 +1841,7 @@ class IntegrationAPIController extends Controller
                 ], 401);
             }
 
-            error_log("requestUpdateStateLaar");
+            // error_log("requestUpdateStateLaar");
             $request_body = file_get_contents('php://input');
             $data = json_decode($request_body, true);
             // error_log(print_r($data, true));
@@ -1864,15 +1867,24 @@ class IntegrationAPIController extends Controller
                 $estadoActual = $data['estadoActual'];
                 $pesoKilos = $data['pesoKilos']; //float
                 $novedades = $data['novedades'];
+                $imagenes = $data['imagenes'];
 
-                error_log("laar_guia_input: $guia");
-                error_log("estadoCod input: $estadoCod");
-                error_log("estadoActual input: $estadoActual");
+
+                error_log("laar_guia_input_$guia");
+                error_log("estadoCod_input_$estadoCod");
+                error_log("estadoActual_input_$estadoActual");
+
 
                 if (!empty($novedades)) {
-                    // error_log("Novedades recibidas: " . json_encode($novedades));
+                    error_log("Laar_Novedades_recibidas__" . json_encode($novedades));
                 } else {
-                    error_log("Novedades está vacía o no presente.");
+                    error_log("Laar_Novedades_vacio_o_no_presente");
+                }
+
+                if (!empty($imagenes)) {
+                    error_log("imagenes_input__" . json_encode($imagenes));
+                } else {
+                    error_log("Laar_No_imágenes_disponibles.");
                 }
 
                 $order = PedidosShopify::with([
@@ -1899,7 +1911,7 @@ class IntegrationAPIController extends Controller
 
                 // ! for transaction_global
                 $existingTransaction = TransaccionGlobal::where('id_order', $order->id)
-                    ->where('id_seller', $order->users[0]->vendedores[0]->id_master)
+                    ->where('id_seller', $order->id_comercial) // $order->users[0]->vendedores[0]->id_master)
                     ->first();
 
                 $marcaT = "";
@@ -2287,8 +2299,10 @@ class IntegrationAPIController extends Controller
                                     error_log("costByWeight: $costByWeight");
 
                                     $deliveryPrice += $costByWeight;
+                                    error_log("deliveryPrice sin iva: $deliveryPrice");
                                     $deliveryPrice = $deliveryPrice + ($deliveryPrice * $iva);
                                     $deliveryPrice = round($deliveryPrice, 2);
+                                    error_log("deliveryPrice con iva: $deliveryPrice");
 
                                     $deliveryPriceSeller = $deliveryPrice + $costo_easy;
                                     // $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
@@ -2448,7 +2462,7 @@ class IntegrationAPIController extends Controller
                                             $newTransactionGlobalReferer->status = $order->status;
                                             $newTransactionGlobalReferer->return_state = null;
                                             $newTransactionGlobalReferer->id_order = $order->id;
-                                            $newTransactionGlobalReferer->code = $order->users[0]->vendedores[0]->nombre_comercial . "-" . $order->numero_orden;
+                                            $newTransactionGlobalReferer->code = $codigo_order; //$order->users[0]->vendedores[0]->nombre_comercial . "-" . $order->numero_orden;
                                             $newTransactionGlobalReferer->origin = 'Referenciado';
                                             $newTransactionGlobalReferer->withdrawal_price = 0;
                                             $newTransactionGlobalReferer->value_order = 0;
@@ -2487,7 +2501,7 @@ class IntegrationAPIController extends Controller
                                         ->where('id_seller', $order->id_comercial)
                                         ->first();
 
-                                    $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $order->users[0]->vendedores[0]->id_master)
+                                    $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $order->id_comercial) // $order->users[0]->vendedores[0]->id_master)
                                         ->orderBy('id', 'desc')
                                         ->first();
 
@@ -2505,7 +2519,7 @@ class IntegrationAPIController extends Controller
                                         // 'return_state' => $pedido->estado_devolucion,
                                         $newTransactionGlobal->return_state = null;
                                         $newTransactionGlobal->id_order = $order->id;
-                                        $newTransactionGlobal->code = $order->users[0]->vendedores[0]->nombre_comercial . "-" . $order->numero_orden;
+                                        $newTransactionGlobal->code = $codigo_order; //$order->users[0]->vendedores[0]->nombre_comercial . "-" . $order->numero_orden;
                                         $newTransactionGlobal->origin = 'Pedido ' . $order->status;
                                         $newTransactionGlobal->withdrawal_price = 0; // Ajusta según necesites
                                         $newTransactionGlobal->value_order = $order->precio_total; // Ajusta según necesites
@@ -2524,7 +2538,7 @@ class IntegrationAPIController extends Controller
                                         $newTransactionGlobal->previous_value = $previousValue;
                                         $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
                                         $newTransactionGlobal->state = true;
-                                        $newTransactionGlobal->id_seller = $order->users[0]->vendedores[0]->id_master;
+                                        $newTransactionGlobal->id_seller = $order->id_comercial; //$order->users[0]->vendedores[0]->id_master;
                                         $newTransactionGlobal->internal_transportation_cost = 0; // Ajusta según necesites
                                         $newTransactionGlobal->external_transportation_cost = -strval($deliveryPrice); // Ajusta según necesites
                                         $newTransactionGlobal->external_return_cost = 0;
@@ -2556,6 +2570,13 @@ class IntegrationAPIController extends Controller
                                         $novedades = NovedadesPedidosShopifyLink::where('pedidos_shopify_id', $order->id)->get();
                                         $novedades_try = $novedades->isEmpty() ? 0 : $novedades->count();
 
+                                        $nombreImagen = "";
+                                        if (!empty($imagenes)) {
+                                            $imagenes = $data['imagenes'];
+                                            $ultimaImagen = end($imagenes);
+                                            $nombreImagen = $ultimaImagen['name'];
+                                        }
+
                                         $novedad = new Novedade();
                                         $novedad->m_t_novedad = $currentDateTimeText;
                                         $tipo = 0;
@@ -2574,7 +2595,7 @@ class IntegrationAPIController extends Controller
                                             $novedad->try = $novedades_try;
                                         }
 
-                                        $novedad->url_image = "";
+                                        $novedad->url_image = $nombreImagen;
                                         $novedad->comment =  $commentText;
                                         $novedad->external_id = $id_novedad;
                                         $novedad->published_at = $currentDateTime;
@@ -2596,266 +2617,293 @@ class IntegrationAPIController extends Controller
                                     $order->status_last_modified_at = $currentDateTime;
                                 }
                             } else if ($key == "estado_devolucion") {
-                                if ($order->status == "NOVEDAD") {
-                                    //
-                                    if ($name_local == "EN BODEGA") {
-                                        $order->estado_devolucion = $name_local;
-                                        $order->dl = $name_local;
-                                        $order->marca_t_d_t = $currentDateTimeText;
-                                        // $order->received_by = $idUser;
+                                // if ($order->status == "NOVEDAD") {
+                                //
+                                if ($order->status != "NOVEDAD") {
+                                    error_log($guia . "_!=NOVEDAD_reajuste_sistema_Laar");
 
-                                        //update stock de producto
-                                        //caso de producto con dueño externo vuelve a reserva
-                                        $seller_owned = $order['product']['seller_owned'];
-                                        error_log("$seller_owned");
+                                    $novedades = NovedadesPedidosShopifyLink::where('pedidos_shopify_id', $order->id)->get();
+                                    $novedades_try = $novedades->isEmpty() ? 0 : $novedades->count();
 
-                                        $historyOrder = StockHistory::where('pedidos_shopify_id', $order->id)
-                                            ->latest('id')
-                                            ->first();
-                                        $allow = true;
+                                    $novedad = new Novedade();
+                                    $novedad->m_t_novedad = $currentDateTimeText;
+                                    $novedad->try = $novedades_try + 1;
+                                    $novedad->url_image = "";
+                                    $novedad->comment =  "Ajuste del sistema para actualización de estado.";
+                                    $novedad->external_id = 1013;
+                                    $novedad->published_at = $currentDateTime;
+                                    $novedad->save();
 
-                                        // error_log("$historyOrder: $historyOrder");
-                                        if ($historyOrder) {
-                                            // El registro más reciente existe
-                                            if ($historyOrder->type == 1) {
-                                                $allow = false;
-                                                error_log("$order->id $historyOrder->type YA existe");
-                                            } else {
-                                                $allow = true;
-                                            }
+                                    $novedad_pedido = new NovedadesPedidosShopifyLink();
+                                    $novedad_pedido->novedad_id = $novedad->id;
+                                    $novedad_pedido->pedidos_shopify_id = $order->id;
+                                    $novedad_pedido->novedad_order = $novedades_try + 1;
+                                    $novedad_pedido->save();
+
+                                    $order->status = "NOVEDAD";
+                                    $order->status_last_modified_at = $currentDateTime;
+                                }
+
+                                if ($name_local == "EN BODEGA") {
+                                    $order->estado_devolucion = $name_local;
+                                    $order->dl = $name_local;
+                                    $order->marca_t_d_t = $currentDateTimeText;
+                                    // $order->received_by = $idUser;
+
+                                    //update stock de producto
+                                    //caso de producto con dueño externo vuelve a reserva
+                                    $seller_owned = $order['product']['seller_owned'];
+                                    error_log("$seller_owned");
+
+                                    $historyOrder = StockHistory::where('pedidos_shopify_id', $order->id)
+                                        ->latest('id')
+                                        ->first();
+                                    $allow = true;
+
+                                    // error_log("$historyOrder: $historyOrder");
+                                    if ($historyOrder) {
+                                        // El registro más reciente existe
+                                        if ($historyOrder->type == 1) {
+                                            $allow = false;
+                                            error_log("$order->id $historyOrder->type YA existe");
+                                        } else {
+                                            $allow = true;
                                         }
+                                    }
 
-                                        if ($allow) {
-                                            if ($seller_owned != 0 || $seller_owned != null) {
-                                                error_log("IS seller_owned: $seller_owned");
+                                    if ($allow) {
+                                        if ($seller_owned != 0 || $seller_owned != null) {
+                                            error_log("IS seller_owned: $seller_owned");
 
-                                                //reduccion del stock
-                                                $variants = json_decode($orderData['variant_details'], true);
+                                            //reduccion del stock
+                                            $variants = json_decode($orderData['variant_details'], true);
 
-                                                $idComercial = $orderData['id_comercial'];
-                                                $responses = [];
-                                                if ($variants != null) {
-                                                    foreach ($variants as $variant) {
-                                                        $quantity = $variant['quantity'];
-                                                        $skuProduct = $variant['sku'];
-                                                        $type = 1;
-                                                        $productapi = new ProductAPIController();
+                                            $idComercial = $orderData['id_comercial'];
+                                            $responses = [];
+                                            if ($variants != null) {
+                                                foreach ($variants as $variant) {
+                                                    $quantity = $variant['quantity'];
+                                                    $skuProduct = $variant['sku'];
+                                                    $type = 1;
+                                                    $productapi = new ProductAPIController();
 
-                                                        $result = $productapi->splitSku($skuProduct);
+                                                    $result = $productapi->splitSku($skuProduct);
 
-                                                        $onlySku = $result['sku'];
-                                                        $productIdFromSKU = $result['id'];
+                                                    $onlySku = $result['sku'];
+                                                    $productIdFromSKU = $result['id'];
 
-                                                        $reserveController = new ReserveAPIController();
+                                                    $reserveController = new ReserveAPIController();
 
-                                                        $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
-                                                        $searchResult = json_decode($response->getContent());
+                                                    $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
+                                                    $searchResult = json_decode($response->getContent());
 
-                                                        if ($searchResult && $searchResult->response) {
-                                                            $reserve = $searchResult->reserve;
-                                                            $previous_stock = $reserve->stock;
-                                                            if ($type == 0 && $quantity > $reserve->stock) {
-                                                                $responses[] = ['message' => 'No Dispone de Stock en la Reserva'];
-                                                                continue;
-                                                            }
-
-                                                            // Actualizar el stock
-                                                            $reserve->stock += $quantity;
-
-                                                            // Assuming you have a 'Reserve' model that you want to save after updating
-                                                            $reserveModel = Reserve::find($reserve->id);
-                                                            if ($reserveModel) {
-                                                                $reserveModel->stock = $reserve->stock;
-                                                                $reserveModel->save();
-                                                            }
-
-                                                            $createHistory = new StockHistory();
-                                                            $createHistory->product_id = $productIdFromSKU;
-                                                            $createHistory->variant_sku = $onlySku;
-                                                            $createHistory->type = 1;
-                                                            $createHistory->date = $currentDateTime;
-                                                            $createHistory->units = $quantity;
-                                                            $createHistory->last_stock_reserve = $previous_stock;
-                                                            $createHistory->current_stock_reserve = $reserve->stock;
-                                                            $createHistory->pedidos_shopify_id = $order->id;
-                                                            $createHistory->description = "Incremento de stock Reserva Pedido EN BODEGA $codigo_order";
-                                                            $createHistory->save();
-
-                                                            $responses[] = ['message' => 'Stock actualizado con éxito', 'reserve' => $reserveModel];
-                                                        } else {
-                                                            error_log("No found producto: $productIdFromSKU-$onlySku");
+                                                    if ($searchResult && $searchResult->response) {
+                                                        $reserve = $searchResult->reserve;
+                                                        $previous_stock = $reserve->stock;
+                                                        if ($type == 0 && $quantity > $reserve->stock) {
+                                                            $responses[] = ['message' => 'No Dispone de Stock en la Reserva'];
+                                                            continue;
                                                         }
-                                                    }
-                                                }
-                                            } else {
-                                                //producto normal: reducir stock general
-                                                error_log("stock general");
-                                                $variants = json_decode($orderData['variant_details'], true);
 
+                                                        // Actualizar el stock
+                                                        $reserve->stock += $quantity;
 
-                                                if ($variants != null) {
-                                                    foreach ($variants as $variant) {
-                                                        $quantity = $variant['quantity'];
-                                                        $skuProduct = $variant['sku'];
-                                                        $type = 1;
-
-                                                        $productapi = new ProductAPIController();
-
-                                                        $result = $productapi->splitSku($skuProduct);
-
-                                                        $onlySku = $result['sku'];
-                                                        $productIdFromSKU = $result['id'];
-
-                                                        $product = Product::find($productIdFromSKU);
-
-                                                        $result = $product->changeStockGen($productIdFromSKU, $onlySku, $quantity, $type);
-
+                                                        // Assuming you have a 'Reserve' model that you want to save after updating
+                                                        $reserveModel = Reserve::find($reserve->id);
+                                                        if ($reserveModel) {
+                                                            $reserveModel->stock = $reserve->stock;
+                                                            $reserveModel->save();
+                                                        }
 
                                                         $createHistory = new StockHistory();
                                                         $createHistory->product_id = $productIdFromSKU;
                                                         $createHistory->variant_sku = $onlySku;
-                                                        $createHistory->type = $type;
+                                                        $createHistory->type = 1;
                                                         $createHistory->date = $currentDateTime;
                                                         $createHistory->units = $quantity;
-                                                        $createHistory->last_stock = $product->stock - $quantity;
-                                                        $createHistory->current_stock = $product->stock;
+                                                        $createHistory->last_stock_reserve = $previous_stock;
+                                                        $createHistory->current_stock_reserve = $reserve->stock;
                                                         $createHistory->pedidos_shopify_id = $order->id;
-                                                        $createHistory->description = "Incremento de stock General Pedido EN BODEGA $codigo_order";
-
+                                                        $createHistory->description = "Incremento de stock Reserva Pedido EN BODEGA $codigo_order";
                                                         $createHistory->save();
+
+                                                        $responses[] = ['message' => 'Stock actualizado con éxito', 'reserve' => $reserveModel];
+                                                    } else {
+                                                        error_log("No found producto: $productIdFromSKU-$onlySku");
                                                     }
                                                 }
                                             }
-                                        }
-                                    } else if ($name_local == "ENTREGADO EN OFICINA") {
-                                        $order->estado_devolucion = $name_local;
-                                        $order->dt = $name_local;
-                                        $order->marca_t_d_t = $currentDateTimeText;
-                                        // $order->received_by = $idUser;
-                                    } else if ($name_local == "DEVOLUCION EN RUTA") {
-                                        $order->estado_devolucion = $name_local;
-                                        $order->dt = $name_local;
-                                        $order->marca_t_d_t = $currentDateTimeText;
-                                        // $order->received_by = $idUser;
-                                    }
-
-                                    // ! integracion
-
-                                    // Verificar si ya existe una transacción global para este pedido y vendedor
-                                    $existingTransaction = TransaccionGlobal::where('id_order', $order->id)
-                                        // ->where('id_seller', $order->users[0]->vendedores[0]->id_master)
-                                        ->where('id_seller', $order->id_comercial)
-                                        ->first();
-
-                                    // Obtener la transacción global previa
-                                    $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $order->users[0]->vendedores[0]->id_master)
-                                        ->orderBy('id', 'desc')
-                                        ->first();
-
-
-                                    // ! aqui deberia ir otra transaccion global pero seria (NOVEDAD, est_devolucion != pendiente para las externas)
-
-                                    $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
-
-                                    error_log("-----------");
-                                    error_log($existingTransaction);
-                                    error_log("-----------");
-
-                                    if ($existingTransaction != null) {
-                                        $existingTransaction->return_state = $order->estado_devolucion;
-                                        $existingTransaction->save();
-                                    }
-
-                                    if ($order->costo_devolucion == null) {
-                                        //
-                                        $deliveryPrice = 0;
-                                        $isSameCity = ($city_destiny == $city_origen && ($city_destiny == 68 || $city_destiny == 32));
-                                        $tipoDestino = "";
-
-                                        if ($isSameCity) {
-                                            $deliveryPrice = (float)($costs["local"]);
-                                            $tipoDestino = "local";
-                                            error_log("local $deliveryPrice");
                                         } else {
-                                            //
-                                            switch ($coverage_type) {
-                                                case 'TP':
-                                                    $deliveryPrice = (float)($costs["principal"]);
-                                                    $tipoDestino = "principal";
-                                                    error_log("principal $deliveryPrice");
-                                                    break;
-                                                case 'TS':
-                                                    $deliveryPrice = (float)($costs["secundario"]);
-                                                    $tipoDestino = "secundario";
-                                                    error_log("secundario $deliveryPrice");
-                                                    break;
-                                                case "TE":
-                                                    $deliveryPrice = (float)($costs["especial"]);
-                                                    $tipoDestino = "especial";
-                                                    error_log("especial $deliveryPrice");
-                                                    break;
-                                                case "TO":
-                                                    $deliveryPrice = (float)($costs["oriente"]);
-                                                    $tipoDestino = "oriente";
-                                                    error_log("oriente $deliveryPrice");
-                                                    break;
-                                                default:
-                                                    $deliveryPrice = 0;
-                                                    $tipoDestino = "local";
-                                                    error_log("Tipo de cobertura desconocido");
-                                                    break;
+                                            //producto normal: reducir stock general
+                                            error_log("stock general");
+                                            $variants = json_decode($orderData['variant_details'], true);
+
+
+                                            if ($variants != null) {
+                                                foreach ($variants as $variant) {
+                                                    $quantity = $variant['quantity'];
+                                                    $skuProduct = $variant['sku'];
+                                                    $type = 1;
+
+                                                    $productapi = new ProductAPIController();
+
+                                                    $result = $productapi->splitSku($skuProduct);
+
+                                                    $onlySku = $result['sku'];
+                                                    $productIdFromSKU = $result['id'];
+
+                                                    $product = Product::find($productIdFromSKU);
+
+                                                    $result = $product->changeStockGen($productIdFromSKU, $onlySku, $quantity, $type);
+
+
+                                                    $createHistory = new StockHistory();
+                                                    $createHistory->product_id = $productIdFromSKU;
+                                                    $createHistory->variant_sku = $onlySku;
+                                                    $createHistory->type = $type;
+                                                    $createHistory->date = $currentDateTime;
+                                                    $createHistory->units = $quantity;
+                                                    $createHistory->last_stock = $product->stock - $quantity;
+                                                    $createHistory->current_stock = $product->stock;
+                                                    $createHistory->pedidos_shopify_id = $order->id;
+                                                    $createHistory->description = "Incremento de stock General Pedido EN BODEGA $codigo_order";
+
+                                                    $createHistory->save();
+                                                }
                                             }
                                         }
+                                    }
+                                } else if ($name_local == "ENTREGADO EN OFICINA") {
+                                    $order->estado_devolucion = $name_local;
+                                    $order->dt = $name_local;
+                                    $order->marca_t_d_t = $currentDateTimeText;
+                                    // $order->received_by = $idUser;
+                                } else if ($name_local == "DEVOLUCION EN RUTA") {
+                                    $order->estado_devolucion = $name_local;
+                                    $order->dt = $name_local;
+                                    $order->marca_t_d_t = $currentDateTimeText;
+                                    // $order->received_by = $idUser;
+                                }
 
-                                        //COD no
+                                // ! integracion
+
+                                // Verificar si ya existe una transacción global para este pedido y vendedor
+                                $existingTransaction = TransaccionGlobal::where('id_order', $order->id)
+                                    // ->where('id_seller', $order->users[0]->vendedores[0]->id_master)
+                                    ->where('id_seller', $order->id_comercial)
+                                    ->first();
+
+                                // Obtener la transacción global previa
+                                $previousTransactionGlobal = TransaccionGlobal::where('id_seller', $order->id_comercial) //$order->users[0]->vendedores[0]->id_master)
+                                    ->orderBy('id', 'desc')
+                                    ->first();
+
+
+                                // ! aqui deberia ir otra transaccion global pero seria (NOVEDAD, est_devolucion != pendiente para las externas)
+
+                                $previousValue = $previousTransactionGlobal ? $previousTransactionGlobal->current_value : 0;
+
+                                error_log("-----------");
+                                error_log($existingTransaction);
+                                error_log("-----------");
+
+                                if ($existingTransaction != null) {
+                                    $existingTransaction->return_state = $order->estado_devolucion;
+                                    $existingTransaction->save();
+                                }
+
+                                if ($order->costo_devolucion == null) {
+                                    //
+                                    $deliveryPrice = 0;
+                                    $isSameCity = ($city_destiny == $city_origen && ($city_destiny == 68 || $city_destiny == 32));
+                                    $tipoDestino = "";
+
+                                    if ($isSameCity) {
+                                        $deliveryPrice = (float)($costs["local"]);
+                                        $tipoDestino = "local";
+                                        error_log("local $deliveryPrice");
+                                    } else {
                                         //
-                                        $pesoRango = $costs["peso_rango"];
-
-                                        $maxKg = (float)($pesoRango['max_kg']);
-                                        $tarifaBase = (float)($pesoRango['tarifa_base']);
-                                        $tarifaAdicionalPorKg = (float)$pesoRango['tarifa_adicional'][$tipoDestino];
-
-                                        // $pesoTotal = (float)$orderData['peso_total'];
-                                        error_log("pesoTotalActual: $pesoTotalActual");
-                                        $costByWeight = 0;
-
-                                        if ($pesoTotalActual <= $maxKg) {
-                                            $costByWeight = 0;
-                                            error_log("costByWeight_base:");
-                                        } else {
-                                            $pesoAdicional = $pesoTotalActual - $maxKg;
-                                            $pesoRedondeado = ceil($pesoAdicional);
-                                            $costByWeight = $pesoRedondeado * $tarifaAdicionalPorKg;
-                                            error_log("pesoAdicional Redond:");
+                                        switch ($coverage_type) {
+                                            case 'TP':
+                                                $deliveryPrice = (float)($costs["principal"]);
+                                                $tipoDestino = "principal";
+                                                error_log("principal $deliveryPrice");
+                                                break;
+                                            case 'TS':
+                                                $deliveryPrice = (float)($costs["secundario"]);
+                                                $tipoDestino = "secundario";
+                                                error_log("secundario $deliveryPrice");
+                                                break;
+                                            case "TE":
+                                                $deliveryPrice = (float)($costs["especial"]);
+                                                $tipoDestino = "especial";
+                                                error_log("especial $deliveryPrice");
+                                                break;
+                                            case "TO":
+                                                $deliveryPrice = (float)($costs["oriente"]);
+                                                $tipoDestino = "oriente";
+                                                error_log("oriente $deliveryPrice");
+                                                break;
+                                            default:
+                                                $deliveryPrice = 0;
+                                                $tipoDestino = "local";
+                                                error_log("Tipo de cobertura desconocido");
+                                                break;
                                         }
+                                    }
 
-                                        $costByWeight = round($costByWeight, 2);
-                                        error_log("costByWeight: $costByWeight");
+                                    //COD no
+                                    //
+                                    $pesoRango = $costs["peso_rango"];
 
-                                        $deliveryPrice += $costByWeight;
-                                        $deliveryPrice = $deliveryPrice + ($deliveryPrice * $iva);
-                                        $deliveryPrice = round($deliveryPrice, 2);
+                                    $maxKg = (float)($pesoRango['max_kg']);
+                                    $tarifaBase = (float)($pesoRango['tarifa_base']);
+                                    $tarifaAdicionalPorKg = (float)$pesoRango['tarifa_adicional'][$tipoDestino];
 
-                                        $deliveryPriceSeller = $deliveryPrice + $costo_easy;
-                                        $devCostoEasy = 0.70;
-                                        $deliveryPriceSeller = $deliveryPriceSeller + $devCostoEasy;
-                                        // $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
-                                        $deliveryPriceSeller = round($deliveryPriceSeller, 2);
+                                    // $pesoTotal = (float)$orderData['peso_total'];
+                                    error_log("pesoTotalActual: $pesoTotalActual");
+                                    $costByWeight = 0;
 
-                                        $order->costo_transportadora = strval($deliveryPrice);
-                                        $order->costo_envio = strval($deliveryPriceSeller);
-                                        error_log("costo_transp: $deliveryPrice");
-                                        error_log("costo_envio (seller): $deliveryPriceSeller");
+                                    if ($pesoTotalActual <= $maxKg) {
+                                        $costByWeight = 0;
+                                        error_log("costByWeight_base:");
+                                    } else {
+                                        $pesoAdicional = $pesoTotalActual - $maxKg;
+                                        $pesoRedondeado = ceil($pesoAdicional);
+                                        $costByWeight = $pesoRedondeado * $tarifaAdicionalPorKg;
+                                        error_log("pesoAdicional Redond:");
+                                    }
 
-                                        $refound_seller = 0;
-                                        $refound_transp = 0;
+                                    $costByWeight = round($costByWeight, 2);
+                                    error_log("costByWeight: $costByWeight");
 
-                                        $order->costo_devolucion = round(((float)$refound_seller), 2);
-                                        // $order->cost_refound_external = round(((float)$refound_transp), 2);
-                                        $pedidoCarrier = PedidosShopifiesCarrierExternalLink::where('pedidos_shopify_id', $orderid)->first();
-                                        $pedidoCarrier->cost_refound_external = round(((float)$refound_transp), 2);
-                                        $pedidoCarrier->save();
-                                        /*
+                                    $deliveryPrice += $costByWeight;
+                                    error_log("deliveryPrice sin iva: $deliveryPrice");
+                                    $deliveryPrice = $deliveryPrice + ($deliveryPrice * $iva);
+                                    $deliveryPrice = round($deliveryPrice, 2);
+                                    error_log("deliveryPrice con iva: $deliveryPrice");
+
+                                    $deliveryPriceSeller = $deliveryPrice + $costo_easy;
+                                    // $devCostoEasy = 0.70;
+                                    // $deliveryPriceSeller = $deliveryPriceSeller + $devCostoEasy;
+                                    // $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
+                                    $deliveryPriceSeller = round($deliveryPriceSeller, 2);
+
+                                    $order->costo_transportadora = strval($deliveryPrice);
+                                    $order->costo_envio = strval($deliveryPriceSeller);
+                                    error_log("costo_transp: $deliveryPrice");
+                                    error_log("costo_envio (seller): $deliveryPriceSeller");
+
+                                    $refound_seller = 0;
+                                    $refound_transp = 0;
+
+                                    $order->costo_devolucion = round(((float)$refound_seller), 2);
+                                    // $order->cost_refound_external = round(((float)$refound_transp), 2);
+                                    $pedidoCarrier = PedidosShopifiesCarrierExternalLink::where('pedidos_shopify_id', $orderid)->first();
+                                    $pedidoCarrier->cost_refound_external = round(((float)$refound_transp), 2);
+                                    $pedidoCarrier->save();
+                                    /*
                                         $comentarioDebitEnvio = 'Costo de envio por pedido en ' . $order->status . " y " . $order->estado_devolucion;
                                         /*
                                         $comentarioDebitEnvio = 'Costo de envio por pedido en ' . $order->status . " y " . $order->estado_devolucion;
@@ -2882,50 +2930,50 @@ class IntegrationAPIController extends Controller
                                         */
 
 
-                                        if ($existingTransaction == null) {
+                                    if ($existingTransaction == null) {
 
-                                            error_log($existingTransaction);
+                                        error_log($existingTransaction);
 
-                                            $newTransactionGlobal = new TransaccionGlobal();
+                                        $newTransactionGlobal = new TransaccionGlobal();
 
-                                            $newTransactionGlobal->admission_date = $marcaT;
-                                            $newTransactionGlobal->delivery_date = now()->format('Y-m-d');
-                                            $newTransactionGlobal->status = "NOVEDAD";
-                                            $newTransactionGlobal->return_state = $order->estado_devolucion;
-                                            // $newTransactionGlobal->return_state = null;
-                                            $newTransactionGlobal->id_order = $order->id;
-                                            $newTransactionGlobal->code = $order->users[0]->vendedores[0]->nombre_comercial . "-" . $order->numero_orden;
-                                            $newTransactionGlobal->origin = 'Pedido ' . 'NOVEDAD';
-                                            $newTransactionGlobal->withdrawal_price = 0;
-                                            $newTransactionGlobal->value_order = 0;
-                                            $newTransactionGlobal->return_cost = -$order->costo_devolucion;
-                                            $newTransactionGlobal->delivery_cost = -$order->costo_envio;
-                                            $newTransactionGlobal->notdelivery_cost = 0;
-                                            $newTransactionGlobal->provider_cost = 0;
-                                            $newTransactionGlobal->referer_cost = 0;
-                                            $newTransactionGlobal->total_transaction =
-                                                $newTransactionGlobal->value_order +
-                                                $newTransactionGlobal->return_cost +
-                                                $newTransactionGlobal->delivery_cost +
-                                                $newTransactionGlobal->notdelivery_cost +
-                                                $newTransactionGlobal->provider_cost +
-                                                $newTransactionGlobal->referer_cost;
-                                            $newTransactionGlobal->previous_value = $previousValue;
-                                            $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
-                                            $newTransactionGlobal->state = true;
-                                            $newTransactionGlobal->id_seller = $order->users[0]->vendedores[0]->id_master;
-                                            $newTransactionGlobal->internal_transportation_cost = 0;
-                                            $newTransactionGlobal->external_transportation_cost =  -$order->costo_transportadora;
-                                            $newTransactionGlobal->external_return_cost = -round(((float)$refound_transp), 2);
-                                            $newTransactionGlobal->save();
-                                        }
-                                    } else {
-                                        //
-                                        error_log("ya existe registro costo_devolucion");
+                                        $newTransactionGlobal->admission_date = $marcaT;
+                                        $newTransactionGlobal->delivery_date = now()->format('Y-m-d');
+                                        $newTransactionGlobal->status = "NOVEDAD";
+                                        $newTransactionGlobal->return_state = $order->estado_devolucion;
+                                        // $newTransactionGlobal->return_state = null;
+                                        $newTransactionGlobal->id_order = $order->id;
+                                        $newTransactionGlobal->code = $codigo_order; // $order->users[0]->vendedores[0]->nombre_comercial . "-" . $order->numero_orden;
+                                        $newTransactionGlobal->origin = 'Pedido ' . 'NOVEDAD';
+                                        $newTransactionGlobal->withdrawal_price = 0;
+                                        $newTransactionGlobal->value_order = 0;
+                                        $newTransactionGlobal->return_cost = -$order->costo_devolucion;
+                                        $newTransactionGlobal->delivery_cost = -$order->costo_envio;
+                                        $newTransactionGlobal->notdelivery_cost = 0;
+                                        $newTransactionGlobal->provider_cost = 0;
+                                        $newTransactionGlobal->referer_cost = 0;
+                                        $newTransactionGlobal->total_transaction =
+                                            $newTransactionGlobal->value_order +
+                                            $newTransactionGlobal->return_cost +
+                                            $newTransactionGlobal->delivery_cost +
+                                            $newTransactionGlobal->notdelivery_cost +
+                                            $newTransactionGlobal->provider_cost +
+                                            $newTransactionGlobal->referer_cost;
+                                        $newTransactionGlobal->previous_value = $previousValue;
+                                        $newTransactionGlobal->current_value = $previousValue + $newTransactionGlobal->total_transaction;
+                                        $newTransactionGlobal->state = true;
+                                        $newTransactionGlobal->id_seller = $order->id_comercial; // $order->users[0]->vendedores[0]->id_master;
+                                        $newTransactionGlobal->internal_transportation_cost = 0;
+                                        $newTransactionGlobal->external_transportation_cost =  -$order->costo_transportadora;
+                                        $newTransactionGlobal->external_return_cost = -round(((float)$refound_transp), 2);
+                                        $newTransactionGlobal->save();
                                     }
                                 } else {
-                                    return response()->json(['message' => "Error, Order must be in NOVEDAD."], 400);
+                                    //
+                                    error_log("ya existe registro costo_devolucion");
                                 }
+                                // } else {
+                                //     return response()->json(['message' => "Error, Order must be in NOVEDAD."], 400);
+                                // }
                             }
 
                             //new column
