@@ -18,6 +18,9 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
+
+
 
 class OrdenesRetiroAPIController extends Controller
 {
@@ -45,8 +48,8 @@ class OrdenesRetiroAPIController extends Controller
             $monto = $request->input('monto');
             // $fecha = $request->input('fecha');
             $fecha = date("d/m/Y H:i:s");
-            $email  = $request->input('email');
-            $idVendedor  = $request->input('id_vendedor');
+            $email = $request->input('email');
+            $idVendedor = $request->input('id_vendedor');
             $generated_by = $request->input('generated_by');
 
             // //     // Generar código único
@@ -102,7 +105,7 @@ class OrdenesRetiroAPIController extends Controller
             ]);
             $monto = $request->input('monto');
             $email = $request->input('email');
-            $idVendedor  = $request->input('id_vendedor');
+            $idVendedor = $request->input('id_vendedor');
 
             //     // Generar código único
             $numerosUtilizados = [];
@@ -136,10 +139,10 @@ class OrdenesRetiroAPIController extends Controller
 
         $withdrawal = new OrdenesRetiro();
         $withdrawal->monto = $data["monto"];
-        $withdrawal->fecha = new  DateTime();
+        $withdrawal->fecha = new DateTime();
         $withdrawal->codigo_generado = $data["codigo"];
         $withdrawal->estado = 'APROBADO';
-        $withdrawal->id_vendedor =  $data["id_vendedor"];
+        $withdrawal->id_vendedor = $data["id_vendedor"];
         $withdrawal->account_id = encrypt($data["account_id"]);
         $withdrawal->rol_id = 5;
 
@@ -198,7 +201,6 @@ class OrdenesRetiroAPIController extends Controller
 
 
     public function getOrdenesRetiro($id, Request $request)
-
     {
 
         $data = $request->json()->all();
@@ -360,22 +362,22 @@ class OrdenesRetiroAPIController extends Controller
             // if ($user->vendedores[0]->saldo >= $monto) {
 
 
-                //     // Generar código único
-                $numerosUtilizados = [];
-                while (count($numerosUtilizados) < 10000000) {
-                    $numeroAleatorio = str_pad(mt_rand(1, 99999999), 8, '0', STR_PAD_LEFT);
-                    if (!in_array($numeroAleatorio, $numerosUtilizados)) {
-                        $numerosUtilizados[] = $numeroAleatorio;
-                        break;
-                    }
+            //     // Generar código único
+            $numerosUtilizados = [];
+            while (count($numerosUtilizados) < 10000000) {
+                $numeroAleatorio = str_pad(mt_rand(1, 99999999), 8, '0', STR_PAD_LEFT);
+                if (!in_array($numeroAleatorio, $numerosUtilizados)) {
+                    $numerosUtilizados[] = $numeroAleatorio;
+                    break;
                 }
-                $resultCode = $numeroAleatorio;
+            }
+            $resultCode = $numeroAleatorio;
 
 
-                Mail::to($email)->send(new ValidationCode($resultCode, $monto));
+            Mail::to($email)->send(new ValidationCode($resultCode, $monto));
 
 
-                return response()->json(["response" => "code generated succesfully", "code" => $resultCode], Response::HTTP_OK);
+            return response()->json(["response" => "code generated succesfully", "code" => $resultCode], Response::HTTP_OK);
             // } 
             // else {
             //     error_log("saldo insuficiente");
@@ -389,37 +391,40 @@ class OrdenesRetiroAPIController extends Controller
         }
     }
 
-    public function sendEmail(Request $request)
-    {
-        try {
-            $data = $request->validate([
-                'message' => 'required',
-                'email' => 'required|email',
-            ]);
+    // public function sendEmail(Request $request)
+    // {
+    //     try {
+    //         $data = $request->validate([
+    //             'message' => 'required',
+    //             'email' => 'required|email',
+    //         ]);
 
-            $email = $data['email'];
-            $messageContent = $data['message'];
+    //         $email = $data['email'];
+    //         $messageContent = $data['message'];
 
-            $to = $email;
-            $subject = 'Test send email';
+    //         $to = $email;
+    //         $subject = 'Test send email';
 
-            Mail::raw($messageContent, function ($mail) use ($to, $subject) {
-                $mail->to($to)->subject($subject);
-            });
+    //         Mail::raw($messageContent, function ($mail) use ($to, $subject) {
+    //             $mail->to($to)->subject($subject);
+    //         });
 
-            return response()->json([
-                "response" => "Email sent successfully",
-                "code" => Response::HTTP_OK
-            ], Response::HTTP_OK);
-        } catch (\Exception $e) {
-            error_log("Error al enviar email: " . $e);
+    //         return response()->json([
+    //             "response" => "Email sent successfully",
+    //             "code" => Response::HTTP_OK
+    //         ], Response::HTTP_OK);
+    //     } catch (\Exception $e) {
+    //         error_log("Error al enviar email: " . $e);
 
-            return response()->json([
-                "response" => "Error al enviar email",
-                "error" => $e->getMessage()
-            ], Response::HTTP_BAD_REQUEST);
-        }
-    }
+    //         return response()->json([
+    //             "response" => "Error al enviar email",
+    //             "error" => $e->getMessage()
+    //         ], Response::HTTP_BAD_REQUEST);
+    //     }
+    // }
+
+
+
 
 
     public function totalForSellers()

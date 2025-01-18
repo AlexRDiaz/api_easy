@@ -178,9 +178,9 @@ Route::middleware(['cors'])->group(function () {
 
 
 
-    Route::post('/shopify/webhooks/customer_data_request',  [ShopifyWebhookAPIController::class, 'handleCustomerDataRequest']);
+    Route::post('/shopify/webhooks/customer_data_request', [ShopifyWebhookAPIController::class, 'handleCustomerDataRequest']);
     Route::post('/shopify/webhooks/customer_redact', [ShopifyWebhookAPIController::class, 'handleCustomerRedact']);
-    Route::post('/shopify/webhooks/shop_redact',  [ShopifyWebhookAPIController::class, 'handleShopRedact']);
+    Route::post('/shopify/webhooks/shop_redact', [ShopifyWebhookAPIController::class, 'handleShopRedact']);
 
 
     Route::middleware(['jwt.auth'])->group(function () {
@@ -574,7 +574,12 @@ Route::middleware(['cors'])->group(function () {
     });
 
     //  * test email
-    Route::post('sendemail', [App\Http\Controllers\API\OrdenesRetiroAPIController::class, 'sendEmail']);
+    // Route::post('sendemail', [App\Http\Controllers\API\OrdenesRetiroAPIController::class, 'sendEmail']);
+    Route::post('sendemail', [App\Http\Controllers\API\PasswordAPIController::class, 'sendResetEmail']);
+    Route::get('/reset-password/{token}', [App\Http\Controllers\API\PasswordAPIController::class, 'showResetForm']);
+    Route::post('/reset-password', [App\Http\Controllers\API\PasswordAPIController::class, 'resetPassword']);
+
+
 
     //  *
     Route::prefix('transportadora')->group(function () {
@@ -696,9 +701,6 @@ Route::middleware(['cors'])->group(function () {
     // *
     Route::post('transaccionesglobal/valuespendingextcarrier', [TransaccionesGlobalAPIController::class, 'calculateValuesPendingExternalCarrier']);
     Route::post('pedidos-shopify/updatepaymentbyidexternal', [PedidosShopifyAPIController::class, 'updateGestionedPaymentCostDeliveryByIdExternal']);
-
-
-    //test
 
 });
 
