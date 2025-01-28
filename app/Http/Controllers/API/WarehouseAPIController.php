@@ -40,8 +40,36 @@ class WarehouseAPIController extends Controller
                 'provider_id' => 'nullable|integer',
             ]);
 
-            $warehouse = Warehouse::create($validatedData);
-            if ($warehouse) {
+            $data = $request->json()->all();
+            $branch_name = $data['branch_name'];
+            $address = $data['address'];
+            $customer_service_phone = $data['customer_service_phone'];
+            $reference = $data['reference'];
+            $description = $data['description'];
+            $url_image = $data['url_image'];
+            $id_provincia = $data['id_provincia'];
+            $id_city = $data['id_city'];
+            $city = $data['city'];
+            $collection = $data['collection'];
+            $provider_id = $data['provider_id'];
+
+            $newWarehouse = new Warehouse();
+            $newWarehouse->branch_name = $branch_name;
+            $newWarehouse->address = $address;
+            $newWarehouse->customer_service_phone = $customer_service_phone;
+            $newWarehouse->reference = $reference;
+            $newWarehouse->description = $description;
+            $newWarehouse->url_image = $url_image;
+            $newWarehouse->id_provincia = $id_provincia;
+            $newWarehouse->id_city = $id_city;
+            $newWarehouse->city = $city;
+            $newWarehouse->collection = $collection;
+            $newWarehouse->provider_id = $provider_id;
+            $newWarehouse->approved = 1; //Default db 2 Pendiente //1 Aprobado //0 Rechazado 3//Descontinuado
+            $newWarehouse->save();
+
+            // $warehouse = Warehouse::create($validatedData);
+            if ($newWarehouse) {
                 $to = 'easyecommercetest@gmail.com';
                 $subject = 'Aprobación de una bodega nueva';
                 $message = 'Se ha creado la bodega "' . $request->branch_name . '" a la espera de la aprobación de funcionamiento.';
@@ -49,7 +77,7 @@ class WarehouseAPIController extends Controller
                     $mail->to($to)->subject($subject);
                 });
 
-                return response()->json($warehouse, 201); // 201: Recurso creado
+                return response()->json($newWarehouse, 201); // 201: Recurso creado
 
             }
         } catch (\Exception $e) {

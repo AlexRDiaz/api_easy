@@ -608,7 +608,7 @@ class ProductAPIController extends Controller
             $newProduct->features = $features;
             $newProduct->warehouse_id = $warehouse_id;
             $newProduct->seller_owned = $seller_owned;
-            // $newProduct->approved = 2;//Pendiente
+            $newProduct->approved = 1; //Default db 2 Pendiente //1 Aprobado //0 Rechazado 3//Descontinuado
             $newProduct->updated_by = $updated_by;
             $newProduct->save();
 
