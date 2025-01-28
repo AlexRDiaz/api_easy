@@ -42,7 +42,7 @@ class PasswordAPIController extends Controller
                 ['token' => $token, 'created_at' => now(), 'is_valid' => 1]
             );
 
-            $resetLink = url("https://easyentregas.easyecomerce.com/reset-password/{$token}");
+            $resetLink = url("https://app.easyecomerce.com/reset-password/{$token}");
 
             $subject = 'Restablecimiento de contraseña';
             $messageContent = "Hola, haz clic en el siguiente enlace para restablecer tu contraseña: $resetLink";
