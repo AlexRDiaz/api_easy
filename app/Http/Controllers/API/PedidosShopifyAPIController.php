@@ -3105,10 +3105,14 @@ class PedidosShopifyAPIController extends Controller
         try {
 
             // if ($id == 21) { //
-                //
-                // $input = $request->getContent();
-                // $input = json_encode(json_decode($input, true), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-                // error_log('Request_Shopify: ' . $input . " ");
+            //
+            $input = json_decode($request->getContent(), true);
+            if (isset($input['shipping_address'])) {
+                $shippingAddress = json_encode($input['shipping_address'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                error_log('shipping_address: ' . $shippingAddress . " ");
+            } else {
+                error_log('Shipping Address not found.');
+            }
             // }
 
             $id_shopify = $request->input('id');
