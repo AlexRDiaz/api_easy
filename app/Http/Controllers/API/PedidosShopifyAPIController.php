@@ -3106,9 +3106,9 @@ class PedidosShopifyAPIController extends Controller
 
             // if ($id == 21) { //
                 //
-                $input = $request->getContent();
-                $input = json_encode(json_decode($input, true), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-                error_log('Request_Shopify: ' . $input . " ");
+                // $input = $request->getContent();
+                // $input = json_encode(json_decode($input, true), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                // error_log('Request_Shopify: ' . $input . " ");
             // }
 
             $id_shopify = $request->input('id');
