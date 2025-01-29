@@ -3104,9 +3104,12 @@ class PedidosShopifyAPIController extends Controller
         DB::beginTransaction();
         try {
 
-            // $input = $request->getContent();
-            // error_log('Request Body: ');
-            // error_log($input);
+            if ($id == 21) { //LOGTECH.EC
+                //
+                $input = $request->getContent();
+                $input = json_encode(json_decode($input, true), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+                error_log('Request_Shopify: ' . $input . " ");
+            }
 
             $id_shopify = $request->input('id');
             $order_number = $request->input('order_number');
