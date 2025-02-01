@@ -13,12 +13,12 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('statuses', function (Blueprint $table) {
-            $table->integer('id', true, true);
-            $table->string('name');
-            $table->float('delivery_price');
-            $table->timestamps();
-        });
+        // Schema::create('statuses', function (Blueprint $table) {
+        //     $table->integer('id', true, true);
+        //     $table->string('name');
+        //     $table->float('delivery_price');
+        //     $table->timestamps();
+        // });
     }
 
     /**
@@ -28,6 +28,6 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::drop('statuses');
+        // Schema::drop('statuses');
     }
 };

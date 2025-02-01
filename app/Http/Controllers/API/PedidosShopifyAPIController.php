@@ -6,6 +6,8 @@ use App\Jobs\ExportOrdersJob;
 use App\Http\Controllers\Controller;
 use App\Models\CarrierCoverage;
 use App\Models\CarriersExternal;
+use App\Models\CoverageExternal;
+use App\Models\DpaProvincia;
 use App\Models\OrdenesRetiro;
 use App\Models\PedidoFecha;
 use App\Models\pedidos_shopifies;
@@ -3104,16 +3106,13 @@ class PedidosShopifyAPIController extends Controller
         DB::beginTransaction();
         try {
 
-            // if ($id == 21) { //
             //
-            $input = json_decode($request->getContent(), true);
-            if (isset($input['shipping_address'])) {
-                $shippingAddress = json_encode($input['shipping_address'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-                error_log('shipping_address: ' . $shippingAddress . " ");
-            } else {
-                error_log('Shipping Address not found.');
-            }
-            // }
+            // $input = $request->getContent();
+            // $input = json_encode(json_decode($input, true), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            // error_log('Request Body: ' . $input);
+
+            // $shippingAddress = json_encode($input['shipping_address'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            // error_log('shipping_address: ' . $shippingAddress . " ");
 
             $id_shopify = $request->input('id');
             $order_number = $request->input('order_number');
@@ -3175,6 +3174,7 @@ class PedidosShopifyAPIController extends Controller
             $customer_note = $request->input('customer_note');
             $city = $request->input('shipping_address.city');
             $productos = $request->input('line_items');
+            $provinciaName = $request->input('shipping_address.province');
 
             //ADD PRODUCT TO LIST FOR NEW OBJECT
 
@@ -3262,6 +3262,69 @@ class PedidosShopifyAPIController extends Controller
 
                 $variants = implode(', ', array_column(array_slice($listOfProducts, 0), 'variant_title'));
 
+                $idCity = null;
+                $idProv_local = null;
+                try {
+
+                    if ($provinciaName != null || $provinciaName != "") {
+                        $provinciaSearch = $this->normalizeText($provinciaName);
+
+                        // $provinciaslist = DpaProvincia::pluck('id', 'provincia')->toArray();
+                        // foreach ($provinciaslist as $provincia => $provId) {
+                        //     if (strpos($this->normalizeText($provincia), $provinciaSearch) !== false) {
+                        //         $idProv_local = $provId;
+                        //         break;
+                        //     }
+                        // }
+
+                        $provincia = DpaProvincia::whereRaw("LOWER(REPLACE(provincia, ' ', '')) LIKE ?", ["%$provinciaSearch%"])
+                            ->first();
+
+                        if ($provincia) {
+                            $idProv_local = $provincia->id;
+                        }
+                    } else {
+                        error_log("La provincia está vacía o es nula");
+                    }
+
+                    error_log("idProv_local: " . ($idProv_local ?? 'No encontrado'));
+
+
+                    if ($idProv_local) {
+
+                        $ciudadSearch = $this->normalizeText($city);
+
+                        // $cities_exist = CoverageExternal::where('id_provincia', $idProv_local)
+                        //     ->pluck('id', 'ciudad')
+                        //     ->toArray();
+
+                        // foreach ($cities_exist as $ciudadExistente => $cityId) {
+                        //     if (strpos($this->normalizeText($ciudadExistente), $ciudadSearch) !== false) {
+                        //         $idCity = $cityId;
+                        //         break;
+                        //     }
+                        // }
+
+                        $cityFound = CoverageExternal::where('id_provincia', $idProv_local)
+                            ->whereRaw("CONVERT(REPLACE(ciudad, ' ', '') USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(REPLACE(?, ' ', '') USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$ciudadSearch])
+                            ->first();
+
+
+                        if ($cityFound) {
+                            $idCity = $cityFound->id;
+                        }
+                    }
+
+                    error_log("idCity: " . ($idCity ?: 'No encontrado'));
+                } catch (\Exception $e) {
+                    error_log("Error_busqueda_provincia_ciudad: " . $e);
+                }
+                //THISS to search carriers
+                // $allCarrier = CarrierCoverage::where('id_coverage', $idCity)
+                //     ->get();
+                // error_log("allCarrier: $allCarrier");
+
+
                 error_log("******************proceso 2 terminado************************\n");
                 // error_log("********numero_orden: $order_number-$id: " . json_encode($productos));
                 // error_log("******************variantes: . $variants. ************************\n");
@@ -3295,6 +3358,8 @@ class PedidosShopifyAPIController extends Controller
                     'dt' => 'PENDIENTE',
                     'dl' => 'PENDIENTE',
                     'id_shopify' => $id_shopify,
+                    'provincia_shipping' => $provinciaName,
+                    'city_id' => $idCity,
                 ]);
 
                 $createOrder->save();
@@ -3335,6 +3400,7 @@ class PedidosShopifyAPIController extends Controller
                     $newPedidoProduct->save();
                 }
 
+                error_log("idMaster: $id");
 
                 $createPedidoFecha = new PedidosShopifiesPedidoFechaLink();
                 $createPedidoFecha->pedidos_shopify_id = $createOrder->id;
@@ -6104,5 +6170,10 @@ class PedidosShopifyAPIController extends Controller
                 "error" => $th->getMessage()
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
+    }
+
+    function normalizeText($text)
+    {
+        return preg_replace('/[^a-zA-Z0-9]/', '', strtolower(iconv('UTF-8', 'ASCII//TRANSLIT', $text)));
     }
 }

@@ -117,6 +117,7 @@ class PedidosShopify extends Model
 		'id_shopify' => 'int',
 		'costo_operador' => 'float',
 		'apertura' => 'int',
+		'city_id' => 'int',
 	];
 
 	protected $fillable = [
@@ -189,6 +190,8 @@ class PedidosShopify extends Model
 		'costo_operador',
 		'apertura',
 		'status_history',
+		'provincia_shipping',
+		'city_id',
 	];
 
 	public function admin_user()
@@ -305,7 +308,7 @@ class PedidosShopify extends Model
 	public function receivedBy()
 	{
 		return $this->belongsTo(UpUser::class, 'received_by', 'id')
-		->select('id', 'username', 'email');
+			->select('id', 'username', 'email');
 	}
 	public function confirmedBy()
 	{
