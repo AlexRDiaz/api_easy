@@ -3270,6 +3270,7 @@ class PedidosShopifyAPIController extends Controller
 
                 $idCity = null;
                 $idProv_local = null;
+                /*
                 try {
 
                     if ($provinciaName != null || $provinciaName != "") {
@@ -3325,6 +3326,7 @@ class PedidosShopifyAPIController extends Controller
                 } catch (\Exception $e) {
                     error_log("Error_busqueda_provincia_ciudad: " . $e);
                 }
+                */
                 //THISS to search carriers
                 // $allCarrier = CarrierCoverage::where('id_coverage', $idCity)
                 //     ->get();
