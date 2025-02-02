@@ -3112,14 +3112,6 @@ class PedidosShopifyAPIController extends Controller
                 error_log('Error:_El_request_no_es_un_JSON_válido.');
             }
 
-            if (!isset($input['shipping_address'])) {
-                error_log('Error:_shipping_address_no_está_presente_en_el_JSON.');
-            }
-
-            $shippingAddress = json_encode($input['shipping_address'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            error_log('shipping_address: ' . $shippingAddress);
-
-
             $id_shopify = $request->input('id');
             $order_number = $request->input('order_number');
             $name = $request->input('shipping_address.name');
@@ -3160,6 +3152,12 @@ class PedidosShopifyAPIController extends Controller
                 ], 200);
             }
 
+            if (!isset($input['shipping_address'])) {
+                error_log('Error:_shipping_address_no_está_presente_en_el_JSON.');
+            }
+
+            $shippingAddress = json_encode($input['shipping_address'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            error_log('shipping_address: ' . $shippingAddress);
 
             //GENERATE DATE
             $currentDate = now();
