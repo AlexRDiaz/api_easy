@@ -3274,7 +3274,7 @@ class PedidosShopifyAPIController extends Controller
                     if ($provinciaName != null || $provinciaName != "") {
                         $provinciaSearch = $this->normalizeText($provinciaName);
 
-                        // $provinciaslist = DpaProvincia::pluck('id', 'provincia')->toArray();
+                        $provinciaslist = DpaProvincia::pluck('id', 'provincia')->toArray();
                         // foreach ($provinciaslist as $provincia => $provId) {
                         //     if (strpos($this->normalizeText($provincia), $provinciaSearch) !== false) {
                         //         $idProv_local = $provId;
