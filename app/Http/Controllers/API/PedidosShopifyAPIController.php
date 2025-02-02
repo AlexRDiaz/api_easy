@@ -3274,13 +3274,13 @@ class PedidosShopifyAPIController extends Controller
                     if ($provinciaName != null || $provinciaName != "") {
                         $provinciaSearch = $this->normalizeText($provinciaName);
 
-                        $provinciaslist = DpaProvincia::pluck('id', 'provincia')->toArray();
-                        foreach ($provinciaslist as $provincia => $provId) {
-                            if (strpos($this->normalizeText($provincia), $provinciaSearch) !== false) {
-                                $idProv_local = $provId;
-                                break;
-                            }
-                        }
+                        // $provinciaslist = DpaProvincia::pluck('id', 'provincia')->toArray();
+                        // foreach ($provinciaslist as $provincia => $provId) {
+                        //     if (strpos($this->normalizeText($provincia), $provinciaSearch) !== false) {
+                        //         $idProv_local = $provId;
+                        //         break;
+                        //     }
+                        // }
 
                         // $provincia = DpaProvincia::whereRaw("LOWER(REPLACE(provincia, ' ', '')) LIKE ?", ["%$provinciaSearch%"])
                         //     ->first();
