@@ -3274,20 +3274,20 @@ class PedidosShopifyAPIController extends Controller
                     if ($provinciaName != null || $provinciaName != "") {
                         $provinciaSearch = $this->normalizeText($provinciaName);
 
-                        // $provinciaslist = DpaProvincia::pluck('id', 'provincia')->toArray();
-                        // foreach ($provinciaslist as $provincia => $provId) {
-                        //     if (strpos($this->normalizeText($provincia), $provinciaSearch) !== false) {
-                        //         $idProv_local = $provId;
-                        //         break;
-                        //     }
-                        // }
-
-                        $provincia = DpaProvincia::whereRaw("LOWER(REPLACE(provincia, ' ', '')) LIKE ?", ["%$provinciaSearch%"])
-                            ->first();
-
-                        if ($provincia) {
-                            $idProv_local = $provincia->id;
+                        $provinciaslist = DpaProvincia::pluck('id', 'provincia')->toArray();
+                        foreach ($provinciaslist as $provincia => $provId) {
+                            if (strpos($this->normalizeText($provincia), $provinciaSearch) !== false) {
+                                $idProv_local = $provId;
+                                break;
+                            }
                         }
+
+                        // $provincia = DpaProvincia::whereRaw("LOWER(REPLACE(provincia, ' ', '')) LIKE ?", ["%$provinciaSearch%"])
+                        //     ->first();
+
+                        // if ($provincia) {
+                        //     $idProv_local = $provincia->id;
+                        // }
                     } else {
                         error_log("La provincia está vacía o es nula");
                     }
@@ -3299,25 +3299,25 @@ class PedidosShopifyAPIController extends Controller
 
                         $ciudadSearch = $this->normalizeText($city);
 
-                        // $cities_exist = CoverageExternal::where('id_provincia', $idProv_local)
-                        //     ->pluck('id', 'ciudad')
-                        //     ->toArray();
+                        $cities_exist = CoverageExternal::where('id_provincia', $idProv_local)
+                            ->pluck('id', 'ciudad')
+                            ->toArray();
 
-                        // foreach ($cities_exist as $ciudadExistente => $cityId) {
-                        //     if (strpos($this->normalizeText($ciudadExistente), $ciudadSearch) !== false) {
-                        //         $idCity = $cityId;
-                        //         break;
-                        //     }
-                        // }
-
-                        $cityFound = CoverageExternal::where('id_provincia', $idProv_local)
-                            ->whereRaw("CONVERT(REPLACE(ciudad, ' ', '') USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(REPLACE(?, ' ', '') USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$ciudadSearch])
-                            ->first();
-
-
-                        if ($cityFound) {
-                            $idCity = $cityFound->id;
+                        foreach ($cities_exist as $ciudadExistente => $cityId) {
+                            if (strpos($this->normalizeText($ciudadExistente), $ciudadSearch) !== false) {
+                                $idCity = $cityId;
+                                break;
+                            }
                         }
+
+                        // $cityFound = CoverageExternal::where('id_provincia', $idProv_local)
+                        //     ->whereRaw("CONVERT(REPLACE(ciudad, ' ', '') USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(REPLACE(?, ' ', '') USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$ciudadSearch])
+                        //     ->first();
+
+
+                        // if ($cityFound) {
+                        //     $idCity = $cityFound->id;
+                        // }
                     }
 
                     error_log("idCity: " . ($idCity ?: 'No encontrado'));
