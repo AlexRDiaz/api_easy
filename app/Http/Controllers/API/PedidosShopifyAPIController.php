@@ -7,7 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CarrierCoverage;
 use App\Models\CarriersExternal;
 use App\Models\CoverageExternal;
-use App\Models\DpaProvincia;
+use App\Models\dpaProvincia;
 use App\Models\OrdenesRetiro;
 use App\Models\PedidoFecha;
 use App\Models\pedidos_shopifies;
@@ -3282,12 +3282,12 @@ class PedidosShopifyAPIController extends Controller
                         //     }
                         // }
 
-                        // $provincia = DpaProvincia::whereRaw("LOWER(REPLACE(provincia, ' ', '')) LIKE ?", ["%$provinciaSearch%"])
-                        //     ->first();
+                        $provincia = dpaProvincia::whereRaw("LOWER(REPLACE(provincia, ' ', '')) LIKE ?", ["%$provinciaSearch%"])
+                            ->first();
 
-                        // if ($provincia) {
-                        //     $idProv_local = $provincia->id;
-                        // }
+                        if ($provincia) {
+                            $idProv_local = $provincia->id;
+                        }
                     } else {
                         error_log("La provincia está vacía o es nula");
                     }
