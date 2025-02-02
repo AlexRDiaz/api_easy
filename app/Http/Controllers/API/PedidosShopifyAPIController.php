@@ -3295,30 +3295,30 @@ class PedidosShopifyAPIController extends Controller
                     error_log("idProv_local: " . ($idProv_local ?? 'No encontrado'));
 
 
-                    // if ($idProv_local) {
+                    if ($idProv_local) {
 
-                    //     $ciudadSearch = $this->normalizeText($city);
+                        $ciudadSearch = $this->normalizeText($city);
 
-                    //     $cities_exist = CoverageExternal::where('id_provincia', $idProv_local)
-                    //         ->pluck('id', 'ciudad')
-                    //         ->toArray();
+                        // $cities_exist = CoverageExternal::where('id_provincia', $idProv_local)
+                        //     ->pluck('id', 'ciudad')
+                        //     ->toArray();
 
-                    //     foreach ($cities_exist as $ciudadExistente => $cityId) {
-                    //         if (strpos($this->normalizeText($ciudadExistente), $ciudadSearch) !== false) {
-                    //             $idCity = $cityId;
-                    //             break;
-                    //         }
-                    //     }
+                        // foreach ($cities_exist as $ciudadExistente => $cityId) {
+                        //     if (strpos($this->normalizeText($ciudadExistente), $ciudadSearch) !== false) {
+                        //         $idCity = $cityId;
+                        //         break;
+                        //     }
+                        // }
 
-                    //     // $cityFound = CoverageExternal::where('id_provincia', $idProv_local)
-                    //     //     ->whereRaw("CONVERT(REPLACE(ciudad, ' ', '') USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(REPLACE(?, ' ', '') USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$ciudadSearch])
-                    //     //     ->first();
+                        $cityFound = CoverageExternal::where('id_provincia', $idProv_local)
+                            ->whereRaw("CONVERT(REPLACE(ciudad, ' ', '') USING utf8mb4) COLLATE utf8mb4_unicode_ci = CONVERT(REPLACE(?, ' ', '') USING utf8mb4) COLLATE utf8mb4_unicode_ci", [$ciudadSearch])
+                            ->first();
 
 
-                    //     // if ($cityFound) {
-                    //     //     $idCity = $cityFound->id;
-                    //     // }
-                    // }
+                        if ($cityFound) {
+                            $idCity = $cityFound->id;
+                        }
+                    }
 
                     // error_log("idCity: " . ($idCity ?: 'No encontrado'));
                 } catch (\Exception $e) {
