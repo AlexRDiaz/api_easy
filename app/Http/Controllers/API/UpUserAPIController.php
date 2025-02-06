@@ -285,6 +285,7 @@ class UpUserAPIController extends Controller
             $provider->special = $request->input('special');
             $provider->created_at = new DateTime();
             $provider->user_id = $user->id;
+            $provider->saldo = 0;
             $provider->company_id = $request->input('company_id');
 
             $provider->save();
