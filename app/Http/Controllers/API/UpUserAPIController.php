@@ -1837,6 +1837,7 @@ class UpUserAPIController extends Controller
                 $provider->description = $request->input('description');
                 // $provider->special = $request->input('special');
                 $provider->user_id = $user->id;
+                $provider->saldo = 0;
                 $provider->company_id = 1;
 
                 $provider->save();
