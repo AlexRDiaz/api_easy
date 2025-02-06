@@ -1598,8 +1598,10 @@ class IntegrationAPIController extends Controller
         error_log("getTokenLaar");
 
         $response = Http::post('https://api.laarcourier.com:9727/authenticate', [
-            'username' => 'prueba.easy.ecommerce.api',
-            'password' => 'J(s{GC]4',
+            // 'username' => 'prueba.easy.ecommerce.api',
+            // 'password' => 'J(s{GC]4',
+            'username' => 'easyecommerce.gye',
+            'password' => '1zNBjziZhk',
         ]);
 
         if ($response->successful()) {
