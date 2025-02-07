@@ -1600,8 +1600,8 @@ class IntegrationAPIController extends Controller
         $response = Http::post('https://api.laarcourier.com:9727/authenticate', [
             // 'username' => 'prueba.easy.ecommerce.api',
             // 'password' => 'J(s{GC]4',
-            'username' => 'easyecommerce.gye',
-            'password' => '1zNBjziZhk',
+            'username' => 'easy.bodegaecommerce.api',
+            'password' => '8KaRFU2x',
         ]);
 
         if ($response->successful()) {
