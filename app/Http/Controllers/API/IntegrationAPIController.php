@@ -1752,10 +1752,10 @@ class IntegrationAPIController extends Controller
         $data = $request->all();
         $guia = $data['guia'];
 
-        $apiUrl = 'https://api.laarcourier.com:9727/guias/';
+        $apiUrl = 'https://api.laarcourier.com:9727/guias/pdfs/DescargarV2?guia=';
 
         // Realizar la solicitud POST a la API externa con autenticación básica
-        $response = Http::get($apiUrl . $guia . '/etiquetas');
+        $response = Http::get($apiUrl . $guia);
 
 
         // Verificar el estado de la respuesta
