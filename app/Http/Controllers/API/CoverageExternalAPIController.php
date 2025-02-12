@@ -147,4 +147,34 @@ class CoverageExternalAPIController extends Controller
             )
         );
     }
+
+    public function byProvincia(string $id)
+    {
+        error_log("cities_byProvincia");
+        try {
+
+            $cites = CoverageExternal::with('carrier_coverages')
+                ->where('id_provincia', $id)
+                ->whereHas('carrier_coverages', function ($query) {
+                    $query->where('active', 1);
+                })
+                ->get();
+
+
+            if (!$cites) {
+                error_log("cites no encontrada para la prov especificada");
+                return response()->json(['error' => 'Cites no encontrada para la provincia especificada.'], 400);
+            }
+
+            return response()->json([
+                'data' => $cites,
+                'total' => $cites->count(),
+            ], 200);
+        } catch (\Exception $e) {
+            error_log("searchCityByProv_ERROR: $e");
+            return response()->json([
+                'error' => 'Ocurrió un error al consultar Ciudades: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
