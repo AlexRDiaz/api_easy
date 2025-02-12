@@ -1874,13 +1874,13 @@ class IntegrationAPIController extends Controller
                 $imagenes = $data['imagenes'];
 
 
-                error_log("laar_guia_input_$guia");
-                error_log("estadoCod_input_$estadoCod");
-                error_log("estadoActual_input_$estadoActual");
+                error_log("laar_guia_input_$guia" . " ");
+                error_log("estadoCod_input_$estadoCod" . " ");
+                error_log("estadoActual_input_$estadoActual" . " ");
 
 
                 if (!empty($novedades)) {
-                    error_log("Laar_Novedades_recibidas__" . json_encode($novedades));
+                    error_log("Laar_Novedades_recibidas__" . json_encode($novedades) . " ");
                 } else {
                     error_log("Laar_Novedades_vacio_o_no_presente");
                 }
