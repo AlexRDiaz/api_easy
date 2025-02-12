@@ -1832,12 +1832,14 @@ class IntegrationAPIController extends Controller
     public function requestUpdateStateLaar(Request $request)
     {
         try {
+            error_log("requestUpdateStateLaar_error");
             // Obtener el usuario autenticado mediante el token
             // $user = JWTAuth::parseToken()->authenticate();
 
             $apiKey = $request->header('api-key-laar');
 
             if ($apiKey !== '48f05b3d-4ceb-474b-8c2e-1f221b579ec5') {
+                error_log("requestUpdateStateLaar_error_Unauthorized: Invalid API Key");
                 return response()->json([
                     'message' => 'Unauthorized: Invalid API Key'
                 ], 401);
@@ -1860,7 +1862,7 @@ class IntegrationAPIController extends Controller
             if (!empty($missing_fields)) {
                 $missing_fields_str = implode(', ', $missing_fields);
                 $error_message = "Missing required fields: $missing_fields_str";
-                error_log($error_message);
+                error_log("requestUpdateStateLaar_error_$error_message");
                 return response()->json(['message' => $error_message], 400);
             } else {
                 //
