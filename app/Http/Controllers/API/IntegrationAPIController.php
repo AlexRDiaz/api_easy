@@ -1832,7 +1832,7 @@ class IntegrationAPIController extends Controller
     public function requestUpdateStateLaar(Request $request)
     {
         try {
-            error_log("requestUpdateStateLaar_error");
+            error_log("requestUpdateStateLaar");
             // Obtener el usuario autenticado mediante el token
             // $user = JWTAuth::parseToken()->authenticate();
 
