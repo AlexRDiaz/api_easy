@@ -2563,10 +2563,11 @@ class IntegrationAPIController extends Controller
 
                                         $id_novedad = $ultimaNovedad['codigoTipoNovedad'];
                                         $no_novedad = $ultimaNovedad['nombreTipoNovedad'];
-                                        $nombreDetalleNovedad = $ultimaNovedad['nombreDetalleNovedad'];
+                                        // $nombreDetalleNovedad = $ultimaNovedad['nombreDetalleNovedad'];
+                                        $observacionCourier = $ultimaNovedad['observacionCourier'];
 
                                         $commentText = "";
-                                        $commentText = $no_novedad . " | " . $nombreDetalleNovedad;
+                                        $commentText = $no_novedad . " | " . $observacionCourier;
 
                                         error_log("commentText: $commentText");
                                         $commentHist = $commentText;
