@@ -384,4 +384,9 @@ class PedidosShopify extends Model
 	{
 		return $this->hasMany(ProviderTransaction::class, 'origin_id', 'id');
 	}
+
+	public function cityDestiny()
+	{
+		return $this->hasMany(CoverageExternal::class, 'id', 'city_id');
+	}
 }

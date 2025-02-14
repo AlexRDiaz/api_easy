@@ -5663,6 +5663,9 @@ class PedidosShopifyAPIController extends Controller
             $ciudadDes = $data["ciudad_des"];
             $firstIdProduct = 0; //mainProduct
             $peso_total = $data['peso_total'];
+            $provincia_shipping = $data['provincia_shipping'];
+            $city_id = $data['city_id'];
+
 
 
             $numOrderstart = 1001; // Número inicial sin ceros a la izquierda
@@ -5794,6 +5797,8 @@ class PedidosShopifyAPIController extends Controller
                 $createOrder->apertura = $apertura;
                 $createOrder->peso_total = $peso_total;
                 $createOrder->estado_interno = "PENDIENTE";
+                $createOrder->provincia_shipping = $provincia_shipping;
+                $createOrder->city_id = $city_id;
 
                 if ($newrouteId != 0) {
                     error_log("*****Transp Int********\n");

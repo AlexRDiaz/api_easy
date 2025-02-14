@@ -34,6 +34,7 @@ class CarrierCoverage extends Model
 	protected $casts = [
 		'id_coverage' => 'int',
 		'id_carrier' => 'int',
+		'ruta_id' => 'int',
 		'active' => 'int'
 	];
 
@@ -43,6 +44,7 @@ class CarrierCoverage extends Model
 		'type',
 		'id_prov_ref',
 		'id_ciudad_ref',
+		'ruta_id',
 		'active'
 	];
 

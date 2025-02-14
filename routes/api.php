@@ -701,6 +701,10 @@ Route::middleware(['cors'])->group(function () {
     Route::post('transaccionesglobal/valuespendingextcarrier', [TransaccionesGlobalAPIController::class, 'calculateValuesPendingExternalCarrier']);
     Route::post('pedidos-shopify/updatepaymentbyidexternal', [PedidosShopifyAPIController::class, 'updateGestionedPaymentCostDeliveryByIdExternal']);
 
+    //  *
+    Route::prefix('ciudades')->group(function () {
+        Route::get('byprovincia/{id}', [CoverageExternalAPIController::class, 'byProvincia']);
+    });
 });
 
 
