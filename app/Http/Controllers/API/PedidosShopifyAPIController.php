@@ -3156,8 +3156,8 @@ class PedidosShopifyAPIController extends Controller
                 error_log('Error:_shipping_address_no_está_presente_en_el_JSON.');
             }
 
-            $shippingAddress = json_encode($input['shipping_address'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            error_log('shipping_address: ' . $shippingAddress);
+            // $shippingAddress = json_encode($input['shipping_address'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            // error_log('shipping_address: ' . $shippingAddress);
 
             //GENERATE DATE
             $currentDate = now();
@@ -3289,10 +3289,10 @@ class PedidosShopifyAPIController extends Controller
                             $idProv_local = $provincia->id;
                         }
                     } else {
-                        error_log("La provincia está vacía o es nula");
+                        // error_log("La provincia está vacía o es nula");
                     }
 
-                    error_log("idProv_local: " . ($idProv_local ?? 'No encontrado'));
+                    // error_log("idProv_local: " . ($idProv_local ?? 'No encontrado'));
 
 
                     if ($idProv_local) {

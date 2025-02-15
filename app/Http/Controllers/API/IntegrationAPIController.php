@@ -2044,6 +2044,16 @@ class IntegrationAPIController extends Controller
                                 $pesoTotalActual = (float)$order->peso_total;
                             }
 
+                            if ($order->estado_logistico !=  "ENVIADO") {
+                                //se asume que ya tiene la reduccion de stock desde CONFIRMADO
+                                error_log("updt_estado_logistico: " . $order->estado_logistico . " a ENVIADO");
+                                $order->estado_logistico = "ENVIADO";
+                                $order->sent_at = $currentDateTime;
+                                $order->marca_tiempo_envio = $date;
+                                // $order->estado_interno = "CONFIRMADO";
+                                $order->fecha_entrega = $date;
+                            }
+
                             if ($key == "estado_logistico") {
 
                                 if ($name_local == "ENVIADO") {  //from externo
