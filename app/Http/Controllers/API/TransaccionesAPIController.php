@@ -35,6 +35,7 @@ use DateTime;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 
 use function Laravel\Prompts\error;
 use function PHPUnit\Framework\isEmpty;
@@ -1925,13 +1926,14 @@ class TransaccionesAPIController extends Controller
         DB::beginTransaction();
         $message = "";
         $repetida = null;
-        // error_log("paymentLogisticInWarehouse");
+        error_log("paymentLogisticInWarehouse");
         try {
             $data = $request->json()->all();
             // $order = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades'])->find($id);
-            $order = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades', 'product.warehouses', 'pedidoCarrierCity.carrierCosts',])->find($id);
+            $order = PedidosShopify::with(['users.vendedores', 'transportadora', 'product.warehouses', 'pedidoCarrierCity.carrierCosts',])->find($id);
             $marca_t_i = $order->marca_t_i;
 
+            // error_log("$order");
             // Agregar ceros a las fechas/hora de un solo dígito en el formato 9/9/2024 9:9
             $marca_t_i = preg_replace_callback('/(\d{1,2})\/(\d{1,2})\/(\d{4}) (\d{1,2}):(\d{1,2})/', function ($matches) {
                 $day = str_pad($matches[1], 2, '0', STR_PAD_LEFT);
@@ -2127,8 +2129,9 @@ class TransaccionesAPIController extends Controller
 
                         $message = "Transacción con débito por estado " . $order->status . " y " . $order->estado_devolucion;
                     } else {
-                        // error_log("with carrierExternal");
+                        error_log("with carrierExternal");
 
+                        $carrierExt = $orderData["pedido_carrier_city"][0]["carrier_id"];
                         $warehouses = $order['product']['warehouses'];
                         $prov_origen = $this->getWarehouseProv($warehouses);
 
@@ -2140,72 +2143,205 @@ class TransaccionesAPIController extends Controller
 
                         $carrierExternal = $orderData["pedido_carrier_city"][0]["carrier_costs"];
                         $costs = json_decode($carrierExternal['costs'], true);
-                        $costo_seguro = $costs['costo_seguro'];
 
-                        $city_type = CarrierCoverage::where('id_carrier', 1)->where('id_coverage', $city_destiny)->first();
-                        $coverage_type = $city_type['type'];
+                        $city_origen = $this->getWarehouseCity($warehouses);
 
-                        $iva = 0.15; //15%
-                        $costo_easy = 2.3;
+                        if ($carrierExt == 1) {
+                            error_log("return_manual_Gtm");
 
-                        $deliveryPrice = 0;
+                            $costo_seguro = $costs['costo_seguro'];
 
-                        if ($prov_destiny == $prov_origen) {
-                            error_log("Provincial");
-                            if ($coverage_type == "Normal") {
-                                $deliveryPrice = (float)$costs['normal1'];
+                            $city_type = CarrierCoverage::where('id_carrier', 1)->where('id_coverage', $city_destiny)->first();
+                            $coverage_type = $city_type['type'];
+
+                            $iva = 0.15; //15%
+                            $costo_easy = 2.3;
+
+                            $deliveryPrice = 0;
+
+                            if ($prov_destiny == $prov_origen) {
+                                error_log("Provincial");
+                                if ($coverage_type == "Normal") {
+                                    $deliveryPrice = (float)$costs['normal1'];
+                                } else {
+                                    $deliveryPrice = (float)$costs['especial1'];
+                                }
                             } else {
-                                $deliveryPrice = (float)$costs['especial1'];
+                                error_log("Nacional");
+                                if ($coverage_type == "Normal") {
+                                    $deliveryPrice = (float)$costs['normal2'];
+                                } else {
+                                    $deliveryPrice = (float)$costs['especial2'];
+                                }
                             }
-                        } else {
-                            error_log("Nacional");
-                            if ($coverage_type == "Normal") {
-                                $deliveryPrice = (float)$costs['normal2'];
+                            $deliveryPrice = $deliveryPrice + ($deliveryPrice * $iva);
+                            $deliveryPrice = round($deliveryPrice, 2);
+
+                            error_log("after type + iva: $deliveryPrice");
+
+                            $costo_seguro = (((float)$orderData['precio_total']) * ((float)$costs['costo_seguro'])) / 100;
+                            $costo_seguro = round($costo_seguro, 2);
+                            $costo_seguro =  $costo_seguro + ($costo_seguro * $iva);
+                            $costo_seguro = round($costo_seguro, 2);
+
+                            error_log("costo_seguro: $costo_seguro");
+
+                            $deliveryPrice += $costo_seguro;
+                            error_log("after costo_seguro: $deliveryPrice");
+                            $costo_recaudo = 0;
+
+                            $deliveryPrice += $costo_recaudo;
+                            $deliveryPrice = round($deliveryPrice, 2);
+                            $deliveryPriceSeller = $deliveryPrice + $costo_easy;
+                            // $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
+                            $deliveryPriceSeller = round($deliveryPriceSeller, 2);
+
+
+                            error_log("costo entrega after recaudo: $deliveryPrice");
+                            error_log("costo deliveryPriceSeller: $deliveryPriceSeller");
+
+                            $order->costo_transportadora = strval($deliveryPrice);
+                            $order->costo_envio = strval($deliveryPriceSeller);
+
+
+                            $refundpercentage = $costs['costo_devolucion'];
+                            $refound_seller = ($deliveryPriceSeller * ($refundpercentage)) / 100;
+                            $refound_transp = ($deliveryPrice * ($refundpercentage)) / 100;
+
+                            $order->costo_devolucion = round(((float)$refound_seller), 2);
+                            $pedidoCarrier = PedidosShopifiesCarrierExternalLink::where('pedidos_shopify_id', $id)->first();
+                            $pedidoCarrier->cost_refound_external = round(((float)$refound_transp), 2);
+                            $pedidoCarrier->save();
+                        } else if ($carrierExt == 5) {
+                            error_log("return_manual_Laar");
+                            $iva = 0.15; //15%
+                            $costo_easy = 2.3;
+
+                            $deliveryPrice = 0;
+                            $city_type = CarrierCoverage::where('id_carrier', 5)->where('id_coverage', $city_destiny)->first();
+                            $coverage_type = $city_type['type'];
+
+                            $pesoTotalActual = 0;
+                            $pesoKilos = 2;
+
+                            $guiaExterna = $orderData["pedido_carrier_city"][0]["external_id"];
+                            $apiUrlLaarTracking = 'https://api.laarcourier.com:9727/guias/v2/';
+
+                            $responseLaar = Http::get($apiUrlLaarTracking . $guiaExterna);
+
+                            if ($responseLaar->successful()) {
+                                // La solicitud fue exitosa
+                                // error_log("La solicitud fue exitosa");
+                                $dataLaar = $responseLaar->json();
+                                $pesoKilosLaar = $dataLaar['pesoKilos'];
+                                // error_log("pesoKilosLaar: $pesoKilosLaar");
+                                $pesoKilos = $pesoKilosLaar;
                             } else {
-                                $deliveryPrice = (float)$costs['especial2'];
+                                // La solicitud falló
+                                error_log("fallo_getTrackingLaar_$responseLaar");
+                                return response()->json(['error' => 'La solicitud a la API externa falló'], 400);
                             }
+
+                            if ($order->peso_total !=  $pesoKilos) {
+                                error_log("updt_peso_local: " . $order->peso_total . " laar: " . $pesoKilos);
+                                $order->peso_total = $pesoKilos;
+                                $pesoTotalActual = (float)$pesoKilos;
+                            } else {
+                                // error_log("igual_local: " . $order->peso_total . " laar: " . $pesoKilos);
+                                $pesoTotalActual = (float)$order->peso_total;
+                            }
+
+                            //
+                            $deliveryPrice = 0;
+                            $isSameCity = ($city_destiny == $city_origen && ($city_destiny == 68 || $city_destiny == 32));
+                            $tipoDestino = "";
+
+                            if ($isSameCity) {
+                                $deliveryPrice = (float)($costs["local"]);
+                                $tipoDestino = "local";
+                                error_log("local $deliveryPrice");
+                            } else {
+                                //
+                                switch ($coverage_type) {
+                                    case 'TP':
+                                        $deliveryPrice = (float)($costs["principal"]);
+                                        $tipoDestino = "principal";
+                                        error_log("principal $deliveryPrice");
+                                        break;
+                                    case 'TS':
+                                        $deliveryPrice = (float)($costs["secundario"]);
+                                        $tipoDestino = "secundario";
+                                        error_log("secundario $deliveryPrice");
+                                        break;
+                                    case "TE":
+                                        $deliveryPrice = (float)($costs["especial"]);
+                                        $tipoDestino = "especial";
+                                        error_log("especial $deliveryPrice");
+                                        break;
+                                    case "TO":
+                                        $deliveryPrice = (float)($costs["oriente"]);
+                                        $tipoDestino = "oriente";
+                                        error_log("oriente $deliveryPrice");
+                                        break;
+                                    default:
+                                        $deliveryPrice = 0;
+                                        $tipoDestino = "local";
+                                        error_log("Tipo de cobertura desconocido");
+                                        break;
+                                }
+                            }
+
+                            //COD no
+                            //
+                            $pesoRango = $costs["peso_rango"];
+
+                            $maxKg = (float)($pesoRango['max_kg']);
+                            $tarifaBase = (float)($pesoRango['tarifa_base']);
+                            $tarifaAdicionalPorKg = (float)$pesoRango['tarifa_adicional'][$tipoDestino];
+
+                            // $pesoTotal = (float)$orderData['peso_total'];
+                            error_log("pesoTotalActual: $pesoTotalActual");
+                            $costByWeight = 0;
+
+                            if ($pesoTotalActual <= $maxKg) {
+                                $costByWeight = 0;
+                                error_log("costByWeight_base:");
+                            } else {
+                                $pesoAdicional = $pesoTotalActual - $maxKg;
+                                $pesoRedondeado = ceil($pesoAdicional);
+                                $costByWeight = $pesoRedondeado * $tarifaAdicionalPorKg;
+                                error_log("pesoAdicional Redond:");
+                            }
+
+                            $costByWeight = round($costByWeight, 2);
+                            error_log("costByWeight: $costByWeight");
+
+                            $deliveryPrice += $costByWeight;
+                            error_log("deliveryPrice sin iva: $deliveryPrice");
+                            $deliveryPrice = $deliveryPrice + ($deliveryPrice * $iva);
+                            $deliveryPrice = round($deliveryPrice, 2);
+                            error_log("deliveryPrice con iva: $deliveryPrice");
+
+                            $deliveryPriceSeller = $deliveryPrice + $costo_easy;
+                            // $devCostoEasy = 0.70;
+                            // $deliveryPriceSeller = $deliveryPriceSeller + $devCostoEasy;
+                            // $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
+                            $deliveryPriceSeller = round($deliveryPriceSeller, 2);
+
+                            $order->costo_transportadora = strval($deliveryPrice);
+                            $order->costo_envio = strval($deliveryPriceSeller);
+                            error_log("costo_transp: $deliveryPrice");
+                            error_log("costo_envio (seller): $deliveryPriceSeller");
+
+                            $refound_seller = 0;
+                            $refound_transp = 0;
+
+                            $order->costo_devolucion = round(((float)$refound_seller), 2);
+                            // $order->cost_refound_external = round(((float)$refound_transp), 2);
+                            $pedidoCarrier = PedidosShopifiesCarrierExternalLink::where('pedidos_shopify_id', $id)->first();
+                            $pedidoCarrier->cost_refound_external = round(((float)$refound_transp), 2);
+                            $pedidoCarrier->save();
                         }
-                        $deliveryPrice = $deliveryPrice + ($deliveryPrice * $iva);
-                        $deliveryPrice = round($deliveryPrice, 2);
-
-                        error_log("after type + iva: $deliveryPrice");
-
-                        $costo_seguro = (((float)$orderData['precio_total']) * ((float)$costs['costo_seguro'])) / 100;
-                        $costo_seguro = round($costo_seguro, 2);
-                        $costo_seguro =  $costo_seguro + ($costo_seguro * $iva);
-                        $costo_seguro = round($costo_seguro, 2);
-
-                        error_log("costo_seguro: $costo_seguro");
-
-                        $deliveryPrice += $costo_seguro;
-                        error_log("after costo_seguro: $deliveryPrice");
-                        $costo_recaudo = 0;
-
-                        $deliveryPrice += $costo_recaudo;
-                        $deliveryPrice = round($deliveryPrice, 2);
-                        $deliveryPriceSeller = $deliveryPrice + $costo_easy;
-                        // $deliveryPriceSeller = $deliveryPriceSeller + ($deliveryPriceSeller * $iva);
-                        $deliveryPriceSeller = round($deliveryPriceSeller, 2);
-
-
-                        error_log("costo entrega after recaudo: $deliveryPrice");
-                        error_log("costo deliveryPriceSeller: $deliveryPriceSeller");
-
-                        $order->costo_transportadora = strval($deliveryPrice);
-                        $order->costo_envio = strval($deliveryPriceSeller);
-
-
-                        $refundpercentage = $costs['costo_devolucion'];
-                        $refound_seller = ($deliveryPriceSeller * ($refundpercentage)) / 100;
-                        $refound_transp = ($deliveryPrice * ($refundpercentage)) / 100;
-
-                        $order->costo_devolucion = round(((float)$refound_seller), 2);
-                        $pedidoCarrier = PedidosShopifiesCarrierExternalLink::where('pedidos_shopify_id', $id)->first();
-                        $pedidoCarrier->cost_refound_external = round(((float)$refound_transp), 2);
-                        $pedidoCarrier->save();
-
-
-
 
                         if ($existingTransactions->isEmpty()) {
 
@@ -3554,7 +3690,7 @@ class TransaccionesAPIController extends Controller
 
                         if ($transaction->origin == 'Referenciado') {
                             // Obtener la última transacción del mismo vendedor
-                            
+
 
                             $newTransaction->state = 1;
                             $newTransaction->status = 'REEMBOLSO';
@@ -3573,7 +3709,7 @@ class TransaccionesAPIController extends Controller
                             $newTransaction->external_return_cost = $transaction->external_return_cost != 0 ? -$transaction->external_return_cost : 0;
 
                             $newTransaction->save();
-                        }else{
+                        } else {
                             $ultimaTransaccion = TransaccionGlobal::where('id_seller', $transaction->id_seller)
                                 ->orderBy('id', 'desc')
                                 ->first();
@@ -3593,11 +3729,9 @@ class TransaccionesAPIController extends Controller
                             $newTransaction->internal_transportation_cost = $transaction->internal_transportation_cost != 0 ? -$transaction->internal_transportation_cost : 0;
                             $newTransaction->external_transportation_cost = $transaction->external_transportation_cost != 0 ? -$transaction->external_transportation_cost : 0;
                             $newTransaction->external_return_cost = $transaction->external_return_cost != 0 ? -$transaction->external_return_cost : 0;
-    
+
                             $newTransaction->save();
                         }
-
-                      
                     }
                 }
             }
@@ -4314,7 +4448,7 @@ class TransaccionesAPIController extends Controller
                 error_log("postWhitdrawalProviderAproved_saldo_insuficiente");
                 return response()->json(["response" => "saldo insuficiente"], 400);
             }
-            
+
             $withdrawal = new OrdenesRetiro();
             $withdrawal->monto = $data["monto"];
             // $withdrawal->fecha = new  DateTime();
@@ -4548,6 +4682,27 @@ class TransaccionesAPIController extends Controller
                     $lastWarehouse = end($warehousesList);
                     $name = $lastWarehouse['id_provincia'];
                     // error_log("prov: $name, city: " . $warehouseJson['city']);
+                }
+            } else {
+                error_log("El elemento de la lista no es un mapa válido: ");
+            }
+        }
+        return $name;
+    }
+
+    function getWarehouseCity($warehousesJson)
+    {
+        $name = "";
+
+        $warehousesList = json_decode($warehousesJson, true);
+
+        foreach ($warehousesList as $warehouseJson) {
+            if (is_array($warehouseJson)) {
+                if (count($warehousesList) == 1) {
+                    $name = $warehouseJson['id_city'];
+                } else {
+                    $lastWarehouse = end($warehousesList);
+                    $name = $lastWarehouse['id_city'];
                 }
             } else {
                 error_log("El elemento de la lista no es un mapa válido: ");
