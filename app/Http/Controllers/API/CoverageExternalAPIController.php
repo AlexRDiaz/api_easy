@@ -194,7 +194,9 @@ class CoverageExternalAPIController extends Controller
 
     public function generalDataOptimizedv2(Request $request)
     {
-        error_log("generalDataOptimizedv2");
+        error_log("llega_generalDataOptimizedv2");
+        try {
+
         $data = $request->json()->all();
 
         $pageSize = $data['page_size'];
@@ -209,7 +211,6 @@ class CoverageExternalAPIController extends Controller
         $relationsToInclude = $data['include'];
         $relationsToExclude = $data['exclude'];
 
-        try {
 
             $fullModelName = "App\\Models\\" . $modelName;
 
@@ -380,7 +381,7 @@ class CoverageExternalAPIController extends Controller
 
             return response()->json($databackend);
         } catch (\Exception $e) {
-            error_log("error_generalDataOptimized: $e");
+            error_log("error_generalDataOptimized_v2: $e");
             return response()->json([
                 'error' => "There was an error processing your request. " . $e->getMessage()
             ], 500);
