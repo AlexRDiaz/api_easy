@@ -2044,7 +2044,7 @@ class IntegrationAPIController extends Controller
                                 $pesoTotalActual = (float)$order->peso_total;
                             }
 
-                            if ($order->estado_logistico !=  "ENVIADO") {
+                            if ($order->estado_logistico ==  "IMPRESO") {
                                 //se asume que ya tiene la reduccion de stock desde CONFIRMADO
                                 error_log("updt_estado_logistico: " . $order->estado_logistico . " a ENVIADO");
                                 $order->estado_logistico = "ENVIADO";
