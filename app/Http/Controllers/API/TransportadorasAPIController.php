@@ -74,8 +74,8 @@ class TransportadorasAPIController extends Controller
         $company_id = $data['company_id'];
 
         $transportadoras = Transportadora::where('active', 1)
-        ->where('company_id', $company_id)
-        ->get();
+            ->where('company_id', $company_id)
+            ->get();
 
         $formattedTransportadoras = $transportadoras->map(function ($transportadora) {
             return $transportadora->nombre . ' - ' . $transportadora->id;
@@ -318,174 +318,182 @@ class TransportadorasAPIController extends Controller
         $relationsToInclude = $data['include'];
         $relationsToExclude = $data['exclude'];
 
-        $fullModelName = "App\\Models\\" . $modelName;
+        try {
 
-        // Verificar si la clase del modelo existe y es válida
-        if (!class_exists($fullModelName)) {
-            return response()->json(['error' => 'Modelo no encontrado'], 404);
-        }
+            $fullModelName = "App\\Models\\" . $modelName;
 
-        // Opcional: Verificar si el modelo es uno de los permitidos
-        $allowedModels = ['Transportadora', 'UpUser', 'Vendedore', 'UpUsersVendedoresLink', 'UpUsersRolesFrontLink', 'OrdenesRetiro', 'PedidosShopify', 'Provider', 'TransaccionPedidoTransportadora', "pedidoCarrier"];
-
-        if (!in_array($modelName, $allowedModels)) {
-            return response()->json(['error' => 'Acceso al modelo no permitido'], 403);
-        }
-
-        if (isset($data['date_filter'])) {
-            $dateFilter = $data["date_filter"];
-            $selectedFilter = "fecha_entrega";
-            if ($dateFilter == "MARCA ENVIO") {
-                $selectedFilter = "marca_tiempo_envio";
-            } else if ($dateFilter == "MARCA INGRESO") {
-                $selectedFilter = "marca_t_i";
+            // Verificar si la clase del modelo existe y es válida
+            if (!class_exists($fullModelName)) {
+                return response()->json(['error' => 'Modelo no encontrado'], 404);
             }
-        }
 
-        if ($searchTerm != "") {
-            $filteFields = $data['or'];
-        } else {
-            $filteFields = [];
-        }
+            // Opcional: Verificar si el modelo es uno de los permitidos
+            $allowedModels = ['Transportadora', 'UpUser', 'Vendedore', 'UpUsersVendedoresLink', 'UpUsersRolesFrontLink', 'OrdenesRetiro', 'PedidosShopify', 'Provider', 'TransaccionPedidoTransportadora', "pedidoCarrier"];
 
-
-        $orderBy = null;
-        if (isset($data['sort'])) {
-            $sort = $data['sort'];
-            $sortParts = explode(':', $sort);
-            if (count($sortParts) === 2) {
-                $field = $sortParts[0];
-                $direction = strtoupper($sortParts[1]) === 'DESC' ? 'DESC' : 'ASC';
-                $orderBy = [$field => $direction];
+            if (!in_array($modelName, $allowedModels)) {
+                return response()->json(['error' => 'Acceso al modelo no permitido'], 403);
             }
-        }
-        $databackend = $fullModelName::with($populate);
-        if (isset($data['start']) && isset($data['end'])) {
-            $startDateFormatted = Carbon::createFromFormat('j/n/Y', $data['start'])->format('Y-m-d');
-            $endDateFormatted = Carbon::createFromFormat('j/n/Y', $data['end'])->format('Y-m-d');
-            $databackend->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted]);
-        }
 
-        $databackend
-            // ->whereDoesntHave(['pedidoCarrier',''])
-            ->where(function ($databackend) use ($searchTerm, $filteFields) {
-                // foreach ($filteFields as $field) {
-                //     if (strpos($field, '.') !== false) {
-                //         $relacion = substr($field, 0, strpos($field, '.'));
-                //         $propiedad = substr($field, strpos($field, '.') + 1);
-                //         $this->recursiveWhereHasLike($databackend, $relacion, $propiedad, $searchTerm);
-                //     } else {
-                //         $databackend->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
-                //     }
-                // }
-                foreach ($filteFields as $field) {
-                    if (strpos($field, '.') !== false) {
-                        $segments = explode('.', $field);
-                        $lastSegment = array_pop($segments);
-                        $relation = implode('.', $segments);
-
-                        $databackend->orWhereHas($relation, function ($query) use ($lastSegment, $searchTerm) {
-                            $query->where($lastSegment, 'LIKE', '%' . $searchTerm . '%');
-                        });
-                    } else {
-                        $databackend->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
-                    }
+            if (isset($data['date_filter'])) {
+                $dateFilter = $data["date_filter"];
+                $selectedFilter = "fecha_entrega";
+                if ($dateFilter == "MARCA ENVIO") {
+                    $selectedFilter = "marca_tiempo_envio";
+                } else if ($dateFilter == "MARCA INGRESO") {
+                    $selectedFilter = "marca_t_i";
                 }
-            })
-            ->where((function ($databackend) use ($Map) {
-                foreach ($Map as $condition) {
-                    foreach ($condition as $key => $valor) {
-                        $parts = explode("/", $key);
-                        $type = $parts[0];
-                        $filter = $parts[1];
-                        if ($valor === null) {
-                            $databackend->whereNull($filter);
+            }
+
+            if ($searchTerm != "") {
+                $filteFields = $data['or'];
+            } else {
+                $filteFields = [];
+            }
+
+
+            $orderBy = null;
+            if (isset($data['sort'])) {
+                $sort = $data['sort'];
+                $sortParts = explode(':', $sort);
+                if (count($sortParts) === 2) {
+                    $field = $sortParts[0];
+                    $direction = strtoupper($sortParts[1]) === 'DESC' ? 'DESC' : 'ASC';
+                    $orderBy = [$field => $direction];
+                }
+            }
+            $databackend = $fullModelName::with($populate);
+            if (isset($data['start']) && isset($data['end'])) {
+                $startDateFormatted = Carbon::createFromFormat('j/n/Y', $data['start'])->format('Y-m-d');
+                $endDateFormatted = Carbon::createFromFormat('j/n/Y', $data['end'])->format('Y-m-d');
+                $databackend->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDateFormatted, $endDateFormatted]);
+            }
+
+            $databackend
+                // ->whereDoesntHave(['pedidoCarrier',''])
+                ->where(function ($databackend) use ($searchTerm, $filteFields) {
+                    // foreach ($filteFields as $field) {
+                    //     if (strpos($field, '.') !== false) {
+                    //         $relacion = substr($field, 0, strpos($field, '.'));
+                    //         $propiedad = substr($field, strpos($field, '.') + 1);
+                    //         $this->recursiveWhereHasLike($databackend, $relacion, $propiedad, $searchTerm);
+                    //     } else {
+                    //         $databackend->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                    //     }
+                    // }
+                    foreach ($filteFields as $field) {
+                        if (strpos($field, '.') !== false) {
+                            $segments = explode('.', $field);
+                            $lastSegment = array_pop($segments);
+                            $relation = implode('.', $segments);
+
+                            $databackend->orWhereHas($relation, function ($query) use ($lastSegment, $searchTerm) {
+                                $query->where($lastSegment, 'LIKE', '%' . $searchTerm . '%');
+                            });
                         } else {
-                            if (strpos($filter, '.') !== false) {
-                                $relacion = substr($filter, 0, strpos($filter, '.'));
-                                $propiedad = substr($filter, strpos($filter, '.') + 1);
-                                $this->recursiveWhereHas($databackend, $relacion, $propiedad, $valor);
+                            $databackend->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                        }
+                    }
+                })
+                ->where((function ($databackend) use ($Map) {
+                    foreach ($Map as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            $parts = explode("/", $key);
+                            $type = $parts[0];
+                            $filter = $parts[1];
+                            if ($valor === null) {
+                                $databackend->whereNull($filter);
                             } else {
-                                if ($type == "equals") {
-                                    $databackend->where($filter, '=', $valor);
+                                if (strpos($filter, '.') !== false) {
+                                    $relacion = substr($filter, 0, strpos($filter, '.'));
+                                    $propiedad = substr($filter, strpos($filter, '.') + 1);
+                                    $this->recursiveWhereHas($databackend, $relacion, $propiedad, $valor);
                                 } else {
-                                    $databackend->where($filter, 'LIKE', '%' . $valor . '%');
+                                    if ($type == "equals") {
+                                        $databackend->where($filter, '=', $valor);
+                                    } else {
+                                        $databackend->where($filter, 'LIKE', '%' . $valor . '%');
+                                    }
                                 }
                             }
                         }
                     }
-                }
-            }))
-            // ->where((function ($databackend) use ($not) {
-            //     foreach ($not as $condition) {
-            //         foreach ($condition as $key => $valor) {
-            //             if ($valor === '') {
-            //                 // $databackend->whereRaw("$key <> ''");
-            //                 $this->recursiveWhereHasNeg($databackend, $relacion, $propiedad, $valor);
+                }))
+                // ->where((function ($databackend) use ($not) {
+                //     foreach ($not as $condition) {
+                //         foreach ($condition as $key => $valor) {
+                //             if ($valor === '') {
+                //                 // $databackend->whereRaw("$key <> ''");
+                //                 $this->recursiveWhereHasNeg($databackend, $relacion, $propiedad, $valor);
 
-            //             } else {
-            //                 if ($valor === null) {
-            //                     $databackend->whereNotNull($key);
-            //                 } else {
-            //                     if (strpos($key, '.') !== false) {
-            //                         $relacion = substr($key, 0, strpos($key, '.'));
-            //                         $propiedad = substr($key, strpos($key, '.') + 1);
-            //                         $this->recursiveWhereHas($databackend, $relacion, $propiedad, $valor);
-            //                     } else {
-            //                         // $databackend->where($key, '!=', $valor);
-            //                         $databackend->whereRaw("$key <> ''");
-            //                     }
-            //                 }
-            //             }
-            //         }
-            //     }
-            // }));
-            ->where((function ($pedidos) use ($not) {
-                foreach ($not as $condition) {
-                    foreach ($condition as $key => $valor) {
-                        if (strpos($key, '.') !== false) {
-                            $relacion = substr($key, 0, strpos($key, '.'));
-                            $propiedad = substr($key, strpos($key, '.') + 1);
-                            $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
-                        } else {
-                            $pedidos->where($key, '!=', $valor);
+                //             } else {
+                //                 if ($valor === null) {
+                //                     $databackend->whereNotNull($key);
+                //                 } else {
+                //                     if (strpos($key, '.') !== false) {
+                //                         $relacion = substr($key, 0, strpos($key, '.'));
+                //                         $propiedad = substr($key, strpos($key, '.') + 1);
+                //                         $this->recursiveWhereHas($databackend, $relacion, $propiedad, $valor);
+                //                     } else {
+                //                         // $databackend->where($key, '!=', $valor);
+                //                         $databackend->whereRaw("$key <> ''");
+                //                     }
+                //                 }
+                //             }
+                //         }
+                //     }
+                // }));
+                ->where((function ($pedidos) use ($not) {
+                    foreach ($not as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            if (strpos($key, '.') !== false) {
+                                $relacion = substr($key, 0, strpos($key, '.'));
+                                $propiedad = substr($key, strpos($key, '.') + 1);
+                                $this->recursiveWhereHas($pedidos, $relacion, $propiedad, $valor);
+                            } else {
+                                $pedidos->where($key, '!=', $valor);
+                            }
                         }
                     }
+                }));
+
+
+            // $relationsToInclude = ['ruta', 'transportadora'];
+            // $relationsToExclude = ['pedidoCarrier'];
+
+            // $relationsToInclude = ['pedidoCarrier'];
+            // $relationsToExclude = ['ruta', 'transportadora'];
+
+            if (isset($relationsToInclude)) {
+                // error_log("IS relationsToInclude");
+                foreach ($relationsToInclude as $relation) {
+                    // error_log("Include relation: $relation");
+                    $databackend->whereHas($relation);
                 }
-            }));
-
-
-        // $relationsToInclude = ['ruta', 'transportadora'];
-        // $relationsToExclude = ['pedidoCarrier'];
-
-        // $relationsToInclude = ['pedidoCarrier'];
-        // $relationsToExclude = ['ruta', 'transportadora'];
-
-        if (isset($relationsToInclude)) {
-            // error_log("IS relationsToInclude");
-            foreach ($relationsToInclude as $relation) {
-                // error_log("Include relation: $relation");
-                $databackend->whereHas($relation);
             }
-        }
 
-        if (isset($relationsToExclude)) {
-            // error_log("IS relationsToInclude");
-            foreach ($relationsToExclude as $relation) {
-                // error_log("Exclude relation: $relation");
-                $databackend->whereDoesntHave($relation);
+            if (isset($relationsToExclude)) {
+                // error_log("IS relationsToInclude");
+                foreach ($relationsToExclude as $relation) {
+                    // error_log("Exclude relation: $relation");
+                    $databackend->whereDoesntHave($relation);
+                }
             }
+
+
+
+            if ($orderBy !== null) {
+                $databackend->orderBy(key($orderBy), reset($orderBy));
+            }
+
+            $databackend = $databackend->paginate($pageSize, ['*'], 'page', $pageNumber);
+
+            return response()->json($databackend);
+        } catch (\Exception $e) {
+            error_log("error_generalDataOptimized: $e");
+            return response()->json([
+                'error' => "There was an error processing your request. " . $e->getMessage()
+            ], 500);
         }
-
-
-
-        if ($orderBy !== null) {
-            $databackend->orderBy(key($orderBy), reset($orderBy));
-        }
-
-        $databackend = $databackend->paginate($pageSize, ['*'], 'page', $pageNumber);
-
-        return response()->json($databackend);
     }
 
     private function recursiveWhereHas($query, $relation, $property, $searchTerm)
