@@ -706,7 +706,7 @@ Route::middleware(['cors'])->group(function () {
         Route::post('byprovincia', [CoverageExternalAPIController::class, 'byProvincia']);
     });
 
-    Route::post('getgendataoptimized', [CoverageExternalAPIController::class, 'search']);
+    Route::post('getgendataoptimized', [TransportadorasAPIController::class, 'generalDataOptimized']);
 
     //...
 });
