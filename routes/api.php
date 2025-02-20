@@ -705,6 +705,9 @@ Route::middleware(['cors'])->group(function () {
     Route::prefix('ciudades')->group(function () {
         Route::post('byprovincia', [CoverageExternalAPIController::class, 'byProvincia']);
     });
+
+    Route::post('generaldataoptimized', [TransportadorasAPIController::class, 'generalDataOptimized']);
+
     //...
 });
 
