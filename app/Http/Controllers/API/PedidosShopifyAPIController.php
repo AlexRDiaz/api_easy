@@ -6021,20 +6021,20 @@ class PedidosShopifyAPIController extends Controller
             $message = "Nueva Orden: $code\nProveedor: $provName\nID Producto/s: " . implode(',', $uniqueIds) . "\nCantidad: $pedido->cantidad_total\nProducto: $prodNames\n\n";
 
             // Envío de correos
-            // if (!empty($emailsToNotify)) {
-            //     foreach ($emailsToNotify as $email) {
-            //         Mail::raw($message, function ($mail) use ($email, $subject) {
-            //             $mail->to($email)->subject($subject);
-            //         });
-            //     }
-            // } else if (!empty($mainProduct->warehouse->provider->user)) {
-            //     $providerUserEmail = $mainProduct->warehouse->provider->user->email;
-            //     Mail::raw($message, function ($mail) use ($providerUserEmail, $subject) {
-            //         $mail->to($providerUserEmail)->subject($subject);
-            //     });
-            // } else {
-            //     error_log("No se encontró un correo del proveedor para enviar.");
-            // }
+            if (!empty($emailsToNotify)) {
+                foreach ($emailsToNotify as $email) {
+                    Mail::raw($message, function ($mail) use ($email, $subject) {
+                        $mail->to($email)->subject($subject);
+                    });
+                }
+            } else if (!empty($mainProduct->warehouse->provider->user)) {
+                $providerUserEmail = $mainProduct->warehouse->provider->user->email;
+                Mail::raw($message, function ($mail) use ($providerUserEmail, $subject) {
+                    $mail->to($providerUserEmail)->subject($subject);
+                });
+            } else {
+                error_log("No se encontró un correo del proveedor para enviar.");
+            }
 
             return response()->json(['message' => 'Correo/s enviado/s'], 200);
         } catch (\Exception $e) {
