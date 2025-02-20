@@ -387,6 +387,8 @@ class PedidosShopify extends Model
 
 	public function cityDestiny()
 	{
-		return $this->hasMany(CoverageExternal::class, 'id', 'city_id')->with('dpa_provincia');
+		// return $this->hasMany(CoverageExternal::class, 'id', 'city_id')->with('dpa_provincia');
+		return $this->hasMany(CoverageExternal::class, 'id', 'city_id')
+			->with(['dpa_provincia', 'carrier_coverages']);
 	}
 }
