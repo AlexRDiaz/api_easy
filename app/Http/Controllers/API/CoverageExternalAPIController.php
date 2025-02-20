@@ -194,6 +194,7 @@ class CoverageExternalAPIController extends Controller
 
     public function generalDataOptimizedv2(Request $request)
     {
+        error_log("generalDataOptimizedv2");
         $data = $request->json()->all();
 
         $pageSize = $data['page_size'];
