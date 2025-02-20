@@ -1941,6 +1941,7 @@ class PedidosShopifyAPIController extends Controller
         $producto_extra = $data["producto_extra"];
         $precio_total = $data["precio_total"];
         $observacion = $data["observacion"];
+        $provincia_shipping = $data["provincia_shipping"];
 
         $pedido = PedidosShopify::with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta'])
             ->where('id', $id)
@@ -1959,6 +1960,7 @@ class PedidosShopifyAPIController extends Controller
         $pedido->producto_extra = $producto_extra;
         $pedido->precio_total = $precio_total;
         $pedido->observacion = $observacion;
+        $pedido->provincia_shipping = $provincia_shipping;
         $pedido->save();
 
         return response()->json($pedido);
@@ -6019,20 +6021,20 @@ class PedidosShopifyAPIController extends Controller
             $message = "Nueva Orden: $code\nProveedor: $provName\nID Producto/s: " . implode(',', $uniqueIds) . "\nCantidad: $pedido->cantidad_total\nProducto: $prodNames\n\n";
 
             // Envío de correos
-            if (!empty($emailsToNotify)) {
-                foreach ($emailsToNotify as $email) {
-                    Mail::raw($message, function ($mail) use ($email, $subject) {
-                        $mail->to($email)->subject($subject);
-                    });
-                }
-            } else if (!empty($mainProduct->warehouse->provider->user)) {
-                $providerUserEmail = $mainProduct->warehouse->provider->user->email;
-                Mail::raw($message, function ($mail) use ($providerUserEmail, $subject) {
-                    $mail->to($providerUserEmail)->subject($subject);
-                });
-            } else {
-                error_log("No se encontró un correo del proveedor para enviar.");
-            }
+            // if (!empty($emailsToNotify)) {
+            //     foreach ($emailsToNotify as $email) {
+            //         Mail::raw($message, function ($mail) use ($email, $subject) {
+            //             $mail->to($email)->subject($subject);
+            //         });
+            //     }
+            // } else if (!empty($mainProduct->warehouse->provider->user)) {
+            //     $providerUserEmail = $mainProduct->warehouse->provider->user->email;
+            //     Mail::raw($message, function ($mail) use ($providerUserEmail, $subject) {
+            //         $mail->to($providerUserEmail)->subject($subject);
+            //     });
+            // } else {
+            //     error_log("No se encontró un correo del proveedor para enviar.");
+            // }
 
             return response()->json(['message' => 'Correo/s enviado/s'], 200);
         } catch (\Exception $e) {

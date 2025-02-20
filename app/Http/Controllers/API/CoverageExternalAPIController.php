@@ -148,27 +148,40 @@ class CoverageExternalAPIController extends Controller
         );
     }
 
-    public function byProvincia(string $id)
+    public function byProvincia(Request $request)
     {
         error_log("cities_byProvincia");
+        $data = $request->json()->all();
+        $idProv = $data['idProv'];
+        $sinIds = $data['noIdsProd'];
+
         try {
+            if ($sinIds == 1) {
+                // error_log("solo Logec");
+                $cities = CoverageExternal::with('carrier_coverages')
+                    ->where('id_provincia', $idProv)
+                    ->whereHas('carrier_coverages', function ($query) {
+                        $query->where('id_carrier', 6)->where('active', 1);
+                    })
+                    ->get();
+            } else {
+                $cities = CoverageExternal::with('carrier_coverages')
+                    ->where('id_provincia', $idProv)
+                    ->whereHas('carrier_coverages', function ($query) {
+                        $query->where('active', 1);
+                    })
+                    ->get();
+            }
 
-            $cites = CoverageExternal::with('carrier_coverages')
-                ->where('id_provincia', $id)
-                ->whereHas('carrier_coverages', function ($query) {
-                    $query->where('active', 1);
-                })
-                ->get();
 
-
-            if (!$cites) {
+            if (!$cities) {
                 error_log("cites no encontrada para la prov especificada");
                 return response()->json(['error' => 'Cites no encontrada para la provincia especificada.'], 400);
             }
 
             return response()->json([
-                'data' => $cites,
-                'total' => $cites->count(),
+                'data' => $cities,
+                'total' => $cities->count(),
             ], 200);
         } catch (\Exception $e) {
             error_log("searchCityByProv_ERROR: $e");

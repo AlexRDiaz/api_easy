@@ -591,7 +591,7 @@ Route::middleware(['cors'])->group(function () {
 
     //  *
     Route::prefix('provincias')->group(function () {
-        Route::get('/', [DpaProvinciaAPIController::class, 'index']);
+        Route::get('/{id}', [DpaProvinciaAPIController::class, 'index']);
         // Route::get('cantones/{id}', [DpaProvinciaAPIController::class, 'getCantones']);
         Route::get('coverages/{id}', [DpaProvinciaAPIController::class, 'getCoverages']);
     });
@@ -703,7 +703,7 @@ Route::middleware(['cors'])->group(function () {
 
     //  *
     Route::prefix('ciudades')->group(function () {
-        Route::get('byprovincia/{id}', [CoverageExternalAPIController::class, 'byProvincia']);
+        Route::post('byprovincia', [CoverageExternalAPIController::class, 'byProvincia']);
     });
 });
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\dpaProvincia;
 use Illuminate\Http\Request;
 
@@ -11,10 +12,18 @@ class DpaProvinciaAPIController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(string $idCompany)
     {
         //
-        $provincias = dpaProvincia::all();
+        $company = Company::with('company_countries_links')
+            ->where('id', $idCompany)
+            ->get();
+
+            $countryId = $company[0]['company_countries_links'][0]['country_id'];
+
+        $provincias = dpaProvincia::where('country_id', $countryId)
+            ->get();
+
         $formattedProvincias = $provincias->map(function ($provincias) {
             return  $provincias->provincia . '-' . $provincias->id;
         })->toArray();
