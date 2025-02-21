@@ -1390,6 +1390,7 @@ class ProductAPIController extends Controller
             // $idOrder = $data['id_order'];
 
             $responses = [];
+            $dataProducts = [];
 
             if ($variants != null) {
                 foreach ($variants as $variant) {
@@ -1429,7 +1430,6 @@ class ProductAPIController extends Controller
                                 // error_log("$productIdFromSKU");
                                 $product = Product::find($productIdFromSKU);
                                 // error_log($product);
-                                $active = $product->active;
 
                                 // if ($idProductMain == $productIdFromSKU) {
 
@@ -1440,6 +1440,8 @@ class ProductAPIController extends Controller
                                     $responses[] = "$productIdFromSKU|3|0|0";
                                 }
                                 if ($product) {
+                                    $active = $product->active;
+
                                     if ($active == 0) {
                                         error_log("Product deleted");
                                         // return null;
@@ -1448,6 +1450,13 @@ class ProductAPIController extends Controller
                                         continue;
                                     }
                                     error_log("Id Product found");
+
+                                    $dataProducts[] = [
+                                        "prod_id" => $productIdFromSKU,
+                                        "warehouse" => $product->warehouse_id,
+                                        "owner" => $product->seller_owned
+                                    ];
+
 
                                     $response = $reserveController->findByProductAndSku($productIdFromSKU, $onlySku, $idComercial);
                                     //skuProduct|isAvaliable|#currentStock|#requested
@@ -1549,6 +1558,33 @@ class ProductAPIController extends Controller
                         error_log("Es vacio o null skuProductVariant: $skuProduct");
                     }
                 }
+            }
+
+            $sameWarehouseOwner = 1;
+
+            if ($dataProducts != []) {
+                error_log(json_encode($dataProducts));
+
+                $firstWarehouse = $dataProducts[0]['warehouse'];
+
+                foreach ($dataProducts as $product) {
+
+                    if (
+                        $product['warehouse'] != $firstWarehouse ||
+                        ($product['owner'] != (int)$idComercial && !is_null($product['owner']))
+                    ) {
+                        error_log("no_sameWarehouseOwner_" . $product['prod_id']);
+                        $sameWarehouseOwner = 0;
+                        break;
+                    }
+                }
+            }
+
+            // error_log("final_sameWarehouseOwner: $sameWarehouseOwner");
+
+            if ($sameWarehouseOwner == 0) {
+                $responses = ["error_validWarehouseOwner"];
+                return response()->json($responses);
             }
 
             return response()->json($responses);
