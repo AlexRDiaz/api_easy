@@ -968,6 +968,7 @@ class IntegrationAPIController extends Controller
 
                                         $order->status = $name_local;
                                         $order->status_last_modified_at = $currentDateTime;
+                                        $order->fecha_entrega = $date;
                                     } else if ($id_gestion == 1) {
                                         // error_log("se acepto la solucion");
                                     }
@@ -1886,7 +1887,7 @@ class IntegrationAPIController extends Controller
                 }
 
                 if (!empty($imagenes)) {
-                    error_log("imagenes_input__" . json_encode($imagenes));
+                    // error_log("imagenes_input__" . json_encode($imagenes));
                 } else {
                     error_log("Laar_No_imágenes_disponibles.");
                 }
@@ -2046,12 +2047,13 @@ class IntegrationAPIController extends Controller
 
                             if ($order->estado_logistico ==  "IMPRESO") {
                                 //se asume que ya tiene la reduccion de stock desde CONFIRMADO
-                                error_log("updt_estado_logistico: " . $order->estado_logistico . " a ENVIADO");
-                                $order->estado_logistico = "ENVIADO";
-                                $order->sent_at = $currentDateTime;
-                                $order->marca_tiempo_envio = $date;
-                                // $order->estado_interno = "CONFIRMADO";
-                                $order->fecha_entrega = $date;
+                                error_log("updt_estado_logistico: " . $order->estado_logistico . " a ENVIADO_v2");
+                                //se va a actualizar en caso estado_logistico ENVIADO
+                                // $order->estado_logistico = "ENVIADO";
+                                // $order->sent_at = $currentDateTime;
+                                // $order->marca_tiempo_envio = $date;
+                                // // $order->estado_interno = "CONFIRMADO";
+                                // $order->fecha_entrega = $date;
                             }
 
                             if ($key == "estado_logistico") {
@@ -2062,7 +2064,7 @@ class IntegrationAPIController extends Controller
                                     $order->sent_at = $currentDateTime;
                                     // $order->sent_by = $idUser;
                                     $order->marca_tiempo_envio = $date;
-                                    $order->estado_interno = "CONFIRMADO";
+                                    // $order->estado_interno = "CONFIRMADO";
                                     $order->fecha_entrega = $date;
 
                                     //reduccion del stock
@@ -2624,6 +2626,7 @@ class IntegrationAPIController extends Controller
 
                                         $order->status = $name_local;
                                         $order->status_last_modified_at = $currentDateTime;
+                                        $order->fecha_entrega = $date;
                                     } else {
                                         error_log("Novedad está vacía o no presente.");
                                     }
