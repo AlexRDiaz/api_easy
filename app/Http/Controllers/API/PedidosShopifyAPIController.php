@@ -5910,7 +5910,7 @@ class PedidosShopifyAPIController extends Controller
                 "data" => $createOrder,
             ], 200);
         } catch (\Exception $e) {
-            error_log("ERROR: $e");
+            error_log("orderProducto_error: $e");
             DB::rollback();
             return response()->json([
                 'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
