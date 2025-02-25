@@ -43,6 +43,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Normalizer;
 use PhpParser\Node\Stmt\TryCatch;
 
 use function Laravel\Prompts\error;
@@ -5668,7 +5669,8 @@ class PedidosShopifyAPIController extends Controller
             $provincia_shipping = $data['provincia_shipping'];
             $city_id = $data['city_id'];
 
-
+            $nombre_normalizado = Normalizer::normalize($name, Normalizer::FORM_C);
+            $direccion_normalizado = Normalizer::normalize($address, Normalizer::FORM_C);
 
             $numOrderstart = 1001; // Número inicial sin ceros a la izquierda
             $manualOrders = PedidosShopify::where('id_comercial', $IdComercial)
@@ -5768,8 +5770,8 @@ class PedidosShopifyAPIController extends Controller
                 $currentDateTime = date('Y-m-d H:i:s');
 
                 $createOrder->numero_orden = $NumeroOrden;
-                $createOrder->direccion_shipping = $address;
-                $createOrder->nombre_shipping = $name;
+                $createOrder->direccion_shipping = $direccion_normalizado;
+                $createOrder->nombre_shipping = $nombre_normalizado;
                 $createOrder->telefono_shipping = $phone;
                 $createOrder->precio_total = $formattedPrice;
                 $createOrder->observacion = $Observacion;
