@@ -1978,11 +1978,10 @@ class IntegrationAPIController extends Controller
                 try {
                     //
 
-                    // if ($order->status ==  "ENTREGADO" || $order->estado_devolucion !=  "PENDIENTE") {
-                    //     //se asume que ya tiene la reduccion de stock desde CONFIRMADO
-                    //     error_log("try_updt_laar_" . $guia . "_" . $order->status . " _a_" . $estadoCod . "_" . $estadoActual);
-                    //     return response()->json(['message' => 'Order has already been successfully updated.'], 200);
-                    // }
+                    if ($order->status ==  "ENTREGADO" || $order->estado_devolucion !=  "PENDIENTE") {
+                        error_log("try_updt_laar_" . $guia . "_" . $order->status . "_y_" . $order->estado_devolucion . " _a_" . $estadoCod . "_" . $estadoActual . "_ya_finalStatus_");
+                        return response()->json(['message' => 'Order has already been successfully updated with final status.'], 200);
+                    }
 
 
                     foreach ($status_array as $status) {
@@ -2064,14 +2063,14 @@ class IntegrationAPIController extends Controller
                                 $order->fecha_entrega = $date;
                             }
 
-                            // if ($estadoCod == 6) {
-                            //     //se asume que ya tiene la reduccion de stock desde CONFIRMADO
-                            //     if ($order->status != "PEDIDO PROGRAMADO" && $order->status != "EN RUTA") {
-                            //         # code...
-                            //         error_log("try_updt_laar_" . $guia . "_" . $order->status . " _a_" . $estadoCod . "_" . $estadoActual);
-                            //         return response()->json(['message' => 'Order has already been successfully updated.'], 200);
-                            //     }
-                            // }
+                            if ($estadoCod == 6) {
+                                //se asume que ya tiene la reduccion de stock desde CONFIRMADO
+                                if ($order->status != "PEDIDO PROGRAMADO" && $order->status != "EN RUTA") {
+                                    # code...
+                                    error_log("try_updt_laar_" . $guia . "_a_ZonaEntrega_pero_guia_" . $order->status);
+                                    return response()->json(['message' => 'Order has already been successfully updated.'], 200);
+                                }
+                            }
 
                             if ($key == "estado_logistico") {
 
