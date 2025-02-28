@@ -1885,7 +1885,7 @@ class IntegrationAPIController extends Controller
                 if (!empty($novedades)) {
                     // error_log("Laar_Novedades_recibidas__" . json_encode($novedades) . " ");
                 } else {
-                    // error_log("Laar_Novedades_vacio_o_no_presente");
+                    error_log("Laar_Novedades_vacio_o_no_presente");
                 }
 
                 if (!empty($imagenes)) {
@@ -3042,6 +3042,9 @@ class IntegrationAPIController extends Controller
                     }
 
                     DB::commit();
+
+                    error_log("requestUpdateStateLaar_success_" . $guia . "_a_" . $estadoCod . "_" . $estadoActual);
+
                     return response()->json(['message' => 'Order updated successfully.'], 200);
                 } catch (\Exception $e) {
                     DB::rollback();

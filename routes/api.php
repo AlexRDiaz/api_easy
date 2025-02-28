@@ -706,6 +706,9 @@ Route::middleware(['cors'])->group(function () {
         Route::post('byprovincia', [CoverageExternalAPIController::class, 'byProvincia']);
     });
 
+    // *
+    Route::get('laar/searchupdate', [IntegrationAPIController::class, 'searchUpdateStateLaar']);
+
     //..
 });
 
