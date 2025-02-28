@@ -2015,7 +2015,6 @@ class IntegrationAPIController extends Controller
 
                                     // $ultimaNovedad = $novedades[0];
                                     $ultimaNovedad = end($novedades);
-                                    error_log("laar_" . $guia . "_lastNov_" . $ultimaNovedad . "_");
 
                                     // if (stripos($ultimaNovedad['nombreTipoNovedad'], 'Devolucion') !== false) {
                                     // if (stripos($ultimaNovedad['nombreTipoNovedad'], 'Devolucion') !== false) {
@@ -2591,6 +2590,7 @@ class IntegrationAPIController extends Controller
 
                                         // $ultimaNovedad = $novedades[0];
                                         $ultimaNovedad = end($novedades);
+                                        error_log("laar_" . $guia . "_lastNov_" . json_encode($ultimaNovedad) . "_");
 
                                         $id_novedad = $ultimaNovedad['codigoTipoNovedad'];
                                         $no_novedad = $ultimaNovedad['nombreTipoNovedad'];
@@ -2600,7 +2600,7 @@ class IntegrationAPIController extends Controller
                                         $commentText = "";
                                         $commentText = $no_novedad . " | " . $observacionCourier;
 
-                                        error_log("commentText: $commentText");
+                                        // error_log("commentText: $commentText");
                                         $commentHist = $commentText;
 
                                         $novedades = NovedadesPedidosShopifyLink::where('pedidos_shopify_id', $order->id)->get();
@@ -3041,7 +3041,7 @@ class IntegrationAPIController extends Controller
                         }
                     }
 
-                    DB::commit();
+                    // DB::commit();
                     return response()->json(['message' => 'Order updated successfully.'], 200);
                 } catch (\Exception $e) {
                     DB::rollback();
