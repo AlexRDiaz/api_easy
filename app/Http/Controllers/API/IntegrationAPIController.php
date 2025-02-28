@@ -3041,7 +3041,7 @@ class IntegrationAPIController extends Controller
                         }
                     }
 
-                    // DB::commit();
+                    DB::commit();
                     return response()->json(['message' => 'Order updated successfully.'], 200);
                 } catch (\Exception $e) {
                     DB::rollback();
