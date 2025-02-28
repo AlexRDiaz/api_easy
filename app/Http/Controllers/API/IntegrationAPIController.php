@@ -1832,8 +1832,10 @@ class IntegrationAPIController extends Controller
 
     public function requestUpdateStateLaar(Request $request)
     {
+        // Registro inicial de la solicitud
+        error_log("requestUpdateStateLaar_solicitud_recibida_");
+
         try {
-            error_log("requestUpdateStateLaar");
             // Obtener el usuario autenticado mediante el token
             // $user = JWTAuth::parseToken()->authenticate();
 
@@ -1881,15 +1883,15 @@ class IntegrationAPIController extends Controller
 
 
                 if (!empty($novedades)) {
-                    error_log("Laar_Novedades_recibidas__" . json_encode($novedades) . " ");
+                    // error_log("Laar_Novedades_recibidas__" . json_encode($novedades) . " ");
                 } else {
-                    error_log("Laar_Novedades_vacio_o_no_presente");
+                    // error_log("Laar_Novedades_vacio_o_no_presente");
                 }
 
                 if (!empty($imagenes)) {
                     // error_log("imagenes_input__" . json_encode($imagenes));
                 } else {
-                    error_log("Laar_No_imágenes_disponibles.");
+                    // error_log("Laar_No_imágenes_disponibles.");
                 }
 
                 $order = PedidosShopify::with([
@@ -2013,6 +2015,7 @@ class IntegrationAPIController extends Controller
 
                                     // $ultimaNovedad = $novedades[0];
                                     $ultimaNovedad = end($novedades);
+                                    error_log("laar_" . $guia . "_lastNov_" . $ultimaNovedad . "_");
 
                                     // if (stripos($ultimaNovedad['nombreTipoNovedad'], 'Devolucion') !== false) {
                                     // if (stripos($ultimaNovedad['nombreTipoNovedad'], 'Devolucion') !== false) {
