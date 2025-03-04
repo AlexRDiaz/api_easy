@@ -1876,11 +1876,20 @@ class IntegrationAPIController extends Controller
                 $novedades = $data['novedades'];
                 $imagenes = $data['imagenes'];
 
-
                 error_log("laar_guia_input_$guia" . " ");
                 error_log("estadoCod_input_$estadoCod" . " ");
                 error_log("estadoActual_input_$estadoActual" . " ");
 
+
+                ignore_user_abort(true); // Permite que el script siga ejecutándose después de responder
+                ob_start();
+                // echo json_encode(['message' => 'Status received and being processed']);
+                header('Connection: close');
+                header('Content-Length: ' . ob_get_length());
+                ob_end_flush();
+                flush(); // Envía la respuesta al cliente y sigue ejecutando en segundo plano
+
+                error_log("requestUpdateStateLaar_success_Responses200");
 
                 if (!empty($novedades)) {
                     // error_log("Laar_Novedades_recibidas__" . json_encode($novedades) . " ");
