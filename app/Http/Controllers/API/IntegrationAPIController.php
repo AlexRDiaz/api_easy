@@ -1898,7 +1898,7 @@ class IntegrationAPIController extends Controller
                 }
 
                 if (!empty($imagenes)) {
-                    // error_log("imagenes_input__" . json_encode($imagenes));
+                    error_log("imagenes_input__" . json_encode($imagenes));
                 } else {
                     // error_log("Laar_No_imágenes_disponibles.");
                 }
