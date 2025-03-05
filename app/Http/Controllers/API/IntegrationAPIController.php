@@ -2593,12 +2593,12 @@ class IntegrationAPIController extends Controller
                                     //
                                     if (!empty($novedades)) {
 
-                                        // usort($novedades, function ($a, $b) {
-                                        //     return strtotime($b['fechaNovedad']) - strtotime($a['fechaNovedad']);
-                                        // });
+                                        usort($novedades, function ($a, $b) {
+                                            return strtotime($b['fechaNovedad']) - strtotime($a['fechaNovedad']);
+                                        });
 
-                                        // $ultimaNovedad = $novedades[0];
-                                        $ultimaNovedad = end($novedades);
+                                        $ultimaNovedad = $novedades[0];
+                                        // $ultimaNovedad = end($novedades);
                                         error_log("laar_" . $guia . "_lastNov_" . json_encode($ultimaNovedad) . "_");
 
                                         $id_novedad = $ultimaNovedad['codigoTipoNovedad'];
