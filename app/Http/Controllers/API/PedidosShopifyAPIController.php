@@ -2951,6 +2951,13 @@ class PedidosShopifyAPIController extends Controller
             $selectedFilter = "marca_tiempo_envio";
         }
 
+        // if ($idUser == "TODO") {
+        //     error_log("Filtrar Has pedidoCarrier");
+        // } else {
+        //     error_log("Filtrar por idExt");
+        // }
+
+
         if ($dateFilter == "FECHA PAGO RECIBIDO") {
             error_log("CalculateValuesExternalCarrier_FECHA_PAGO_RECIBIDO");
 
@@ -2958,8 +2965,13 @@ class PedidosShopifyAPIController extends Controller
                 ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider', 'carrierExternal', 'pedidoCarrier'])
                 // ->where('carrier_external_id', $idUser)  // ! <---- se pretende usar el id de la transportadora externa que seleccione
                 // ->where('carrier_external_id',1)
+                // ->whereHas('pedidoCarrier', function ($query) use ($idUser) {
+                //     $query->where('carrier_id', $idUser);
+                // })
                 ->whereHas('pedidoCarrier', function ($query) use ($idUser) {
-                    $query->where('carrier_id', $idUser);
+                    if ($idUser != "TODO") {
+                        $query->where('carrier_id', $idUser);
+                    }
                 })
                 ->whereNotNull('gestioned_payment_cost_delivery')
                 ->whereRaw(
@@ -3006,8 +3018,13 @@ class PedidosShopifyAPIController extends Controller
                 ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'product.warehouse.provider', 'carrierExternal', 'pedidoCarrier'])
                 // ->where('carrier_external_id', $idUser)  // ! <---- se pretende usar el id de la transportadora externa que seleccione
                 // ->where('carrier_external_id',1)
+                // ->whereHas('pedidoCarrier', function ($query) use ($idUser) {
+                //     $query->where('carrier_id', $idUser);
+                // })
                 ->whereHas('pedidoCarrier', function ($query) use ($idUser) {
-                    $query->where('carrier_id', $idUser);
+                    if ($idUser != "TODO") {
+                        $query->where('carrier_id', $idUser);
+                    }
                 })
                 ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
 
