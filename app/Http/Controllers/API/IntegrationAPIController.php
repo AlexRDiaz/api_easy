@@ -1876,6 +1876,15 @@ class IntegrationAPIController extends Controller
                 $novedades = $data['novedades'];
                 $imagenes = $data['imagenes'];
 
+                $lockKey = "processing_guia_$guia";
+
+                if (Cache::has($lockKey)) {
+                    error_log("Processing_already_laar_guide_$guia");
+                    return response()->json(['message' => 'Processing already in progress for this guide.'], 200);
+                }
+
+                Cache::put($lockKey, 'processing', now()->addMinutes(2));
+
                 error_log("laar_guia_input_$guia" . " ");
                 error_log("estadoCod_input_$estadoCod" . " ");
                 error_log("estadoActual_input_$estadoActual" . " ");
