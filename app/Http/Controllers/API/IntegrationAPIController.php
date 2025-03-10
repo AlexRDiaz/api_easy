@@ -2909,6 +2909,31 @@ class IntegrationAPIController extends Controller
                                     }
 
                                     //COD no
+
+                                    $costo_recaudo = 0;
+                                    //COD si new version
+                                    if ($orderData['recaudo'] == 1) {
+                                        $tarifasRango = $costs['costo_recaudo']['tarifas_rango'];
+
+                                        foreach ($tarifasRango as $rango) {
+
+                                            $min = (float)($rango['min']);
+                                            $max = (float)($rango['max']);
+                                            $tarifa = $rango['tarifa'];
+
+                                            if (((float)$orderData['precio_total']) >= $min && ((float)$orderData['precio_total'])  <= $max) {
+                                                if (is_string($tarifa) && substr($tarifa, -1) === '%') {
+                                                    $porcentaje = (float)str_replace('%', '', $tarifa) / 100;
+                                                    $costo_recaudo = ((float)$orderData['precio_total'])  * $porcentaje;
+                                                } elseif (is_float($tarifa)) {
+                                                    $costo_recaudo = $tarifa;
+                                                }
+                                                error_log("costo_recaudo: $costo_recaudo");
+                                            }
+                                        }
+                                    }
+                                    $deliveryPrice += $costo_recaudo;
+                                    $deliveryPrice = round($deliveryPrice, 2);
                                     //
                                     $pesoRango = $costs["peso_rango"];
 
