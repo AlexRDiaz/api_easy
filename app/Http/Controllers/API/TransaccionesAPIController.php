@@ -19,6 +19,7 @@ use App\Models\Provider;
 
 use App\Http\Controllers\API\ProductAPIController;
 use App\Models\CarrierCoverage;
+use App\Models\ExchangeRate;
 use App\Models\OrdenesRetiro;
 use App\Models\OrdenesRetirosUsersPermissionsUserLink;
 use App\Models\PedidosShopifiesCarrierExternalLink;
@@ -783,6 +784,67 @@ class TransaccionesAPIController extends Controller
             // $pedido = PedidosShopify::findOrFail($data['id_origen']);
             $pedido = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades', 'operadore', 'transactionTransportadora', 'pedidoCarrier'])->findOrFail($data['id_origen']);
             $marcaT = "";
+            $amountOrder = $pedido->precio_total;
+            error_log("precioInicio: $amountOrder");
+
+            $amountConvert = $data["amount_convert"]; //si no llega es dolares
+            error_log("amountConvert: $amountConvert");
+
+            if ($amountConvert != $amountOrder) {
+                error_log("Cambio de preciototal");
+
+                $exchangeRates = ExchangeRate::where('country_id', 2)->get();
+                error_log($exchangeRates);
+
+                $tipoCambio = $data["tipo_cambio"]; //si no llega es dolares
+
+                if ($tipoCambio!=null) { //
+                    # code...
+                    error_log("Need convertir Bs a dolares");
+                }
+                /*
+                $response = Http::get('https://pydolarve.org/api/v1/dollar?page=enparalelovzla'); //paralelo
+                //api/v1/dollar?page=bcv
+                //api/v1/dollar?page=italcambio
+
+                if ($response->successful()) {
+                    $dataCambio = $response->json();
+                    $price = $dataCambio['monitors']['enparalelovzla']['price'] ?? null;
+
+                    if ($price) {
+                        error_log("Tasa de cambio: $price");
+                        // $bolivares = $data['amount_convert'] ?? 0;  // Asegúrate de que 'amount_convert' está en los datos
+                        $dolares = round($amountConvert / $price, 2);
+                        $amountOrder = $dolares;
+                        error_log("Monto en dólares: $dolares");
+                    } else {
+                        return response()->json(['error' => 'No se encontró la Tasa de cambio'], 404);
+                    }
+                } else {
+                    return response()->json(['error' => 'Error al consultar Tasa de cambio'], 500);
+                }
+                */
+            }
+            //usd_to_bs  solo trae el oficial bcv
+            /*
+            $apiKey = '424a4ed0e3f50a895f364d40eb5c4b88';
+            $url = "https://api.exchangeratesapi.io/v1/latest?access_key=$apiKey&symbols=USD,VES";
+            $response = Http::get($url);
+
+            if ($response->successful()) {
+                $rates = $response->json()['rates'];
+
+                // Calculamos la tasa USD → VES
+                $usdToVes = $rates['VES'] / $rates['USD'];
+
+                // Mostramos la tasa
+                error_log("Tasa USD a VES: $usdToVes");
+            } else {
+                error_log("No se pudo obtener la tasa de cambio");
+            }
+            */
+
+            error_log("precioFinal: $amountOrder");
 
             if (!empty($pedido->marca_t_i)) {
                 try {
@@ -839,6 +901,9 @@ class TransaccionesAPIController extends Controller
             $pedido->costo_envio = $data['monto_debit'];
             if ($data["archivo"] != "") {
                 $pedido->archivo = $data["archivo"];
+            }
+            if ($amountConvert != "") {
+                $pedido->precio_total = $amountOrder;
             }
 
             //new column
@@ -1254,7 +1319,8 @@ class TransaccionesAPIController extends Controller
                     'costo_transportadora' => $costoTransportadora,
                 ]);
             }
-            DB::commit(); // Confirma la transacción si todas las operaciones tienen éxito
+            // DB::commit(); // Confirma la transacción si todas las operaciones tienen éxito
+
             return response()->json([
                 "res" => "transaccion exitosa"
             ]);
