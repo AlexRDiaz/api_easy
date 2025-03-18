@@ -1755,9 +1755,8 @@ class IntegrationAPIController extends Controller
 
         $apiUrl = 'https://api.laarcourier.com:9727/guias/pdfs/DescargarV2?guia=';
 
-        // Realizar la solicitud POST a la API externa con autenticación básica
-        $response = Http::get($apiUrl . $guia);
-
+        // $response = Http::get($apiUrl . $guia);
+        $response = Http::withoutVerifying()->get($apiUrl . $guia);//sin validar SSL
 
         // Verificar el estado de la respuesta
         if ($response->successful()) {
