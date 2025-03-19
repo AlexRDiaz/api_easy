@@ -781,70 +781,73 @@ class TransaccionesAPIController extends Controller
 
             $startDateFormatted = new DateTime();
 
+            $user = UpUser::where('id', $data['generated_by'])->first();
+            $username = $user ? $user->username : null;
+
             // $pedido = PedidosShopify::findOrFail($data['id_origen']);
             $pedido = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades', 'operadore', 'transactionTransportadora', 'pedidoCarrier'])->findOrFail($data['id_origen']);
             $marcaT = "";
             $amountOrder = $pedido->precio_total;
-            error_log("precioInicio: $amountOrder");
+            // error_log("precioInicio: $amountOrder");
 
-            $amountConvert = $data["amount_convert"]; //si no llega es dolares
-            error_log("amountConvert: $amountConvert");
+            $amountConvert = $data["amount_convert"];
 
-            if ($amountConvert != $amountOrder) {
-                error_log("Cambio de preciototal");
+            if ((float)$amountConvert != (float)$amountOrder) {
+                error_log("Cambio_preciototal_" . $data['id_origen']);
+                $divisa =  $data["divisa"]; //si no llega es dolares
 
-                $exchangeRates = ExchangeRate::where('country_id', 2)->get();
-                error_log($exchangeRates);
+                if ($divisa != "USD") {
+                    $tipoCambio = $data["tipo_cambio"];
+                    // error_log("Need convertir Bs a dolares con $tipoCambio");
 
-                $tipoCambio = $data["tipo_cambio"]; //si no llega es dolares
+                    $exchangeRates = ExchangeRate::where('country_id', 2)
+                        ->where('source', $tipoCambio)
+                        ->first();
 
-                if ($tipoCambio!=null) { //
-                    # code...
-                    error_log("Need convertir Bs a dolares");
-                }
-                /*
-                $response = Http::get('https://pydolarve.org/api/v1/dollar?page=enparalelovzla'); //paralelo
-                //api/v1/dollar?page=bcv
-                //api/v1/dollar?page=italcambio
+                    $tasa = $exchangeRates->rate;
+                    $newAmount = round($amountConvert / $tasa, 2);
+                    $amountOrder = $newAmount;
 
-                if ($response->successful()) {
-                    $dataCambio = $response->json();
-                    $price = $dataCambio['monitors']['enparalelovzla']['price'] ?? null;
+                    $newHistoryAmount = [
+                        "area" => "",
+                        "status" => "",
+                        "timestap" => date('Y-m-d H:i:s'),
+                        "comment" => "Cambio de valores debido al pago en bolívares fuertes, tasa de cambio $tipoCambio: $tasa. Precio inicial: $pedido->precio_total, precio final: $newAmount.",
+                        "path" => "",
+                        "generated_by" => $data['generated_by'] . "_" . $username
+                    ];
 
-                    if ($price) {
-                        error_log("Tasa de cambio: $price");
-                        // $bolivares = $data['amount_convert'] ?? 0;  // Asegúrate de que 'amount_convert' está en los datos
-                        $dolares = round($amountConvert / $price, 2);
-                        $amountOrder = $dolares;
-                        error_log("Monto en dólares: $dolares");
+                    if ($pedido->status_history === null || $pedido->status_history === '[]') {
+                        $pedido->status_history = json_encode([$newHistoryAmount]);
                     } else {
-                        return response()->json(['error' => 'No se encontró la Tasa de cambio'], 404);
+                        $existingHistory = json_decode($pedido->status_history, true);
+                        $existingHistory[] = $newHistoryAmount;
+                        $pedido->status_history = json_encode($existingHistory);
                     }
                 } else {
-                    return response()->json(['error' => 'Error al consultar Tasa de cambio'], 500);
+                    // error_log("solo upt precioTotal");
+                    $amountOrder = $amountConvert;
+
+                    $newHistoryAmount = [
+                        "area" => "",
+                        "status" => "",
+                        "timestap" => date('Y-m-d H:i:s'),
+                        "comment" => "Cambio de valores por reajuste final en la venta. Precio inicial: $pedido->precio_total, precio final: $amountConvert",
+                        "path" => "",
+                        "generated_by" => $data['generated_by'] . "_" . $username
+                    ];
+
+                    if ($pedido->status_history === null || $pedido->status_history === '[]') {
+                        $pedido->status_history = json_encode([$newHistoryAmount]);
+                    } else {
+                        $existingHistory = json_decode($pedido->status_history, true);
+                        $existingHistory[] = $newHistoryAmount;
+                        $pedido->status_history = json_encode($existingHistory);
+                    }
                 }
-                */
             }
-            //usd_to_bs  solo trae el oficial bcv
-            /*
-            $apiKey = '424a4ed0e3f50a895f364d40eb5c4b88';
-            $url = "https://api.exchangeratesapi.io/v1/latest?access_key=$apiKey&symbols=USD,VES";
-            $response = Http::get($url);
 
-            if ($response->successful()) {
-                $rates = $response->json()['rates'];
-
-                // Calculamos la tasa USD → VES
-                $usdToVes = $rates['VES'] / $rates['USD'];
-
-                // Mostramos la tasa
-                error_log("Tasa USD a VES: $usdToVes");
-            } else {
-                error_log("No se pudo obtener la tasa de cambio");
-            }
-            */
-
-            error_log("precioFinal: $amountOrder");
+            // error_log("precioFinal: $amountOrder");
 
             if (!empty($pedido->marca_t_i)) {
                 try {
@@ -907,8 +910,6 @@ class TransaccionesAPIController extends Controller
             }
 
             //new column
-            $user = UpUser::where('id', $data['generated_by'])->first();
-            $username = $user ? $user->username : null;
 
             $newHistory = [
                 "area" => "status",
@@ -951,7 +952,8 @@ class TransaccionesAPIController extends Controller
             $SellerCreditFinalValue = $this->updateProductAndProviderBalance(
                 // "TEST2C1003",
                 $variants,
-                $pedido->precio_total,
+                // $pedido->precio_total,
+                $amountOrder,
                 // $pedido->cantidad_total,
                 $data['generated_by'],
                 $data['id_origen'],
@@ -1014,7 +1016,8 @@ class TransaccionesAPIController extends Controller
                 $newTransactionGlobal->code = $pedido->users[0]->vendedores[0]->nombre_comercial . "-" . $pedido->numero_orden;
                 $newTransactionGlobal->origin = 'Pedido ' . $pedido->status;
                 $newTransactionGlobal->withdrawal_price = 0; // Ajusta según necesites
-                $newTransactionGlobal->value_order = $pedido->precio_total; // Ajusta según necesites
+                // $newTransactionGlobal->value_order = $pedido->precio_total; // Ajusta según necesites
+                $newTransactionGlobal->value_order =  $amountOrder;
                 $newTransactionGlobal->return_cost = 0;
                 $newTransactionGlobal->delivery_cost = -$pedido->costo_envio; // Ajusta según necesites
                 $newTransactionGlobal->notdelivery_cost = 0; // Ajusta según necesites
@@ -1051,7 +1054,8 @@ class TransaccionesAPIController extends Controller
                     $newTransactionGlobal->code = $pedido->users[0]->vendedores[0]->nombre_comercial . "-" . $pedido->numero_orden;
                     $newTransactionGlobal->origin = 'Pedido ' . $pedido->status;
                     $newTransactionGlobal->withdrawal_price = 0;
-                    $newTransactionGlobal->value_order = $pedido->precio_total;
+                    // $newTransactionGlobal->value_order = $pedido->precio_total;
+                    $newTransactionGlobal->value_order = $amountOrder;
                     $newTransactionGlobal->return_cost = 0;
                     $newTransactionGlobal->delivery_cost = -$pedido->costo_envio;
                     $newTransactionGlobal->notdelivery_cost = 0;
@@ -1306,7 +1310,8 @@ class TransaccionesAPIController extends Controller
                 $transaccionNew = new TransaccionPedidoTransportadora();
                 $transaccionNew->status = "ENTREGADO";
                 $transaccionNew->fecha_entrega = $fechaEntrega;
-                $transaccionNew->precio_total = $precioTotal;
+                // $transaccionNew->precio_total = $precioTotal;
+                $transaccionNew->precio_total =  $amountOrder;
                 $transaccionNew->costo_transportadora = $costoTransportadora;
                 $transaccionNew->id_pedido = $data['id_origen'];
                 $transaccionNew->id_transportadora = $idTransportadora;
@@ -1319,7 +1324,7 @@ class TransaccionesAPIController extends Controller
                     'costo_transportadora' => $costoTransportadora,
                 ]);
             }
-            // DB::commit(); // Confirma la transacción si todas las operaciones tienen éxito
+            DB::commit(); // Confirma la transacción si todas las operaciones tienen éxito
 
             return response()->json([
                 "res" => "transaccion exitosa"

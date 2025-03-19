@@ -5,6 +5,7 @@ use App\Http\Controllers\API\CarrierExternalAPIController;
 use App\Http\Controllers\API\CoverageExternalAPIController;
 use App\Http\Controllers\API\DBBackUpAPIController;
 use App\Http\Controllers\API\DpaProvinciaAPIController;
+use App\Http\Controllers\API\ExchangeRateAPIController;
 use App\Http\Controllers\API\GenerateReportAPIController;
 use App\Http\Controllers\API\IntegrationAPIController;
 use App\Http\Controllers\API\OrdenesRetiroAPIController;
@@ -708,6 +709,13 @@ Route::middleware(['cors'])->group(function () {
 
     // *
     Route::get('laar/searchupdate', [IntegrationAPIController::class, 'searchUpdateStateLaar']);
+
+    //  *
+    Route::prefix('exchangerate')->group(function () {
+        Route::get('bycountry/{idCountry}', [ExchangeRateAPIController::class, 'byCountry']);
+        Route::post('update', [ExchangeRateAPIController::class, 'updateData']);
+
+    });
 
     //..
 });
