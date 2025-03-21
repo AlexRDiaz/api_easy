@@ -384,6 +384,7 @@ class UpUserAPIController extends Controller
             $seller->costo_envio = 6;
             $seller->costo_devolucion = 6;
             $seller->referer = $request->input('referer');
+            $seller->saldo = 0;
             $seller->company_id = $refererCompanyId;
             $seller->save();
 
@@ -1516,6 +1517,7 @@ class UpUserAPIController extends Controller
                     $newSeller->id_master = $user->id;
                     $newSeller->url_tienda = $request->input('url_tienda');
                     $newSeller->referer_cost = "0.10";
+                    $newSeller->saldo = 0;
                     $newSeller->company_id = $request->input('company_id');
                     $newSeller->save();
 
@@ -1807,6 +1809,7 @@ class UpUserAPIController extends Controller
                 $newSeller->id_master = $user->id;
                 $newSeller->url_tienda = $request->input('url_tienda');
                 $newSeller->referer_cost = "0.10";
+                $newSeller->saldo = 0;
                 $newSeller->company_id = 1;
                 $newSeller->save();
 
