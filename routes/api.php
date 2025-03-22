@@ -731,7 +731,7 @@ Route::post('upload', [App\Http\Controllers\API\TransportadorasShippingCostAPICo
 Route::put('pedidos-shopify/updatefieldtime/{id}', [App\Http\Controllers\API\PedidosShopifyAPIController::class, 'updateFieldTime']);
 
 Route::prefix('warehouses')->group(function () {
-    Route::get('/', [WarehouseAPIController::class, 'index']);
+    Route::get('bycompany/{id}', [WarehouseAPIController::class, 'index']);
     Route::get('/{id}', [WarehouseAPIController::class, 'show']);
     Route::post('/', [WarehouseAPIController::class, 'store']);
     Route::put('/{id}', [WarehouseAPIController::class, 'update']);

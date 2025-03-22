@@ -12,11 +12,17 @@ use Illuminate\Support\Facades\Mail;
 class WarehouseAPIController extends Controller
 {
 
-    public function index()
+    public function index(string $idCompany)
     {
         //
+        // error_log("index");
         // $warehouses = Warehouse::all();
         $warehouses = Warehouse::with('provider')
+            ->whereHas('provider', function ($query) use ($idCompany) {
+                $query->where('active', 1)
+                    ->where('approved', 1)
+                    ->where('company_id', $idCompany);
+            })
             ->select('warehouse_id', 'branch_name', 'address', 'city', 'active', 'approved', 'customer_service_phone', 'provider_id',)
             ->get();
 
@@ -214,15 +220,17 @@ class WarehouseAPIController extends Controller
 
     public function getSpecials(string $idCompany)
     {
-        error_log("getSpecials");
-        error_log($idCompany);
+        // error_log("getSpecials");
+        // error_log($idCompany);
         $warehouses = Warehouse::with('provider')
-            ->whereHas('provider', function ($query) {
-                $query->where('active', 1)->where('approved', 1)->where('special', 1);
+            ->whereHas('provider', function ($query) use ($idCompany) {
+                $query->where('active', 1)
+                    ->where('approved', 1)
+                    ->where('special', 1)
+                    ->where('company_id', $idCompany);
             })
             ->where('active', 1)
             ->where('approved', 1)
-            // ->get();
             ->get(['branch_name', 'warehouse_id', 'city', 'provider_id']);
 
         return response()->json(['warehouses' => $warehouses]);
