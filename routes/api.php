@@ -462,7 +462,7 @@ Route::middleware(['cors'])->group(function () {
 
     // *
     Route::prefix('rutas')->group(function () {
-        Route::get('/', [RutaAPIController::class, 'index']);
+        Route::get('bycompany/{id}', [RutaAPIController::class, 'index']);
         Route::get('/active/{id}', [RutaAPIController::class, 'activeRoutes']);
         Route::get('/{id}', [RutaAPIController::class, 'show']);
         Route::post('/subroutesofroute/{id}', [RutaAPIController::class, 'getTransportadorasConRutasYSubRutas']);

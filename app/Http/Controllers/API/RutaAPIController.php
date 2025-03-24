@@ -13,11 +13,12 @@ class RutaAPIController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(string $idCompany)
     {
         //
-        $rutas = Ruta::all();
+        // $rutas = Ruta::all();
         //$rutas = Ruta::with('transportadoras', 'sub_rutas')->get();
+        $rutas = Ruta::where('company_id', $idCompany)->get();
         return response()->json($rutas);
     }
 
