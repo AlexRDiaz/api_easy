@@ -265,6 +265,177 @@ class TransaccionesGlobalAPIController extends Controller
         }
     }
 
+    public function generalDataWithoutPagination(Request $request)
+    {
+        try {
+            $data = $request->json()->all();
+            
+            $searchTerm = $data['search'] ?? "";
+            $dateFilter = $data['date_filter'] ?? "";
+            $populate = $data["populate"] ?? [];
+            $modelName = $data['model'] ?? "";
+            $Map = $data['and'] ?? [];
+            $not = $data['not'] ?? [];
+            $relationsToInclude = $data['include'] ?? [];
+            $relationsToExclude = $data['exclude'] ?? [];
+            
+            $fullModelName = "App\\Models\\" . $modelName;
+            
+            if (!class_exists($fullModelName)) {
+                return response()->json(['error' => 'Modelo no encontrado'], 404);
+            }
+            
+            $allowedModels = ['Transportadora', 'UpUser', 'Vendedore', 'UpUsersVendedoresLink', 'UpUsersRolesFrontLink', 'OrdenesRetiro', 'PedidosShopify', 'Provider', 'TransaccionPedidoTransportadora', "pedidoCarrier", "TransaccionGlobal"];
+            
+            if (!in_array($modelName, $allowedModels)) {
+                return response()->json(['error' => 'Acceso al modelo no permitido'], 403);
+            }
+            
+            // Construir la consulta
+            $databackend = $fullModelName::with($populate);
+            
+            // Procesar filtros de fecha
+            if (isset($data['start']) && isset($data['end'])) {
+                try {
+                    $startDateFormatted = Carbon::createFromFormat('j/n/Y', $data['start'])->format('Y-m-d');
+                    $endDateFormatted = Carbon::createFromFormat('j/n/Y', $data['end'])->format('Y-m-d');
+                    $databackend->whereBetween($dateFilter, [$startDateFormatted, $endDateFormatted]);
+                } catch (\Exception $e) {
+                    return response()->json(['error' => 'Formato de fecha inválido'], 400);
+                }
+            }
+            
+            // Procesar búsqueda de texto
+            if (!empty($searchTerm) && isset($data['or'])) {
+                $filteFields = $data['or'];
+                $databackend->where(function ($query) use ($searchTerm, $filteFields) {
+                    foreach ($filteFields as $field) {
+                        if (strpos($field, '.') !== false) {
+                            // Buscar en relaciones
+                            $segments = explode('.', $field);
+                            $lastSegment = array_pop($segments);
+                            $relation = implode('.', $segments);
+                            
+                            $query->orWhereHas($relation, function ($subquery) use ($lastSegment, $searchTerm) {
+                                $subquery->where($lastSegment, 'LIKE', '%' . $searchTerm . '%');
+                            });
+                        } else {
+                            $query->orWhere($field, 'LIKE', '%' . $searchTerm . '%');
+                        }
+                    }
+                });
+            }
+            
+            // Procesar condiciones AND
+            if (!empty($Map)) {
+                $databackend->where(function ($query) use ($Map) {
+                    foreach ($Map as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            $parts = explode("/", $key);
+                            $type = $parts[0];
+                            $filter = $parts[1];
+                            
+                            if ($valor === null) {
+                                $query->whereNull($filter);
+                            } else {
+                                if (strpos($filter, '.') !== false) {
+                                    // Manejar condiciones en relaciones
+                                    $segments = explode('.', $filter);
+                                    $lastSegment = array_pop($segments);
+                                    $relation = implode('.', $segments);
+                                    
+                                    $query->whereHas($relation, function ($subquery) use ($lastSegment, $valor, $type) {
+                                        if ($type == "equals") {
+                                            $subquery->where($lastSegment, '=', $valor);
+                                        } else {
+                                            $subquery->where($lastSegment, 'LIKE', '%' . $valor . '%');
+                                        }
+                                    });
+                                } else {
+                                    if ($type == "equals") {
+                                        // Si es un campo ID, convertir a entero
+                                        if (strpos($filter, 'id_') === 0 || $filter === 'id') {
+                                            $valor = (int) $valor;
+                                        }
+                                        $query->where($filter, '=', $valor);
+                                    } else {
+                                        $query->where($filter, 'LIKE', '%' . $valor . '%');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Procesar condiciones NOT
+            if (!empty($not)) {
+                $databackend->where(function ($query) use ($not) {
+                    foreach ($not as $condition) {
+                        foreach ($condition as $key => $valor) {
+                            if ($valor === null) {
+                                $query->whereNotNull($key);
+                            } else if ($valor === '') {
+                                $query->whereRaw("$key <> ''");
+                            } else {
+                                if (strpos($key, '.') !== false) {
+                                    // Manejar condiciones NOT en relaciones
+                                    $segments = explode('.', $key);
+                                    $lastSegment = array_pop($segments);
+                                    $relation = implode('.', $segments);
+                                    
+                                    $query->whereDoesntHave($relation, function ($subquery) use ($lastSegment, $valor) {
+                                        $subquery->where($lastSegment, '=', $valor);
+                                    });
+                                } else {
+                                    $query->where($key, '<>', $valor);
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Procesar relaciones a incluir/excluir
+            if (!empty($relationsToInclude)) {
+                foreach ($relationsToInclude as $relation) {
+                    $databackend->whereHas($relation);
+                }
+            }
+            
+            if (!empty($relationsToExclude)) {
+                foreach ($relationsToExclude as $relation) {
+                    $databackend->whereDoesntHave($relation);
+                }
+            }
+            
+            // Aplicar ordenamiento
+            if (isset($data['sort'])) {
+                if (is_string($data['sort'])) {
+                    $sortParts = explode(':', $data['sort']);
+                    if (count($sortParts) === 2) {
+                        $field = trim($sortParts[0]);
+                        $direction = strtoupper(trim($sortParts[1])) === 'DESC' ? 'DESC' : 'ASC';
+                        $databackend->orderBy($field, $direction);
+                    }
+                } elseif (is_array($data['sort'])) {
+                    foreach ($data['sort'] as $field => $direction) {
+                        $databackend->orderBy($field, $direction);
+                    }
+                }
+            }
+            
+            // Obtener resultados sin paginación
+            $results = $databackend->get();
+            
+            return response()->json($results);
+            
+        } catch (\Exception $e) {
+            error_log("Error en generalDataWithoutPagination: " . $e->getMessage());
+            return response()->json(['error' => "Error en la solicitud: " . $e->getMessage()], 500);
+        }
+    }
+    
     public function getExistTransaction(Request $request)
     {
         $data = $request->json()->all();

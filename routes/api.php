@@ -656,6 +656,9 @@ Route::middleware(['cors'])->group(function () {
 
     //  * transacciones global
     Route::post('generaldata-tg', [App\Http\Controllers\API\TransaccionesGlobalAPIController::class, 'generalData']);
+    Route::post('generaldata-tg-withoutpagination', [App\Http\Controllers\API\TransaccionesGlobalAPIController::class, 'generalDataWithoutPagination']);
+
+
 
 
     //  *
