@@ -170,6 +170,28 @@ class IntegrationAPIController extends Controller
         // Obtener los datos del formulario
         $data = $request->all();
 
+        $nombreRemitente = $data['remitente']['nombre'] ?? null;
+        $nombreDestinatario = $data['destinatario']['nombre'] ?? null;
+        $direccionDestinatario = $data['destinatario']['direccion'] ?? null;
+        $telefonoDestinatario = $data['destinatario']['telefono'] ?? null;
+
+        if (empty(trim($nombreRemitente))) {
+            error_log("putIntegrationsUrlStoreG_error_nombreRemitente");
+            return response()->json(["error" => true, "guia" => "El nombre del remitente es obligatorio"], 200);
+        }
+        if (empty(trim($nombreDestinatario))) {
+            error_log("putIntegrationsUrlStoreG_error_nombreDestinatario");
+            return response()->json(["error" => true, "guia" => "El nombre del destinatario es obligatorio"], 200);
+        }
+        if (empty(trim($direccionDestinatario))) {
+            error_log("putIntegrationsUrlStoreG_error_direccionDestinatario");
+            return response()->json(["error" => true, "guia" => "La direcccion  del destinatario es obligatorio"], 200);
+        }
+        if (empty(trim($telefonoDestinatario))) {
+            error_log("putIntegrationsUrlStoreG_error_telefonoDestinatario");
+            return response()->json(["error" => true, "guia" => "El telefono  del destinatario es obligatorio"], 200);
+        }
+
         // URL de la API externa
         $apiUrl = 'https://ec.gintracom.site/web/easy/pedido';
 
@@ -1620,6 +1642,29 @@ class IntegrationAPIController extends Controller
         $data = $request->all();
         $apiUrl = 'https://api.laarcourier.com:9727/guias/contado';
 
+        // error_log("request_data: " . json_encode($data));
+        $nombreRemitente = $data['origen']['nombreO'] ?? null;
+        $nombreDestinatario = $data['destino']['nombreD'] ?? null;
+        $direccionDestinatario = $data['destino']['direccion'] ?? null;
+        $celularDestinatario = $data['destino']['celular'] ?? null;
+
+        if (empty(trim($nombreRemitente))) {
+            error_log("postOrderLaar_error_nombreRemitente");
+            return response()->json(["error" => true, "guia" => "El nombre del remitente es obligatorio", "url" => ""], 400);
+        }
+        if (empty(trim($nombreDestinatario))) {
+            error_log("postOrderLaar_error_nombreDestinatario");
+            return response()->json(["guia" => "El nombre del destinatario es obligatorio", "url" => ""], 400);
+        }
+        if (empty(trim($direccionDestinatario))) {
+            error_log("postOrderLaar_error_direccionDestinatario");
+            return response()->json(["guia" => "La direcccion  del destinatario es obligatorio", "url" => ""], 400);
+        }
+        if (empty(trim($celularDestinatario))) {
+            error_log("postOrderLaar_error_celularDestinatario");
+            return response()->json(["guia" => "El celular  del destinatario es obligatorio", "url" => ""], 400);
+        }
+
         $token = $this->getTokenLaar();
 
         if (!$token) {
@@ -1756,7 +1801,7 @@ class IntegrationAPIController extends Controller
         $apiUrl = 'https://api.laarcourier.com:9727/guias/pdfs/DescargarV2?guia=';
 
         // $response = Http::get($apiUrl . $guia);
-        $response = Http::withoutVerifying()->get($apiUrl . $guia);//sin validar SSL
+        $response = Http::withoutVerifying()->get($apiUrl . $guia); //sin validar SSL
 
         // Verificar el estado de la respuesta
         if ($response->successful()) {
