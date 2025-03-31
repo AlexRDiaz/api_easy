@@ -306,7 +306,7 @@ class TransportadorasAPIController extends Controller
     {
         $data = $request->json()->all();
 
-        $test = $data['test']; //force version update
+        $test = $data['test2']; //force version update
 
         $pageSize = $data['page_size'];
         $pageNumber = $data['page_number'];
