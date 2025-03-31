@@ -451,6 +451,7 @@ class CarrierExternalAPIController extends Controller
         //
         error_log("CarrierExternalAPIController-multiNewCoverage");
         // error_log("$request");
+        ini_set('max_execution_time', 300); // 5 minutos
 
         DB::beginTransaction();
 
@@ -553,7 +554,7 @@ class CarrierExternalAPIController extends Controller
                 }
             }
 
-            DB::commit();
+            // DB::commit();
             return response()->json(["message" => "Se creo con exito"], 200);
         } catch (\Exception $e) {
             DB::rollback();

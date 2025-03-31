@@ -2336,6 +2336,11 @@ class IntegrationAPIController extends Controller
                                                 $tipoDestino = "oriente";
                                                 error_log("oriente $deliveryPrice");
                                                 break;
+                                            case "TG":
+                                                $deliveryPrice = (float)($costs["galapagos"]);
+                                                $tipoDestino = "galapagos";
+                                                error_log("galapagos $deliveryPrice");
+                                                break;
                                             default:
                                                 $deliveryPrice = 0;
                                                 $tipoDestino = "local";
@@ -2943,6 +2948,11 @@ class IntegrationAPIController extends Controller
                                                 $deliveryPrice = (float)($costs["oriente"]);
                                                 $tipoDestino = "oriente";
                                                 error_log("oriente $deliveryPrice");
+                                                break;
+                                            case "TG":
+                                                $deliveryPrice = (float)($costs["galapagos"]);
+                                                $tipoDestino = "galapagos";
+                                                error_log("galapagos $deliveryPrice");
                                                 break;
                                             default:
                                                 $deliveryPrice = 0;
