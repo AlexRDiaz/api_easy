@@ -2699,9 +2699,7 @@ class PedidosShopifyAPIController extends Controller
         }
 
         try {
-
             // $startTime = microtime(true);
-
             $sumRefererValue = PedidosShopify::query()
                 ->with(['users.vendedores'])
 
