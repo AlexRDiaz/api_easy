@@ -3570,6 +3570,7 @@ class PedidosShopifyAPIController extends Controller
         $pageSize = $data['page_size'];
         $pageNumber = $data['page_number'];
         $searchTerm = $data['search'];
+        $test = $data['test']; //force version update
 
         if ($searchTerm != "") {
             $filteFields = $data['or'];
