@@ -2684,7 +2684,7 @@ class PedidosShopifyAPIController extends Controller
 
     public function CalculateValuesSeller(Request $request)
     {
-        error_log("CalculateValuesSeller");
+
         $data = $request->json()->all();
         $startDate = Carbon::createFromFormat('j/n/Y', $data['start'])->format('Y-m-d');
         $endDate = Carbon::createFromFormat('j/n/Y', $data['end'])->format('Y-m-d');
@@ -2699,7 +2699,7 @@ class PedidosShopifyAPIController extends Controller
         }
 
         try {
-
+            // $startTime = microtime(true);
             $sumRefererValue = PedidosShopify::query()
                 ->with(['users.vendedores'])
 
@@ -2713,59 +2713,70 @@ class PedidosShopifyAPIController extends Controller
                 ->sum('value_referer');
 
 
-            $query = PedidosShopify::query()
-                ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta'])
-                ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate]);
+            // $query = PedidosShopify::query()
+            //     ->where('id_comercial', $idSeller)
+            //     ->where('estado_interno', 'CONFIRMADO')
+            //     ->where('estado_logistico', 'ENVIADO')
+            //     ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate]);
 
-            // error_log("$query");
+            // error_log("queryValRec: " . $query->count() . " registros.");
+            // // error_log("query: ");
+            // error_log(json_encode($query->get()));
 
             //con transp int
             $queryInt = PedidosShopify::query()
-                ->with(['operadore.up_users', 'transportadora', 'users.vendedores', 'novedades', 'pedidoFecha', 'ruta', 'subRuta', 'pedidoCarrier'])
+                ->with(['transportadora', 'pedidoCarrier'])
+                ->where('id_comercial', $idSeller)
                 ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
                 ->where('estado_interno', 'CONFIRMADO')
                 ->where('estado_logistico', 'ENVIADO')
                 // ->whereHas('transportadora');
                 ->whereDoesntHave('pedidoCarrier');
+            // error_log("queryInt: " . $queryInt->count() . " registros.");
 
 
             //con carrier externals
-            $queryCE = PedidosShopify::query()
-                ->with(['ruta', 'pedidoCarrier'])
-                ->where('estado_interno', 'CONFIRMADO')
-                ->where('estado_logistico', 'ENVIADO')
-                ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
-                ->whereHas('pedidoCarrier');
+            // $queryCE = PedidosShopify::query()
+            //     ->with(['pedidoCarrier'])
+            //     ->where('id_comercial', $idSeller)
+            //     ->where('estado_interno', 'CONFIRMADO')
+            //     ->where('estado_logistico', 'ENVIADO')
+            //     ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
+            //     ->whereHas('pedidoCarrier');
             // ->whereDoesntHave('ruta');
 
             // error_log("$queryCE");
 
-            $this->applyConditions($query, $Map);
-            $this->applyConditions($query, $not, true);
-            $query1 = clone $query;
+            // $this->applyConditions($query, $Map); //en and esta "estado_interno": "CONFIRMADO" "estado_logistico": "ENVIADO"
+            // $this->applyConditions($query, $not, true); //no tiene not
+            // $query1 = clone $query;
             // $query2 = clone $query;
             // $query3 = clone $query;
-            $query4 = clone $query;
-            $query5 = clone $query;
+            // $query4 = clone $query;
+            // $query5 = clone $query;
 
-            $this->applyConditions($queryInt, $Map);
-            $this->applyConditions($queryInt, $not, true);
-            $query2Int = clone $queryInt;
-            $query3Int = clone $queryInt;
+            // $this->applyConditions($queryInt, $Map);
+            // $this->applyConditions($queryInt, $not, true);
+            // $query2Int = clone $queryInt;
+            // $query3Int = clone $queryInt;
 
 
-            $this->applyConditions($queryCE, $Map);
-            $this->applyConditions($queryCE, $not, true);
-            $query2CE = clone $queryCE;
-            $query3CE = clone $queryCE;
+            // $this->applyConditions($queryCE, $Map);
+            // $this->applyConditions($queryCE, $not, true);
+            // $query2CE = clone $queryCE;
+            // $query3CE = clone $queryCE;
 
-            $totalValoresRecibidos = $query1
+
+            $totalValoresRecibidos = floatval(PedidosShopify::where('id_comercial', $idSeller)
+                ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
                 ->where('estado_interno', 'CONFIRMADO')
                 ->where('estado_logistico', 'ENVIADO')
                 ->where('status', 'ENTREGADO')
-                ->whereIn('status', ['ENTREGADO'])->sum(DB::raw('REPLACE(precio_total, ",", "")'));
+                ->sum(DB::raw('REPLACE(precio_total, ",", "")')));
 
-            $totalProductWarehouse = floatval($query4->where('estado_interno', 'CONFIRMADO')
+            $totalProductWarehouse = floatval(PedidosShopify::where('id_comercial', $idSeller)
+                ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
+                ->where('estado_interno', 'CONFIRMADO')
                 ->where('estado_logistico', 'ENVIADO')
                 ->where('status', 'ENTREGADO')
                 ->sum('value_product_warehouse'));
@@ -2774,43 +2785,68 @@ class PedidosShopifyAPIController extends Controller
             //     ->where('status', 'ENTREGADO')
             //     ->sum('value_referer'));
 
-            $totalShippingCostInt = $query2Int->whereIn('status', ['ENTREGADO', 'NO ENTREGADO'])
-                ->join('up_users_pedidos_shopifies_links', 'pedidos_shopifies.id', '=', 'up_users_pedidos_shopifies_links.pedidos_shopify_id')
-                ->join('up_users', 'up_users_pedidos_shopifies_links.user_id', '=', 'up_users.id')
-                ->join('up_users_vendedores_links', 'up_users.id', '=', 'up_users_vendedores_links.user_id')
-                ->join('vendedores', 'up_users_vendedores_links.vendedor_id', '=', 'vendedores.id')
-                ->sum(DB::raw('REPLACE(vendedores.costo_envio, ",", "")'));
+            // $totalShippingCostInt = $query2Int->whereIn('status', ['ENTREGADO', 'NO ENTREGADO'])
+            //     ->join('up_users_pedidos_shopifies_links', 'pedidos_shopifies.id', '=', 'up_users_pedidos_shopifies_links.pedidos_shopify_id')
+            //     ->join('up_users', 'up_users_pedidos_shopifies_links.user_id', '=', 'up_users.id')
+            //     ->join('up_users_vendedores_links', 'up_users.id', '=', 'up_users_vendedores_links.user_id')
+            //     ->join('vendedores', 'up_users_vendedores_links.vendedor_id', '=', 'vendedores.id')
+            //     ->sum(DB::raw('REPLACE(vendor.costo_envio, ",", "")'));
 
-            $totalShippingCostCE = floatval($query2CE
+            $totalShippingCostInt = floatval(PedidosShopify::query()
+                ->with(['pedidoCarrier'])
+                ->where('id_comercial', $idSeller)
+                ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
+                ->where('estado_interno', 'CONFIRMADO')
+                ->where('estado_logistico', 'ENVIADO')
+                ->whereDoesntHave('pedidoCarrier')
+                ->whereIn('status', ['ENTREGADO', 'NO ENTREGADO'])
+                ->sum('costo_envio'));
+
+            $totalShippingCostCE = floatval(PedidosShopify::query()
+                ->with(['pedidoCarrier'])
+                ->where('id_comercial', $idSeller)
+                ->where('estado_interno', 'CONFIRMADO')
+                ->where('estado_logistico', 'ENVIADO')
+                ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
+                ->whereHas('pedidoCarrier')
                 ->whereIn('status', ['ENTREGADO', 'NOVEDAD'])
                 ->sum('costo_envio'));
 
-            $totalCostoDevolucionInt = $query3Int->whereIn('status', ['NOVEDAD'])
-                ->whereNotIn('estado_devolucion', ['PENDIENTE'])
-                ->join('up_users_pedidos_shopifies_links', 'pedidos_shopifies.id', '=', 'up_users_pedidos_shopifies_links.pedidos_shopify_id')
-                ->join('up_users', 'up_users_pedidos_shopifies_links.user_id', '=', 'up_users.id')
-                ->join('up_users_vendedores_links', 'up_users.id', '=', 'up_users_vendedores_links.user_id')
-                ->join('vendedores', 'up_users_vendedores_links.vendedor_id', '=', 'vendedores.id')
-                ->sum(DB::raw('REPLACE(vendedores.costo_devolucion, ",", "")'));
+            // $totalCostoDevolucionInt = $query3Int->whereIn('status', ['NOVEDAD'])
+            //     ->whereNotIn('estado_devolucion', ['PENDIENTE'])
+            //     ->join('up_users_pedidos_shopifies_links', 'pedidos_shopifies.id', '=', 'up_users_pedidos_shopifies_links.pedidos_shopify_id')
+            //     ->join('up_users', 'up_users_pedidos_shopifies_links.user_id', '=', 'up_users.id')
+            //     ->join('up_users_vendedores_links', 'up_users.id', '=', 'up_users_vendedores_links.user_id')
+            //     ->join('vendedores', 'up_users_vendedores_links.vendedor_id', '=', 'vendedores.id')
+            //     ->sum(DB::raw('REPLACE(vendedores.costo_devolucion, ",", "")'));
+            // $totalCostoDevolucionInt = floatval($query3Int->whereIn('status', ['NOVEDAD'])
+            //     ->whereNotIn('estado_devolucion', ['PENDIENTE'])
+            //     ->sum('costo_devolucion'));
 
-            $totalCostoDevolucionCE = floatval($query3CE
-                ->whereIn('status', ['NOVEDAD'])
-                ->whereNotIn('estado_devolucion', ['PENDIENTE'])
-                ->sum('costo_devolucion'));
-
+            // $totalCostoDevolucionCE = floatval($query3CE
+            //     ->whereIn('status', ['NOVEDAD'])
+            //     ->whereNotIn('estado_devolucion', ['PENDIENTE'])
+            //     ->sum('costo_devolucion'));
 
             // $totalValoresRecibidos = 0;
             $totalShippingCost = $totalShippingCostInt + $totalShippingCostCE;
-            $totalCostoDevolucion = $totalCostoDevolucionInt + $totalCostoDevolucionCE;
+            // $totalCostoDevolucion = $totalCostoDevolucionInt + $totalCostoDevolucionCE;
+            $totalCostoDevolucion = PedidosShopify::where('id_comercial', $idSeller)
+                ->where('estado_interno', 'CONFIRMADO')
+                ->where('estado_logistico', 'ENVIADO')
+                ->where('status', 'NOVEDAD')
+                ->whereNotIn('estado_devolucion', ['PENDIENTE'])
+                ->sum('costo_devolucion');
+
             // $totalProductWarehouse = 0;
             // $totalReferer = 0;
-            error_log("-->: $totalShippingCostInt");
-            error_log("-->: $totalShippingCostCE");
-            error_log("-->: $totalValoresRecibidos ");
-            error_log("-->: $totalShippingCost");
-            error_log("-->: $totalCostoDevolucion");
-            error_log("-->: $totalProductWarehouse");
-            error_log("-->: $sumRefererValue");
+            // error_log("-->: $totalShippingCostInt");
+            // error_log("-->: $totalShippingCostCE");
+            // error_log("totalValoresRecibidos: $totalValoresRecibidos ");
+            // error_log("totalShippingCost: $totalShippingCost");
+            // error_log("totalCostoDevolucion: $totalCostoDevolucion");
+            // error_log("totalProductWarehouse: $totalProductWarehouse");
+            // error_log("sumRefererValue: $sumRefererValue");
 
             $summary = [
                 'totalValoresRecibidos' => $totalValoresRecibidos,
