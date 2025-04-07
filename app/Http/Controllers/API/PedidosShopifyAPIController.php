@@ -2724,14 +2724,14 @@ class PedidosShopifyAPIController extends Controller
             // error_log(json_encode($query->get()));
 
             //con transp int
-            $queryInt = PedidosShopify::query()
-                ->with(['transportadora', 'pedidoCarrier'])
-                ->where('id_comercial', $idSeller)
-                ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
-                ->where('estado_interno', 'CONFIRMADO')
-                ->where('estado_logistico', 'ENVIADO')
-                // ->whereHas('transportadora');
-                ->whereDoesntHave('pedidoCarrier');
+            // $queryInt = PedidosShopify::query()
+            //     ->with(['transportadora', 'pedidoCarrier'])
+            //     ->where('id_comercial', $idSeller)
+            //     ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
+            //     ->where('estado_interno', 'CONFIRMADO')
+            //     ->where('estado_logistico', 'ENVIADO')
+            //     // ->whereHas('transportadora');
+            //     ->whereDoesntHave('pedidoCarrier');
             // error_log("queryInt: " . $queryInt->count() . " registros.");
 
 
@@ -2744,8 +2744,7 @@ class PedidosShopifyAPIController extends Controller
             //     ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
             //     ->whereHas('pedidoCarrier');
             // ->whereDoesntHave('ruta');
-
-            // error_log("$queryCE");
+            // error_log("queryCE: " . $queryCE->count() . " registros.");
 
             // $this->applyConditions($query, $Map); //en and esta "estado_interno": "CONFIRMADO" "estado_logistico": "ENVIADO"
             // $this->applyConditions($query, $not, true); //no tiene not
@@ -2849,10 +2848,10 @@ class PedidosShopifyAPIController extends Controller
             // error_log("sumRefererValue: $sumRefererValue");
 
             $summary = [
-                'totalValoresRecibidos' => $totalValoresRecibidos,
-                'totalShippingCost' => $totalShippingCost,
-                'totalCostoDevolucion' => $totalCostoDevolucion,
-                'totalProductWarehouse' => $totalProductWarehouse,
+                'totalValoresRecibidos' => round($totalValoresRecibidos, 2),
+                'totalShippingCost' => round($totalShippingCost, 2),
+                'totalCostoDevolucion' => round($totalCostoDevolucion, 2),
+                'totalProductWarehouse' => round($totalProductWarehouse, 2),
                 'totalReferer' => $sumRefererValue,
             ];
 
