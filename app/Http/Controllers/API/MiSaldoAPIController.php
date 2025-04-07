@@ -70,8 +70,8 @@ class MiSaldoAPIController extends Controller
         error_log("refererValue: $refererValue");
 
 
-        $sumaCostoInicial = Vendedore::where('id_master', $upuser)
-            ->sum('costo_envio');
+        // $sumaCostoInicial = Vendedore::where('id_master', $upuser)
+        //     ->sum('costo_envio');
 
         //SUMA COSTO
         // foreach ($searchGeneralProduct as $producto) {
@@ -80,20 +80,28 @@ class MiSaldoAPIController extends Controller
         //     }
         // }
 
-        $sumaCostodb = DB::table('pedidos_shopifies')
-            ->join('pedidos_shopifies_ruta_links', 'pedidos_shopifies.id', '=', 'pedidos_shopifies_ruta_links.pedidos_shopify_id')
-            // ->join('pedidos_shopifies_transportadora_links', 'pedidos_shopifies.id', '=', 'pedidos_shopifies_transportadora_links.pedidos_shopify_id')
-            ->selectRaw('SUM(' . $sumaCostoInicial . ') as sumaCosto')
+        // $sumaCostodb = DB::table('pedidos_shopifies')
+        //     ->join('pedidos_shopifies_ruta_links', 'pedidos_shopifies.id', '=', 'pedidos_shopifies_ruta_links.pedidos_shopify_id')
+        //     // ->join('pedidos_shopifies_transportadora_links', 'pedidos_shopifies.id', '=', 'pedidos_shopifies_transportadora_links.pedidos_shopify_id')
+        //     ->selectRaw('SUM(' . $sumaCostoInicial . ') as sumaCosto')
+        //     ->where('estado_interno', 'CONFIRMADO')
+        //     ->where('estado_logistico', 'ENVIADO')
+        //     ->where('id_comercial', $upuser)
+        //     ->where(function ($query) {
+        //         $query->where('status', 'ENTREGADO')
+        //             ->orWhere('status', 'NO ENTREGADO');
+        //     })
+        //     ->first();
+        // $sumaCosto = $sumaCostodb->sumaCosto;
+
+        $sumaCosto = PedidosShopify::where('id_comercial', $upuser)
             ->where('estado_interno', 'CONFIRMADO')
             ->where('estado_logistico', 'ENVIADO')
-            ->where('id_comercial', $upuser)
             ->where(function ($query) {
                 $query->where('status', 'ENTREGADO')
                     ->orWhere('status', 'NO ENTREGADO');
             })
-            ->first();
-        $sumaCosto = $sumaCostodb->sumaCosto;
-
+            ->sum('costo_envio');
 
         error_log("sumaCosto TranspInt: $sumaCosto");
 
@@ -119,9 +127,9 @@ class MiSaldoAPIController extends Controller
         //     }
         // }
 
-        $sumaDevolucionInicial = DB::table('vendedores')
-            ->where('id_master', $upuser)
-            ->sum('costo_devolucion');
+        // $sumaDevolucionInicial = DB::table('vendedores')
+        //     ->where('id_master', $upuser)
+        //     ->sum('costo_devolucion');
 
         //SUMA DEVOLUCION
         // foreach ($searchGeneralProduct as $producto) {
@@ -136,7 +144,7 @@ class MiSaldoAPIController extends Controller
         //         $sumaDevolucion += $sumaDevolucionInicial;
         //     }
         // }
-
+        /*
         $sumaDevolucion = DB::table('pedidos_shopifies')
             //->leftJoin('pedidos_shopifies_carrier_external_links', 'pedidos_shopifies.id', '=', 'pedidos_shopifies_carrier_external_links.pedidos_shopify_id')
             ->join('pedidos_shopifies_ruta_links', 'pedidos_shopifies.id', '=', 'pedidos_shopifies_ruta_links.pedidos_shopify_id')
@@ -183,6 +191,15 @@ class MiSaldoAPIController extends Controller
 
         // error_log("sumaDevolucionCE: $sumaDevolucionCE");
         $sumaDevolucion += $sumaDevolucionCE;
+        */
+
+        $sumaDevolucion = PedidosShopify::where('id_comercial', $upuser)
+            ->where('estado_interno', 'CONFIRMADO')
+            ->where('estado_logistico', 'ENVIADO')
+            ->where('status', 'NOVEDAD')
+            ->whereNotIn('estado_devolucion', ['PENDIENTE'])
+            ->sum('costo_devolucion');
+
         error_log("sumaDevolucion : $sumaDevolucion");
 
         // foreach ($searchWithDrawal as $retiro) {
@@ -205,7 +222,7 @@ class MiSaldoAPIController extends Controller
 
         $responseFinal = ($sumaEntregados + $refererValue) - ($sumaCosto + $sumaDevolucion + $AmountProductWarehouse);
 
-        $responseFinal = $responseFinal -  $sumaRetiros ;
+        $responseFinal = $responseFinal -  $sumaRetiros;
 
         Log::info($sumaEntregados);
         Log::info($refererValue);
