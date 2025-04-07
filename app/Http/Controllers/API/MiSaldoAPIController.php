@@ -16,6 +16,8 @@ class MiSaldoAPIController extends Controller
     //
     public function getSaldo($id)
     {
+        error_log("MiSaldo_getSaldo");
+
         $sumaEntregados = 0.0;
         $sumaCostoInicial = 0.0;
         $sumaCosto = 0.0;
@@ -95,12 +97,14 @@ class MiSaldoAPIController extends Controller
         // $sumaCosto = $sumaCostodb->sumaCosto;
 
         $sumaCosto = PedidosShopify::where('id_comercial', $upuser)
+            ->with(['pedidoCarrier'])
             ->where('estado_interno', 'CONFIRMADO')
             ->where('estado_logistico', 'ENVIADO')
             ->where(function ($query) {
                 $query->where('status', 'ENTREGADO')
                     ->orWhere('status', 'NO ENTREGADO');
             })
+            ->whereDoesntHave('pedidoCarrier')
             ->sum('costo_envio');
 
         error_log("sumaCosto TranspInt: $sumaCosto");
@@ -219,6 +223,11 @@ class MiSaldoAPIController extends Controller
             })
             ->sum('ordenes_retiros.monto');
         error_log("sumaRetiros: $sumaRetiros");
+
+        $sumaEntregados = round($sumaEntregados, 2);
+        $sumaCosto = round($sumaCosto, 2);
+        $sumaDevolucion = round($sumaDevolucion, 2);
+        $sumaDevolucion = round($sumaDevolucion, 2);
 
         $responseFinal = ($sumaEntregados + $refererValue) - ($sumaCosto + $sumaDevolucion + $AmountProductWarehouse);
 

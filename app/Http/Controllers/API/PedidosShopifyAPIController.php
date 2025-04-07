@@ -2684,7 +2684,7 @@ class PedidosShopifyAPIController extends Controller
 
     public function CalculateValuesSeller(Request $request)
     {
-
+        error_log("CalculateValuesSeller");
         $data = $request->json()->all();
         $startDate = Carbon::createFromFormat('j/n/Y', $data['start'])->format('Y-m-d');
         $endDate = Carbon::createFromFormat('j/n/Y', $data['end'])->format('Y-m-d');
@@ -2692,6 +2692,7 @@ class PedidosShopifyAPIController extends Controller
         $not = $data['not'];
         $dateFilter = $data["date_filter"];
         $idSeller = $data["id_seller"];
+        error_log($idSeller);
 
         $selectedFilter = "fecha_entrega";
         if ($dateFilter != "FECHA ENTREGA") {
@@ -2828,6 +2829,9 @@ class PedidosShopifyAPIController extends Controller
             //     ->sum('costo_devolucion'));
 
             // $totalValoresRecibidos = 0;
+            // error_log("totalShippingCostInt: $totalShippingCostInt");
+            // error_log("totalShippingCostCE: $totalShippingCostCE");
+
             $totalShippingCost = $totalShippingCostInt + $totalShippingCostCE;
             // $totalCostoDevolucion = $totalCostoDevolucionInt + $totalCostoDevolucionCE;
             $totalCostoDevolucion = PedidosShopify::where('id_comercial', $idSeller)
@@ -2841,17 +2845,23 @@ class PedidosShopifyAPIController extends Controller
             // $totalReferer = 0;
             // error_log("-->: $totalShippingCostInt");
             // error_log("-->: $totalShippingCostCE");
-            // error_log("totalValoresRecibidos: $totalValoresRecibidos ");
-            // error_log("totalShippingCost: $totalShippingCost");
-            // error_log("totalCostoDevolucion: $totalCostoDevolucion");
-            // error_log("totalProductWarehouse: $totalProductWarehouse");
-            // error_log("sumRefererValue: $sumRefererValue");
+
+            $totalValoresRecibidos = round($totalValoresRecibidos, 2);
+            $totalShippingCost = round($totalShippingCost, 2);
+            $totalCostoDevolucion = round($totalCostoDevolucion, 2);
+            $totalProductWarehouse = round($totalProductWarehouse, 2);
+
+            error_log("totalValoresRecibidos: $totalValoresRecibidos ");
+            error_log("totalShippingCost: $totalShippingCost");
+            error_log("totalCostoDevolucion: $totalCostoDevolucion");
+            error_log("totalProductWarehouse: $totalProductWarehouse");
+            error_log("sumRefererValue: $sumRefererValue");
 
             $summary = [
-                'totalValoresRecibidos' => round($totalValoresRecibidos, 2),
-                'totalShippingCost' => round($totalShippingCost, 2),
-                'totalCostoDevolucion' => round($totalCostoDevolucion, 2),
-                'totalProductWarehouse' => round($totalProductWarehouse, 2),
+                'totalValoresRecibidos' => $totalValoresRecibidos,
+                'totalShippingCost' => $totalShippingCost,
+                'totalCostoDevolucion' => $totalCostoDevolucion,
+                'totalProductWarehouse' => $totalProductWarehouse,
                 'totalReferer' => $sumRefererValue,
             ];
 
