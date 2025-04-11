@@ -613,6 +613,14 @@ class IntegrationAPIController extends Controller
                                 }
                             } else if ($key == "status") {
 
+                                if ($order->estado_logistico ==  "IMPRESO") {
+                                    error_log("updt_estado_logistico_gtm: " . $order->estado_logistico . " a ENVIADO");
+                                    $order->estado_logistico = "ENVIADO";
+                                    $order->sent_at = $currentDateTime;
+                                    $order->marca_tiempo_envio = $date;
+                                    // $order->estado_interno = "CONFIRMADO";
+                                    $order->fecha_entrega = $date;
+                                }
 
                                 if ($name_local == "ENTREGADO") {
 
