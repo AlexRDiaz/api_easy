@@ -2835,6 +2835,7 @@ class PedidosShopifyAPIController extends Controller
             $totalShippingCost = $totalShippingCostInt + $totalShippingCostCE;
             // $totalCostoDevolucion = $totalCostoDevolucionInt + $totalCostoDevolucionCE;
             $totalCostoDevolucion = PedidosShopify::where('id_comercial', $idSeller)
+                ->whereRaw("STR_TO_DATE(" . $selectedFilter . ", '%e/%c/%Y') BETWEEN ? AND ?", [$startDate, $endDate])
                 ->where('estado_interno', 'CONFIRMADO')
                 ->where('estado_logistico', 'ENVIADO')
                 ->where('status', 'NOVEDAD')
