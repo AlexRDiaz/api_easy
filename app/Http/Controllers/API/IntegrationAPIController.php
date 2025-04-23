@@ -3168,6 +3168,14 @@ class IntegrationAPIController extends Controller
     public function uptNoveltyLaar(Request $request)
     {
         error_log("uptNoveltyLaar");
+        $input = json_decode($request->getContent(), true);
+
+        if (!is_array($input)) {
+            error_log('uptNoveltyLaar_error_El_request_no_es_un_JSON_válido.');
+            return response()->json(['error' => 'JSON inválido'], 400);
+        }
+
+        error_log('allRequest: ' . json_encode($input));
 
         $data = $request->all();
         $apiUrl = 'https://api.laarcourier.com:9727/guias/datos/actualizar';
@@ -3182,7 +3190,7 @@ class IntegrationAPIController extends Controller
             ->put($apiUrl, $data);
 
         if ($response->successful()) {
-            error_log("uptNoveltyLaar_successful: $response");
+            error_log("uptNoveltyLaar_successful: " . json_encode($response->json()));
             return $response->json();
         } else {
             $errorMessage = $response->json('Message') ?? 'No se pudo obtener la información';

@@ -2853,10 +2853,10 @@ class PedidosShopifyAPIController extends Controller
             $totalProductWarehouse = round($totalProductWarehouse, 2);
 
             error_log("totalValoresRecibidos: $totalValoresRecibidos ");
+            error_log("sumRefererValue: $sumRefererValue");
             error_log("totalShippingCost: $totalShippingCost");
             error_log("totalCostoDevolucion: $totalCostoDevolucion");
             error_log("totalProductWarehouse: $totalProductWarehouse");
-            error_log("sumRefererValue: $sumRefererValue");
 
             $summary = [
                 'totalValoresRecibidos' => $totalValoresRecibidos,

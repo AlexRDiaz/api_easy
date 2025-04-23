@@ -45,7 +45,7 @@ class MiSaldoAPIController extends Controller
             ->where('estado_logistico', 'ENVIADO')
             ->where('status', 'ENTREGADO')
             ->sum('precio_total');
-        error_log("sumaEntregados: $sumaEntregados");
+        // error_log("sumaEntregados: $sumaEntregados");
         //OBTENER COSTO SUMA SELLER
         // foreach ($searchGeneralSellers as $seller) {
         //     if ($seller->id_master == $upuser) {
@@ -68,8 +68,8 @@ class MiSaldoAPIController extends Controller
             ->sum('value_referer');
 
 
-        error_log("AmountProductWarehouse: $AmountProductWarehouse");
-        error_log("refererValue: $refererValue");
+        // error_log("AmountProductWarehouse: $AmountProductWarehouse");
+        // error_log("refererValue: $refererValue");
 
 
         // $sumaCostoInicial = Vendedore::where('id_master', $upuser)
@@ -121,7 +121,7 @@ class MiSaldoAPIController extends Controller
         error_log("sumaCostodbCE: $sumaCostodbCE");
 
         $sumaCosto += $sumaCostodbCE;
-        error_log("sumaCosto Envio: $sumaCosto");
+        // error_log("sumaCosto Envio: $sumaCosto");
 
 
         //OBTENER DEVOLUCION SUMA SELLER
@@ -204,7 +204,7 @@ class MiSaldoAPIController extends Controller
             ->whereNotIn('estado_devolucion', ['PENDIENTE'])
             ->sum('costo_devolucion');
 
-        error_log("sumaDevolucion : $sumaDevolucion");
+        // error_log("sumaDevolucion : $sumaDevolucion");
 
         // foreach ($searchWithDrawal as $retiro) {
         //     if (
@@ -222,16 +222,25 @@ class MiSaldoAPIController extends Controller
                     ->orWhere('ordenes_retiros.estado', 'REALIZADO');
             })
             ->sum('ordenes_retiros.monto');
-        error_log("sumaRetiros: $sumaRetiros");
+        // error_log("sumaRetiros: $sumaRetiros");
 
         $sumaEntregados = round($sumaEntregados, 2);
         $sumaCosto = round($sumaCosto, 2);
         $sumaDevolucion = round($sumaDevolucion, 2);
         $sumaDevolucion = round($sumaDevolucion, 2);
 
+        error_log("totalValoresRecibidos: $sumaEntregados");
+        error_log("refererValue: $refererValue");
+        error_log("totalShippingCost: $sumaCosto");
+        error_log("totalCostoDevolucion: $sumaDevolucion");
+        error_log("totalProductWarehouse: $AmountProductWarehouse");
+
+        error_log("sumaRetiros: $sumaRetiros");
+
         $responseFinal = ($sumaEntregados + $refererValue) - ($sumaCosto + $sumaDevolucion + $AmountProductWarehouse);
 
         $responseFinal = $responseFinal -  $sumaRetiros;
+        error_log("utilidad: $responseFinal");
 
         Log::info($sumaEntregados);
         Log::info($refererValue);
