@@ -3224,8 +3224,6 @@ class PedidosShopifyAPIController extends Controller
                 error_log('Error:_shipping_address_no_está_presente_en_el_JSON.');
             }
 
-            // $shippingAddress = json_encode($input['shipping_address'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            // error_log('shipping_address: ' . $shippingAddress);
 
             //GENERATE DATE
             $currentDate = now();
@@ -3237,17 +3235,26 @@ class PedidosShopifyAPIController extends Controller
 
             $created_at_shopify = $request->input('created_at');
             // error_log("********created_at_shopify: $created_at_shopify***");
+            // $shippingAddress = json_encode($input['shipping_address'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            // error_log('shipping_address: ' . $shippingAddress);
 
             //VARIABLES FOR ENTITY
             $listOfProducts = [];
             $address1 = $request->input('shipping_address.address1');
+            $address2 = $request->input('shipping_address.address2');
+            $fullAddress = (is_null($address2) || strtolower(trim($address2)) === 'null' || trim($address2) === '')
+                ? $address1
+                : $address1 . ' | ' . $address2;
+
             $phone = $request->input('shipping_address.phone');
             $total_price = $request->input('total_price');
             $customer_note = $request->input('customer_note');
             $city = $request->input('shipping_address.city');
             $productos = $request->input('line_items');
             $provinciaName = $request->input('shipping_address.province');
-
+            $address2 = $request->input('shipping_address.address2');
+            $customerNote = $request->input('customer_note');
+            error_log('customerNote: ' . $customerNote);
             //ADD PRODUCT TO LIST FOR NEW OBJECT
 
             error_log("******************proceso 1 terminado************************\n");
@@ -3299,14 +3306,6 @@ class PedidosShopifyAPIController extends Controller
 
 
                 // Obtener la fecha y hora actual
-                // $dia = $ahora->day;
-                // $mes = $ahora->month;
-                // $anio = $ahora->year;
-                // $hora = $ahora->hour;
-                // $minuto = $ahora->minute;
-
-                // Formatear la fecha y hora actual
-                // $fechaHoraActual = "$dia/$mes/$anio $hora:$minuto";
                 $fechaHoraActual = date("d/m/Y H:i");
                 // Crear una nueva orden
                 $formattedPrice = str_replace(["$", ",", " "], "", $total_price);
@@ -3334,6 +3333,21 @@ class PedidosShopifyAPIController extends Controller
 
                 $variants = implode(', ', array_column(array_slice($listOfProducts, 0), 'variant_title'));
 
+                $hasVariants = trim($variants) !== '';
+
+                $noteTrimmed = trim($customerNote);
+                $hasCustomerNote = !is_null($customerNote)
+                    && strtolower($noteTrimmed) !== 'null'
+                    && $noteTrimmed !== ''
+                    && $noteTrimmed !== '.';
+                $fullNotes = null;
+                if ($hasVariants && $hasCustomerNote) {
+                    $fullNotes = $variants . ' | ' . $customerNote;
+                } elseif ($hasVariants) {
+                    $fullNotes = $variants;
+                } elseif ($hasCustomerNote) {
+                    $fullNotes = $customerNote;
+                }
                 $idCity = null;
                 $idProv_local = null;
                 // /*
@@ -3409,11 +3423,12 @@ class PedidosShopifyAPIController extends Controller
                     'marca_t_i' => $fechaHoraActual,
                     'tienda_temporal' => $productos[0]['vendor'],
                     'numero_orden' => $order_number,
-                    'direccion_shipping' => $address1,
+                    'direccion_shipping' => $fullAddress,
                     'nombre_shipping' => $name,
                     'telefono_shipping' => $phone,
                     'precio_total' => $formattedPrice,
-                    'observacion' => $variants,
+                    // 'observacion' => $variants,
+                    'observacion' => $fullNotes,
                     'ciudad_shipping' => $city,
                     'sku' => $sku,
                     'id_product' => $lastIdProduct,
