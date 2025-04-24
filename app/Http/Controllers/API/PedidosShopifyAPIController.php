@@ -1990,7 +1990,11 @@ class PedidosShopifyAPIController extends Controller
     }
     public function updateDateandStatus(Request $req)
     {
+        // error_log("updateDateandStatus");
         $data = $req->json()->all();
+        // $input = json_decode($req->getContent(), true);
+        // error_log('allRequest: ' . json_encode($input));
+
         $id = $data['id'];
         $fecha_entrega = $data['data'][0]['fecha_Entrega']; // Accede al valor de fecha_Entrega
         $status = $data['data'][1]['status']; // Accede al valor de status
@@ -2003,35 +2007,52 @@ class PedidosShopifyAPIController extends Controller
             return response()->json(['message' => 'No se encontraro pedido con el ID especificado'], 404);
         }
 
-        $pedido->fecha_entrega = $fecha_entrega;
-        $pedido->status = $status;
+        DB::beginTransaction();
+        try {
 
-        //new column
-        $user = UpUser::where('id', $data['generated_by'])->first();
-        $username = $user ? $user->username : null;
+            $pedido->fecha_entrega = $fecha_entrega;
+            $pedido->status = $status;
 
-        $newHistory = [
-            "area" => "status",
-            "status" => $status,
-            "timestap" => date('Y-m-d H:i:s'),
-            "comment" => "",
-            "path" => "",
-            "generated_by" => $data['generated_by'] . "_" . $username
-        ];
+            //new column
+            $user = UpUser::where('id', $data['generated_by'])->first();
+            $username = $user ? $user->username : null;
 
-        if ($pedido->status_history === null || $pedido->status_history === '[]') {
-            $pedido->status_history = json_encode([$newHistory]);
-        } else {
-            $existingHistory = json_decode($pedido->status_history, true);
+            $commentHist = "";
+            if ($status == "REAGENDADO") {
+                $commentHist = "Nueva fecha entrega: " . $fecha_entrega;
+            }
+            // error_log("commentHist $commentHist");
+            $newHistory = [
+                "area" => "status",
+                "status" => $status,
+                "timestap" => date('Y-m-d H:i:s'),
+                "comment" =>  $commentHist,
+                "path" => "",
+                "generated_by" => $data['generated_by'] . "_" . $username
+            ];
 
-            $existingHistory[] = $newHistory;
+            if ($pedido->status_history === null || $pedido->status_history === '[]') {
+                $pedido->status_history = json_encode([$newHistory]);
+            } else {
+                $existingHistory = json_decode($pedido->status_history, true);
 
-            $pedido->status_history = json_encode($existingHistory);
+                $existingHistory[] = $newHistory;
+
+                $pedido->status_history = json_encode($existingHistory);
+            }
+            $pedido->save();
+
+            DB::commit();
+
+            // return response()->json(['data' => $pedido]);
+            return response()->json($pedido);
+        } catch (\Exception $e) {
+            DB::rollback();
+            error_log("ERROR_updateDateandStatus: $e");
+            return response()->json([
+                'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage()
+            ], 500);
         }
-        $pedido->save();
-
-        // return response()->json(['data' => $pedido]);
-        return response()->json($pedido);
     }
 
     public function getReturnSellers(Request $request)
@@ -2852,11 +2873,11 @@ class PedidosShopifyAPIController extends Controller
             $totalCostoDevolucion = round($totalCostoDevolucion, 2);
             $totalProductWarehouse = round($totalProductWarehouse, 2);
 
-            error_log("totalValoresRecibidos: $totalValoresRecibidos ");
-            error_log("sumRefererValue: $sumRefererValue");
-            error_log("totalShippingCost: $totalShippingCost");
-            error_log("totalCostoDevolucion: $totalCostoDevolucion");
-            error_log("totalProductWarehouse: $totalProductWarehouse");
+            // error_log("totalValoresRecibidos: $totalValoresRecibidos ");
+            // error_log("sumRefererValue: $sumRefererValue");
+            // error_log("totalShippingCost: $totalShippingCost");
+            // error_log("totalCostoDevolucion: $totalCostoDevolucion");
+            // error_log("totalProductWarehouse: $totalProductWarehouse");
 
             $summary = [
                 'totalValoresRecibidos' => $totalValoresRecibidos,
@@ -4456,6 +4477,8 @@ class PedidosShopifyAPIController extends Controller
     {
         error_log("updateFieldTime");
         $data = $request->all();
+        // $input = json_decode($request->getContent(), true);
+        // error_log('allRequest: ' . json_encode($input));
 
         $keyvalue = $data['keyvalue'];
 
