@@ -5469,6 +5469,8 @@ class PedidosShopifyAPIController extends Controller
 
     public function updateGestionedNovelty(Request $request, $id)
     {
+        error_log("updateGestionedNovelty");
+        DB::beginTransaction();
         try {
             $data = $request->json()->all();
             $noveltyState = $data['novelty_state'];
@@ -5542,6 +5544,40 @@ class PedidosShopifyAPIController extends Controller
                     break;
             }
 
+            if ($order->fecha_entrega == "" || $order->fecha_entrega === 'null' || $order->fecha_entrega === null) {
+                error_log("fechaEntregaNull_" . $order->id);
+                $statusHistory = json_decode($order->status_history, true);
+
+                $ultimoReagendado = collect($statusHistory)
+                    ->filter(fn($item) => $item['status'] === 'REAGENDADO')
+                    ->sortByDesc('timestap')
+                    ->first();
+
+                $comentario = $ultimoReagendado['comment'] ?? null;
+
+                if ($comentario) {
+                    $partes = explode(':', $comentario);
+
+                    if (count($partes) > 1) {
+                        $fechaTexto = trim($partes[1]);
+                        $fechaTexto = str_replace(' ', '', $fechaTexto);
+
+                        try {
+                            $fecha = \Carbon\Carbon::createFromFormat('d/m/Y', $fechaTexto);
+                            if ($fecha->isToday() || $fecha->isFuture()) {
+                                // error_log("Fecha válida: " . $fecha->toDateString());
+                                $order->fecha_entrega = $fechaTexto;
+                            } else {
+                                error_log("Fecha NO válida, es pasada: " . $fecha->toDateString());
+                            }
+                        } catch (\Exception $e) {
+                            error_log("Error al convertir la fecha: $fechaTexto");
+                        }
+                    }
+                } else {
+                    error_log("No hay comentario en el último REAGENDADO.");
+                }
+            }
             $edited_novelty['try'] = $lastTry;
 
 
@@ -5557,8 +5593,12 @@ class PedidosShopifyAPIController extends Controller
             $order["gestioned_novelty"] = json_encode($edited_novelty);
             $order->save();
 
+            DB::commit();
+
             return response()->json(["response" => "Novelty updated successfully", "edited_novelty" => $edited_novelty], Response::HTTP_OK);
-        } catch (\Throwable $th) {
+        } catch (\Exception $e) {
+            DB::rollback();
+            error_log("ERROR_updateGestionedNovelty: $e");
             return response()->json(["response" => "Failed to update novelty (-_-)/ "], Response::HTTP_NOT_FOUND);
         }
     }
