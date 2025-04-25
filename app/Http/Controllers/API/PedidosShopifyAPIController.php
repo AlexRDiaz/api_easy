@@ -1990,7 +1990,7 @@ class PedidosShopifyAPIController extends Controller
     }
     public function updateDateandStatus(Request $req)
     {
-        // error_log("updateDateandStatus");
+        error_log("updateDateandStatus");
         $data = $req->json()->all();
         // $input = json_decode($req->getContent(), true);
         // error_log('allRequest: ' . json_encode($input));
@@ -2021,7 +2021,7 @@ class PedidosShopifyAPIController extends Controller
             if ($status == "REAGENDADO") {
                 $commentHist = "Nueva fecha entrega: " . $fecha_entrega;
             }
-            // error_log("commentHist $commentHist");
+            error_log("commentHist $commentHist");
             $newHistory = [
                 "area" => "status",
                 "status" => $status,
