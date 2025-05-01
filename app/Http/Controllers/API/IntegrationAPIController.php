@@ -36,7 +36,7 @@ use Illuminate\Support\Facades\Http;
 use setasign\Fpdi\PdfParser\StreamReader;
 use setasign\Fpdi\Tcpdf\Fpdi;
 use Illuminate\Support\Facades\Log;
-
+use Illuminate\Support\Facades\Mail;
 
 use function Laravel\Prompts\error;
 use TCPDF;
@@ -379,6 +379,21 @@ class IntegrationAPIController extends Controller
                 if (!$order) {
                     error_log("requestUpdateStateGTM_orderNotFound: $guia");
                     return response()->json(['message' => 'Order not found'], 404);
+                }
+
+                if ($order->status ==  "ENTREGADO" || $order->estado_devolucion !=  "PENDIENTE") {
+                    error_log("error_requestUpdateStateGTM_alreadyFinalStatus_" . $order->id . "_" . $guia . "_" . $order->status . "_y_" . $order->estado_devolucion . "_a_" . $estado);
+                    try {
+                        $to = 'easyecommercetest@gmail.com';
+                        $subject = 'Invalid Status Update Attempt';
+                        $message = "GTM: Attempt to update order $order->id, $guia, which is already in a final state ($order->status, $order->estado_devolucion).";
+                        Mail::raw($message, function ($mail) use ($to, $subject) {
+                            $mail->to($to)->subject($subject);
+                        });
+                    } catch (\Exception $e) {
+                        error_log("Error al enviar email error_requestUpdateStateGTM_alreadyFinalStatus_$e");
+                    }
+                    return response()->json(['message' => 'Order has already been successfully updated with final status.'], 400);
                 }
 
                 // ! for transaction_global
@@ -1982,6 +1997,11 @@ class IntegrationAPIController extends Controller
                     return response()->json(['message' => 'Order not found'], 404);
                 }
 
+                if ($order->status ==  "ENTREGADO" || $order->estado_devolucion !=  "PENDIENTE") {
+                    error_log("error_requestUpdateStateLaar_alreadyFinalStatus_" . $order->id . "_" . $guia . "_" . $order->status . "_y_" . $order->estado_devolucion . "_a_" . $estadoCod . "_" . $estadoActual);
+                    return response()->json(['message' => 'Order has already been successfully updated with final status.'], 200);
+                }
+
                 $currentDateTime = date('Y-m-d H:i:s');
                 $date = now()->format('j/n/Y');
                 $currentDateTimeText = date("d/m/Y H:i");
@@ -2049,12 +2069,6 @@ class IntegrationAPIController extends Controller
                 DB::beginTransaction();
                 try {
                     //
-
-                    if ($order->status ==  "ENTREGADO" || $order->estado_devolucion !=  "PENDIENTE") {
-                        error_log("try_updt_laar_" . $guia . "_" . $order->status . "_y_" . $order->estado_devolucion . " _a_" . $estadoCod . "_" . $estadoActual . "_ya_finalStatus_");
-                        return response()->json(['message' => 'Order has already been successfully updated with final status.'], 200);
-                    }
-
 
                     foreach ($status_array as $status) {
                         $id_ref = $status['id_ref'];
