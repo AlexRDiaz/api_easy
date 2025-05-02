@@ -3205,6 +3205,9 @@ class PedidosShopifyAPIController extends Controller
             $order_number = $request->input('order_number');
             $name = $request->input('shipping_address.name');
 
+            // error_log('name: ' . $name);
+            // error_log('order_number: ' . $order_number);
+
             //solucion 2
             $cacheKey = "shopify_order_{$id_shopify}_{$id}";
 
@@ -3228,7 +3231,7 @@ class PedidosShopifyAPIController extends Controller
             ])->get();
 
             if ($orderExists->isNotEmpty()) {
-                error_log("Esta_orden_ya_existe_" . $id_shopify . "_" . $id);
+                error_log("Esta_orden_ya_existe_" . $id . "_" . $order_number . "_" . $id_shopify . "_");
                 // error_log("Orden_existente: " . $orderExists);
 
                 return response()->json([
@@ -3259,8 +3262,8 @@ class PedidosShopifyAPIController extends Controller
             // $shippingAddress = json_encode($input['shipping_address'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             // error_log('shipping_address: ' . $shippingAddress);
 
-            $line_items = json_encode($input['line_items'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            error_log('line_items: ' . $line_items);
+            // $line_items = json_encode($input['line_items'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            // error_log('line_items: ' . $line_items);
 
             //VARIABLES FOR ENTITY
             $listOfProducts = [];
@@ -3304,8 +3307,9 @@ class PedidosShopifyAPIController extends Controller
                 'numero_orden' => $order_number,
                 'tienda_temporal' => $productos[0]['vendor'],
                 'id_comercial' => $id,
+                // 'id_shopify' => $id_shopify,
             ])->get();
-
+            ////
 
             //
             // IF ORDER NOT EXIST CREATE ORDER
