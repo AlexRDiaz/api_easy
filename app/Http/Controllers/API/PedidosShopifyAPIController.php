@@ -3259,6 +3259,9 @@ class PedidosShopifyAPIController extends Controller
             // $shippingAddress = json_encode($input['shipping_address'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             // error_log('shipping_address: ' . $shippingAddress);
 
+            $line_items = json_encode($input['line_items'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            error_log('line_items: ' . $line_items);
+
             //VARIABLES FOR ENTITY
             $listOfProducts = [];
             $address1 = $request->input('shipping_address.address1');
