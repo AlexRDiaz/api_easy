@@ -3307,7 +3307,7 @@ class PedidosShopifyAPIController extends Controller
                 'numero_orden' => $order_number,
                 'tienda_temporal' => $productos[0]['vendor'],
                 'id_comercial' => $id,
-                // 'id_shopify' => $id_shopify,
+                'id_shopify' => $id_shopify,
             ])->get();
             ////
 
