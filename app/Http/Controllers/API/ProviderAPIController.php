@@ -111,4 +111,35 @@ class ProviderAPIController extends Controller
             ], 500);
         }
     }
+
+    public function getProvidersPaginated(Request $request)
+    {
+        $search = $request->input('search', '');
+        $companyId = $request->input('company_id');
+        $pageSize = $request->input('pageSize', 70); 
+
+        $providers = Provider::with(['user', 'warehouses'])
+            ->where('active', 1)
+            ->where('company_id', $companyId);
+
+        if (!empty($search)) {
+            $providers->where(function ($query) use ($search) {
+                $query->where('name', 'like', '%' . $search . '%')
+                    ->orWhereHas('user', function ($query) use ($search) {
+                        $query->where('username', 'like', '%' . $search . '%')
+                            ->orWhere('email', 'like', '%' . $search . '%');
+                    });
+            });
+        }
+
+        $paginated = $providers->paginate($pageSize);
+
+        return response()->json([
+            'providers' => $paginated->items(),     
+            'total' => $paginated->total(),         
+            'from' => $paginated->firstItem(),      
+            'to' => $paginated->lastItem(),          
+            'last_page' => $paginated->lastPage(),   
+        ]);
+    }
 }
