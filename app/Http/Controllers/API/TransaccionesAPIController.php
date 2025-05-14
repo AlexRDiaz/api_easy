@@ -833,6 +833,7 @@ class TransaccionesAPIController extends Controller
         error_log("paymentOrderDelivered");
         try {
             $data = $request->json()->all();
+            error_log('requestData: ' . json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
             $startDateFormatted = new DateTime();
 
