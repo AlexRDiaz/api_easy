@@ -844,7 +844,7 @@ class TransaccionesAPIController extends Controller
             $pedido = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades', 'operadore', 'transactionTransportadora', 'pedidoCarrier'])->findOrFail($data['id_origen']);
             $marcaT = "";
             $amountOrder = $pedido->precio_total;
-            // error_log("precioInicio: $amountOrder");
+            error_log("precioInicio: $amountOrder");
 
             $amountConvert = $data["amount_convert"];
 
