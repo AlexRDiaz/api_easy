@@ -3225,7 +3225,7 @@ class PedidosShopifyAPIController extends Controller
 
             error_log("********dataID: " . $id_shopify . "_" . $id . "_" . $order_number);
             $shippingAddress = json_encode($input['shipping_address'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            error_log('shipping_address: ' . $shippingAddress);
+            error_log("_" . $id . "_" . $order_number . '_shipping_address: ' . $shippingAddress . "_");
 
             $orderExists = PedidosShopify::where([
                 'id_shopify' => $id_shopify,
