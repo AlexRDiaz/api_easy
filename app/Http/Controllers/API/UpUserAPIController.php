@@ -1862,4 +1862,32 @@ class UpUserAPIController extends Controller
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
+
+    public function newCode($id)
+    {
+        error_log("newCode");
+        try {
+            $numerosUtilizados = [];
+            while (count($numerosUtilizados) < 10000000) {
+                $numeroAleatorio = str_pad(mt_rand(1, 99999999), 8, '0', STR_PAD_LEFT);
+                if (!in_array($numeroAleatorio, $numerosUtilizados)) {
+                    $numerosUtilizados[] = $numeroAleatorio;
+                    break;
+                }
+            }
+            $resultCode = $numeroAleatorio;
+
+            $user = UpUser::find($id);
+            $user->codigo_generado = $resultCode;
+            $user->save();
+
+            Mail::to($user->email)->send(new UserValidation($resultCode));
+
+            return response()->json(['new_code' => $resultCode], 201);
+        } catch (\Exception $e) {
+            DB::rollback();
+            error_log("newCode_error: $e");
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
 }
