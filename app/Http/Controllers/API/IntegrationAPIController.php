@@ -429,6 +429,22 @@ class IntegrationAPIController extends Controller
                     $marcaT = Carbon::now()->format('Y-m-d H:i:s');
                 }
 
+                $existingTransactionsTG = TransaccionGlobal::where('id_order', $order->id)
+                    ->where('id_seller', $order->id_comercial)
+                    ->get(); //
+
+                $lastTransactionTG = $existingTransactionsTG->last();
+
+                if ($existingTransactionsTG->isEmpty()) {
+                } else {
+                    // Si existen transacciones, revisamos si la última tiene estado "REEMBOLSO"
+                    $lastTransactionTG = $existingTransactionsTG->last();
+
+                    if ($lastTransactionTG->status == 'REEMBOLSO') {
+                        //
+                        error_log("lastREEMBOLSO");
+                    }
+                }
 
                 // Obtener los almacenes del producto
                 $warehouses = $order['product']['warehouses'];
@@ -875,7 +891,7 @@ class IntegrationAPIController extends Controller
 
                                         $newTransactionGlobalReferer = new TransaccionGlobal();
 
-                                        if ($existingTransaction == null) {
+                                        if ($existingTransaction == null || $lastTransactionTG->status == 'REEMBOLSO') {
 
                                             $newTransactionGlobalReferer->admission_date = $marcaT;
                                             $newTransactionGlobalReferer->delivery_date = now()->format('Y-m-d');
@@ -935,7 +951,7 @@ class IntegrationAPIController extends Controller
 
                                     // $newTransactionGlobal = new TransaccionGlobal();
 
-                                    if ($existingTransaction == null) {
+                                    if ($existingTransaction == null || $lastTransactionTG->status == 'REEMBOLSO') {
 
                                         $newTransactionGlobal->admission_date = $marcaT;
                                         $newTransactionGlobal->delivery_date = now()->format('Y-m-d');
@@ -1307,7 +1323,7 @@ class IntegrationAPIController extends Controller
                                         */
 
 
-                                    if ($existingTransaction == null) {
+                                    if ($existingTransaction == null || $lastTransactionTG->status == 'REEMBOLSO') {
 
                                         error_log($existingTransaction);
 
@@ -1471,6 +1487,61 @@ class IntegrationAPIController extends Controller
                 error_log("ak-> $codeOrder");
 
 
+                //new version
+                $providerTransactions = ProviderTransaction::where('origin_id', $id_origin)
+                    ->where('origin_code', $codeOrder)
+                    ->where('sku_product_reference', $skuProduct)
+                    ->get();
+
+                error_log("allTransProv: $providerTransactions");
+
+                $lastTransactionProv = $providerTransactions->last();
+                error_log("lastTransactionProv: $lastTransactionProv");
+
+                $price = 0;
+
+                if (!$lastTransactionProv || $lastTransactionProv->status == 'RESTAURACION') {
+                    $providerId = $product->warehouse->provider_id;
+                    $productName = $product->product_name;
+
+                    $price = $product->price;
+
+                    $amountToDeduct = $price * $quantity;
+
+                    $total = $totalPrice;
+                    $diferencia = $amountToDeduct;
+
+                    $totalValueProductWarehouse += $price * $quantity;
+
+                    $provider = Provider::findOrFail($providerId);
+                    $provider->saldo += $amountToDeduct;
+                    $provider->save();
+
+
+                    $providerTransaction = new ProviderTransaction([
+                        'transaction_type' => 'Pago Producto',
+                        'amount' => $amountToDeduct,
+                        'previous_value' => $provider->saldo - $amountToDeduct,
+                        'current_value' => $provider->saldo,
+                        'timestamp' => now(),
+                        'origin_id' => $id_origin,
+                        'origin_code' => $codeOrder,
+                        // 'origin_code' => $skuProduct,
+                        'provider_id' => $providerId,
+                        'comment' => $productName,
+                        'generated_by' => $generated_by,
+                        'status' => $orderStatus,
+                        'description' => "Valor por guia ENTREGADA",
+                        'sku_product_reference' => $skuProduct,
+                        'payment_status' => "ACREDITADO",
+                    ]);
+                    $providerTransaction->save();
+                    $responses[] = $diferencia;
+                } else {
+                    error_log("already exists so No provTransactions_TransAPI");
+                }
+
+                /*
                 $providerTransactionPrevious = ProviderTransaction::where('transaction_type', 'Pago Producto')
                     ->where('status', 'ENTREGADO')
                     ->where('origin_id', $id_origin)
@@ -1524,6 +1595,7 @@ class IntegrationAPIController extends Controller
                     $providerTransaction->save();
                     $responses[] = $diferencia;
                 }
+                */
             }
             DB::commit(); // Confirmar los cambios
             return ["total" => $total, "valor_producto" => $responses, "value_product_warehouse" => $totalValueProductWarehouse, "error" => null];
@@ -2036,6 +2108,23 @@ class IntegrationAPIController extends Controller
                 } else {
                     // Asignar una fecha por defecto
                     $marcaT = Carbon::now()->format('Y-m-d H:i:s');
+                }
+
+                $existingTransactionsTG = TransaccionGlobal::where('id_order', $order->id)
+                    ->where('id_seller', $order->id_comercial)
+                    ->get(); //
+
+                $lastTransactionTG = $existingTransactionsTG->last();
+
+                if ($existingTransactionsTG->isEmpty()) {
+                } else {
+                    // Si existen transacciones, revisamos si la última tiene estado "REEMBOLSO"
+                    $lastTransactionTG = $existingTransactionsTG->last();
+
+                    if ($lastTransactionTG->status == 'REEMBOLSO') {
+                        //
+                        error_log("lastREEMBOLSO");
+                    }
                 }
 
                 $warehouses = $order['product']['warehouses'];
@@ -2578,7 +2667,7 @@ class IntegrationAPIController extends Controller
 
                                         $newTransactionGlobalReferer = new TransaccionGlobal();
 
-                                        if ($existingTransaction == null) {
+                                        if ($existingTransaction == null || $lastTransactionTG->status == 'REEMBOLSO') {
 
                                             $newTransactionGlobalReferer->admission_date = $marcaT;
                                             $newTransactionGlobalReferer->delivery_date = now()->format('Y-m-d');
@@ -2633,7 +2722,7 @@ class IntegrationAPIController extends Controller
 
                                     // $newTransactionGlobal = new TransaccionGlobal();
 
-                                    if ($existingTransaction == null) {
+                                    if ($existingTransaction == null || $lastTransactionTG->status == 'REEMBOLSO') {
 
                                         $newTransactionGlobal->admission_date = $marcaT;
                                         $newTransactionGlobal->delivery_date = now()->format('Y-m-d');
@@ -3086,7 +3175,7 @@ class IntegrationAPIController extends Controller
                                         */
 
 
-                                    if ($existingTransaction == null) {
+                                    if ($existingTransaction == null || $lastTransactionTG->status == 'REEMBOLSO') {
 
                                         error_log($existingTransaction);
 

@@ -508,7 +508,61 @@ class TransaccionesAPIController extends Controller
                 error_log("ak-> $id_origin");
                 error_log("ak-> $codeOrder");
 
+                //new version
+                $providerTransactions = ProviderTransaction::where('origin_id', $id_origin)
+                    ->where('origin_code', $codeOrder)
+                    ->where('sku_product_reference', $skuProduct)
+                    ->get();
 
+                // error_log("allTransProv: $providerTransactions");
+
+                $lastTransactionProv = $providerTransactions->last();
+                // error_log("lastTransactionProv: $lastTransactionProv");
+
+                $price = 0;
+
+                if (!$lastTransactionProv || $lastTransactionProv->status == 'RESTAURACION') {
+                    $providerId = $product->warehouse->provider_id;
+                    $productName = $product->product_name;
+
+                    $price = $product->price;
+
+                    $amountToDeduct = $price * $quantity;
+
+                    $total = $totalPrice;
+                    $diferencia = $amountToDeduct;
+
+                    $totalValueProductWarehouse += $price * $quantity;
+
+                    $provider = Provider::findOrFail($providerId);
+                    $provider->saldo += $amountToDeduct;
+                    $provider->save();
+
+
+                    $providerTransaction = new ProviderTransaction([
+                        'transaction_type' => 'Pago Producto',
+                        'amount' => $amountToDeduct,
+                        'previous_value' => $provider->saldo - $amountToDeduct,
+                        'current_value' => $provider->saldo,
+                        'timestamp' => now(),
+                        'origin_id' => $id_origin,
+                        'origin_code' => $codeOrder,
+                        // 'origin_code' => $skuProduct,
+                        'provider_id' => $providerId,
+                        'comment' => $productName,
+                        'generated_by' => $generated_by,
+                        'status' => $orderStatus,
+                        'description' => "Valor por guia ENTREGADA",
+                        'sku_product_reference' => $skuProduct,
+                        'payment_status' => "ACREDITADO",
+                    ]);
+                    $providerTransaction->save();
+                    $responses[] = $diferencia;
+                } else {
+                    error_log("already exists so No provTransactions_TransAPI");
+                }
+
+                /*
                 $providerTransactionPrevious = ProviderTransaction::where('transaction_type', 'Pago Producto')
                     ->where('status', 'ENTREGADO')
                     ->where('origin_id', $id_origin)
@@ -561,6 +615,7 @@ class TransaccionesAPIController extends Controller
                     $providerTransaction->save();
                     $responses[] = $diferencia;
                 }
+                */
             }
             DB::commit(); // Confirmar los cambios
             return ["total" => $total, "valor_producto" => $responses, "value_product_warehouse" => $totalValueProductWarehouse, "error" => null];
@@ -775,9 +830,10 @@ class TransaccionesAPIController extends Controller
     public function paymentOrderDelivered(Request $request)
     {
         DB::beginTransaction();
-
+        error_log("paymentOrderDelivered");
         try {
             $data = $request->json()->all();
+            error_log('requestData: ' . json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . " ");
 
             $startDateFormatted = new DateTime();
 
@@ -788,7 +844,7 @@ class TransaccionesAPIController extends Controller
             $pedido = PedidosShopify::with(['users.vendedores', 'transportadora', 'novedades', 'operadore', 'transactionTransportadora', 'pedidoCarrier'])->findOrFail($data['id_origen']);
             $marcaT = "";
             $amountOrder = $pedido->precio_total;
-            // error_log("precioInicio: $amountOrder");
+            error_log("precioInicio: $amountOrder");
 
             $amountConvert = $data["amount_convert"];
 
@@ -1324,7 +1380,9 @@ class TransaccionesAPIController extends Controller
                     'costo_transportadora' => $costoTransportadora,
                 ]);
             }
-            DB::commit(); // Confirma la transacción si todas las operaciones tienen éxito
+
+            error_log("end paymentOrderDelivered");
+            DB::commit();
 
             return response()->json([
                 "res" => "transaccion exitosa"
@@ -3539,6 +3597,7 @@ class TransaccionesAPIController extends Controller
 
     public function rollbackTransaction(Request $request)
     {
+        error_log("rollbackTransaction");
         DB::beginTransaction();
 
 
@@ -3560,7 +3619,13 @@ class TransaccionesAPIController extends Controller
             // $providerTransaction = ProviderTransaction::where("origin_id", $idTransFounded)->first();
             $providerTransactions = ProviderTransaction::where("origin_id", $idTransFounded)->get();
             // $totalIds = count($ids);
-            error_log("-> pt -> $providerTransactions");
+            // error_log("-> pt -> $providerTransactions");
+
+            $filteredTransactions = $providerTransactions
+                ->sortByDesc('id')
+                ->unique('sku_product_reference')
+                ->values();
+            // error_log("provTr: $filteredTransactions");
         }
         // ! ↓ esto se usa
         // $shouldProcessProviderTransaction = $providerTransaction != null && $providerTransaction->state == 1;
@@ -3748,6 +3813,8 @@ class TransaccionesAPIController extends Controller
                         ->orderBy('id', 'desc')
                         ->first();
 
+                    $tgExternalReturnCost = $ultimaTransaccionE->external_return_cost;
+                    error_log("tgExternalReturnCost: $tgExternalReturnCost");
 
                     // Actualizar el estado de las transacciones globales existentes a 0
                     foreach ($transactionsGlobal as $transaction) {
@@ -3803,12 +3870,68 @@ class TransaccionesAPIController extends Controller
 
                             $newTransaction->save();
                         }
+
+                        //si es devolucion externa actualizar a NULL en 
+                        if ($tgExternalReturnCost != 0) {
+                            error_log("need upt pedidoCarrierExternal returnCost");
+                            $orderCarrierExternal = PedidosShopifiesCarrierExternalLink::where('pedidos_shopify_id', $idTransFounded)
+                                ->first();
+
+                            $orderCarrierExternal->cost_refound_external = null;
+                            $orderCarrierExternal->save();
+                        }
                     }
                 }
             }
 
 
             // $providerTransactions
+            //newVersion
+            if (!empty($filteredTransactions)) {
+                foreach ($filteredTransactions as $providerT) {
+
+                    // error_log("inicio Restauracion transaccionProvider");
+                    $provTransactions = ProviderTransaction::where("origin_id", $providerT->origin_id)
+                        ->where('sku_product_reference', $providerT->sku_product_reference)->get();
+                    $lastProvTransaction = $provTransactions->last();
+                    // error_log("lastProvTransaction: $lastProvTransaction");
+
+                    if ($lastProvTransaction && $lastProvTransaction->state == 1) {
+                        // error_log("$transaction->id_vendedor");
+                        $productId = substr($lastProvTransaction->sku_product_reference, strrpos($lastProvTransaction->sku_product_reference, 'C') + 1);
+
+                        $product = Product::with('warehouse')->find($productId);
+
+                        $providerId = $product->warehouse->provider_id;
+
+                        $user = Provider::with("user")->where("id", $providerId)->first();
+                        $userId = $user->user->id;
+
+                        error_log("1.$lastProvTransaction->origin_id");
+                        error_log("2.$lastProvTransaction->origin_code");
+                        error_log("3.$userId");
+                        error_log("4.$lastProvTransaction->amount");
+
+                        $this->DebitLocalProvider(
+                            $lastProvTransaction->origin_id,
+                            $lastProvTransaction->origin_code,
+                            $userId,
+                            $lastProvTransaction->amount,
+                            "Restauracion",
+                            "Restauracion de Guia",
+                            "RESTAURACION",
+                            "Restauracion de Valores de Guia",
+                            $generated_by,
+                            $lastProvTransaction->sku_product_reference
+                        );
+                        $lastProvTransaction->state = 0;
+                        $lastProvTransaction->save();
+                    } else {
+                        error_log("No pasa providerTrans");
+                    }
+                }
+            }
+            /*
             if (!empty($providerTransactions)) {
                 foreach ($providerTransactions as $providerT) {
                     // $shouldProcessProviderTransaction = $providerT != null && $providerT['state'] == 1;
@@ -3860,6 +3983,7 @@ class TransaccionesAPIController extends Controller
                         // }
                         // }
                     }
+                    
                     // ! ----------------
                     // if ($shouldProcessProviderTransaction) {
                     //     if (isset($transaction)) { // Verifica si $transaction está definida
@@ -3905,6 +4029,7 @@ class TransaccionesAPIController extends Controller
                     // }
                 }
             }
+            */
 
             // ! ----------------
 
@@ -3947,6 +4072,7 @@ class TransaccionesAPIController extends Controller
                 "pedidos" => $pedidos
             ]);
         } catch (\Exception $e) {
+            error_log("error_rollbackTransaction: $e");
             DB::rollback();
             return response()->json([
                 'error' => 'Ocurrió un error al procesar la solicitud: ' . $e->getMessage(),
