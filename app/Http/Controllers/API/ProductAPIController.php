@@ -913,13 +913,34 @@ class ProductAPIController extends Controller
     public function update(Request $request, string $id)
     {
         //
-        $product = Product::find($id); // Encuentra al usuario por su ID
+        error_log("updateProduct");
+        try {
 
-        if ($product) {
-            $product->update($request->all());
-            return response()->json(['message' => 'Producto actualizado con éxito', "producto" => $product], 200);
-        } else {
-            return response()->json(['message' => 'Producto no encontrado'], 404);
+            $product = Product::find($id); // Encuentra al usuario por su ID
+
+            $requestData = json_decode($request->getContent(), true);
+            $features = json_decode($requestData['features'], true);;
+            // error_log("features: " . json_encode($features, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            $variants = $features['variants'];
+            // error_log("variants: " . json_encode($variants, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            if (is_array($variants) && count($variants) === 0) {
+                error_log("updateProduct_error_" . $id . '_variants_null');
+                return response()->json(['message' => 'Producto con variants vacío'], 400);
+            } else {
+                // error_log($id . '_variants_' . json_encode($variants));
+            }
+
+            if ($product) {
+                $product->update($request->all());
+                return response()->json(['message' => 'Producto actualizado con éxito', "producto" => $product], 200);
+            } else {
+                return response()->json(['message' => 'Producto no encontrado'], 404);
+            }
+        } catch (\Exception $e) {
+            error_log("updateProduct_error: $e");
+            return response()->json([
+                'error' => "There was an error processing your request. " . $e->getMessage()
+            ], 500);
         }
     }
 

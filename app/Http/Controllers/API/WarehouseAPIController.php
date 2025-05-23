@@ -106,28 +106,36 @@ class WarehouseAPIController extends Controller
 
     public function update(Request $request, string $warehouse_id)
     {
-        $validatedData = $request->validate([
-            'branch_name' => 'nullable|string|max:70',
-            'address' => 'nullable|string|max:70',
-            'customer_service_phone' => 'nullable|string|max:70',
-            'reference' => 'nullable|string|max:70',
-            'description' => 'nullable|string|max:65535',
-            'url_image' => 'nullable|string|max:150',
-            'city' => 'nullable|string|max:80',
-            'collection' => 'nullable|json',
-            'id_provincia' => 'nullable|integer',
-            'id_city' => 'nullable|integer',
-            'active' => 'nullable|integer',
-            'approved' => 'nullable|integer',
-            'provider_id' => 'nullable|integer',
-        ]);
+        try {
 
-        $warehouse = Warehouse::where('warehouse_id', $warehouse_id)->first();
-        if (!$warehouse) {
-            return response()->json(['message' => 'Not Found!'], 404);
+            $validatedData = $request->validate([
+                'branch_name' => 'nullable|string|max:70',
+                'address' => 'nullable|string|max:70',
+                'customer_service_phone' => 'nullable|string|max:70',
+                'reference' => 'nullable|string|max:70',
+                'description' => 'nullable|string|max:65535',
+                'url_image' => 'nullable|string|max:150',
+                'city' => 'nullable|string|max:80',
+                'collection' => 'nullable|json',
+                'id_provincia' => 'nullable|integer',
+                'id_city' => 'nullable|integer',
+                'active' => 'nullable|integer',
+                'approved' => 'nullable|integer',
+                'provider_id' => 'nullable|integer',
+            ]);
+
+            $warehouse = Warehouse::where('warehouse_id', $warehouse_id)->first();
+            if (!$warehouse) {
+                return response()->json(['message' => 'Not Found!'], 404);
+            }
+            $warehouse->update($validatedData);
+            return response()->json($warehouse);
+        } catch (\Exception $e) {
+            error_log("updateWarehouse_error: $e");
+            return response()->json([
+                'error' => "There was an error processing your request. " . $e->getMessage()
+            ], 500);
         }
-        $warehouse->update($validatedData);
-        return response()->json($warehouse);
     }
 
     public function deactivate(string $warehouse_id)
