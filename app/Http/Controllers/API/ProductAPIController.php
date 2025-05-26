@@ -1741,10 +1741,49 @@ class ProductAPIController extends Controller
             $data = $request->json()->all();
 
             $populate = $data['populate'];
-            $storage = $data['storage_w'];
+            $storage = $data['storage_w']; // ultima bodega relacionada (distinta/igual a la bodega propietaria)
             $idSellerMaster = $data['idseller'];
             $idProduct = $data['idproduct'];
 
+            // $idSellerMaster = 188;
+            $ownerProd = Product::where('product_id', $idProduct)
+                ->value('seller_owned');
+            error_log("idSellerMaster: $idSellerMaster storage: $storage byProduct: $idProduct ownerProd: $ownerProd ");
+
+            if (is_null($ownerProd)) {
+                // Producto sin dueño
+                $products = Product::with($populate)
+                    ->where('active', 1)
+                    ->where('approved', 1)
+                    ->WhereNull('seller_owned')
+                    ->get();
+            } else {
+                if ($idSellerMaster != $ownerProd) {
+                    error_log("getByStorage_error: $idSellerMaster No debe tener acceso a este producto $idProduct que pertenece a $ownerProd");
+                    return response()->json(['error' => 'An error occurred'], 500);
+                }
+                $products = Product::with($populate)
+                    ->where('active', 1)
+                    ->where('approved', 1)
+                    ->where('seller_owned', $idSellerMaster)
+                    ->get();
+            }
+            error_log("productsTotal: " . $products->count());
+
+            $filteredProducts = $products->filter(function ($product) use ($storage) {
+                $warehouses = $product->warehouses_s->pluck('warehouse_id');
+                $lastWarehouseId = $warehouses->last();
+                // error_log($product->product_id . ": $warehouses " . "lastBodega: $lastWarehouseId ");
+
+                if ($warehouses->isNotEmpty()) {
+                    $lastWarehouseId = $warehouses->last();
+                    return $lastWarehouseId == $storage;
+                }
+
+                return false;
+            });
+
+            /*
             $products = Product::with($populate)
                 ->where('active', 1)
                 ->where('approved', 1)
@@ -1756,7 +1795,7 @@ class ProductAPIController extends Controller
 
             $warehousesProd = ProductWarehouseLink::where('id_product', $idProduct)
                 ->pluck('id_warehouse');
-            // error_log("warP: $warehousesProd ");
+            error_log("warP: $warehousesProd "); //todas las bodegas relacionadas
 
             $filteredProducts = $products->filter(function ($product) use ($warehousesProd) {
                 $warehouses = $product->warehouses_s->pluck('warehouse_id');
@@ -1769,21 +1808,11 @@ class ProductAPIController extends Controller
 
                 return false;
             });
-
+            */
             $filteredProducts = $filteredProducts->values();
+            error_log("finalProducts: " . $filteredProducts->count());
 
             return response()->json($filteredProducts);
-            /*
-            $filteredProducts = $products->filter(function ($product) use ($storage) {
-                $warehouses = $product->warehouses_s;
-                error_log("$warehouses");
-                if ($warehouses && count($warehouses) > 0) {
-                    $lastWarehouse = $warehouses->last();
-                    return $lastWarehouse->warehouse_id == $storage;
-                }
-                return false;
-            });
-            */
         } catch (\Exception $e) {
             error_log("Error in getByStorage: " . $e->getMessage());
             return response()->json(['error' => 'An error occurred'], 500);
