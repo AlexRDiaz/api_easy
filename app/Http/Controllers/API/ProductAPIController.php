@@ -1449,7 +1449,10 @@ class ProductAPIController extends Controller
                                 // error_log("productIdFromSKU: " . $productIdFromSKU . "\n");
 
                                 // error_log("$productIdFromSKU");
-                                $product = Product::find($productIdFromSKU);
+                                // $product = Product::find($productIdFromSKU);
+                                $product = Product::with('warehouses')
+                                    ->where('product_id', $productIdFromSKU)
+                                    ->first();
                                 // error_log($product);
 
                                 // if ($idProductMain == $productIdFromSKU) {
@@ -1474,7 +1477,7 @@ class ProductAPIController extends Controller
 
                                     $dataProducts[] = [
                                         "prod_id" => $productIdFromSKU,
-                                        "warehouse" => $product->warehouse_id,
+                                        "warehouses" => $product->warehouses->pluck('warehouse_id')->all(),
                                         "owner" => $product->seller_owned
                                     ];
 
@@ -1583,6 +1586,28 @@ class ProductAPIController extends Controller
 
             $sameWarehouseOwner = 1;
 
+            if (!empty($dataProducts)) {
+                error_log(json_encode($dataProducts));
+
+                $lastWarehouseMain = end($dataProducts[0]['warehouses']);
+
+                foreach ($dataProducts as $product) {
+                    $prodId = $product['prod_id'];
+                    $lastWarehouse = end($product['warehouses']);
+                    // error_log("prod_id: $prodId lastWarehouse: $lastWarehouse");
+                    if (
+                        $lastWarehouse != $lastWarehouseMain ||
+                        ($product['owner'] != (int)$idComercial && !is_null($product['owner']))
+                    ) {
+                        error_log("no_sameWarehouseOwner_" . $product['prod_id']);
+                        $sameWarehouseOwner = 0;
+                        break;
+                    }
+                }
+            }
+
+
+            /*
             if ($dataProducts != []) {
                 error_log(json_encode($dataProducts));
 
@@ -1600,6 +1625,7 @@ class ProductAPIController extends Controller
                     }
                 }
             }
+            */
 
             // error_log("final_sameWarehouseOwner: $sameWarehouseOwner");
 
