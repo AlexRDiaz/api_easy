@@ -6242,8 +6242,10 @@ class PedidosShopifyAPIController extends Controller
     //*
     public function updateGestionedPaymentCostDeliveryByIdExternal(Request $request)
     {
+        ini_set('max_execution_time', 300); // 5 minutos
         try {
             error_log("updateGestionedPaymentCostDeliveryExternal");
+            $startTime = microtime(true);
 
             $data = $request->json()->all();
             $noveltyState = $data['payment_state'];
@@ -6324,6 +6326,10 @@ class PedidosShopifyAPIController extends Controller
                     error_log("No se encontró pedido para external_id: $idExternal");
                 }
             }
+
+            $endTime = microtime(true);
+            $executionTime = $endTime - $startTime;
+            error_log("updateGestionedPaymentCostDeliveryExternal_tiempo_total" . $executionTime . " seg ");
 
             if (!empty($idsNotProcessed)) {
                 error_log("updateGestionedPaymentCostDeliveryExternal: idsNotProcessed");
