@@ -5796,6 +5796,13 @@ class PedidosShopifyAPIController extends Controller
             $phone = $data['TelefonoShipping'];
             $total_price = $data['PrecioTotal'];
             $city = $data['CiudadShipping'];
+            if ($IdComercial == 852) {
+                error_log('orderProducto_dataRequest: ' . json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            }
+            if ($city == null || $city == "null" || $city == "") {
+                error_log("orderProducto_error_city_null: $city ");
+                return response()->json(['message' => 'Error, ciudad sin datos'], 404);
+            }
             $product = $data['ProductoP'];
             $productE = $data['ProductoExtra'];
             $cantidadTotal = $data['Cantidad_Total'];
